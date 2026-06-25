@@ -422,17 +422,18 @@ function renderBoard(){
       let inner=`<div class="lz-head">${lbl} <span class="cap">${capOf(l)} un/h</span></div>`;
       if(rows.length){
         inner+=`<table class="plan"><colgroup>
-          <col style="width:22px"><col style="width:92px"><col style="width:21%"><col style="width:100px"><col style="width:92px"><col style="width:66px">
-          <col style="width:54px"><col style="width:54px"><col style="width:50px"><col style="width:128px"><col style="width:62px"><col style="width:64px"><col style="width:64px"><col style="width:48px"></colgroup>
+          <col style="width:22px"><col style="width:128px"><col style="width:92px"><col style="width:21%"><col style="width:100px"><col style="width:92px"><col style="width:66px">
+          <col style="width:54px"><col style="width:54px"><col style="width:50px"><col style="width:62px"><col style="width:64px"><col style="width:64px"><col style="width:48px"></colgroup>
           <thead><tr>
-          <th></th><th>DSL</th><th>Produto</th><th>Lote</th><th>Cliente</th><th>Qtd</th>
-          <th>Início</th><th>Fim</th><th>Dur</th><th>Estado</th><th>Real fim</th><th>On-time</th><th>QV</th><th>Desd.</th></tr></thead><tbody>`;
+          <th></th><th>Estado</th><th>DSL</th><th>Produto</th><th>Lote</th><th>Cliente</th><th>Qtd</th>
+          <th>Início</th><th>Fim</th><th>Dur</th><th>Real fim</th><th>On-time</th><th>QV</th><th>Desd.</th></tr></thead><tbody>`;
         rows.forEach(r=>{
           const o=r.op;const ot=onTimeInfo(o,r.endMin);
           const late=ot!=null&&ot>10;
           const hit=searching&&matchesSearch(o);
           inner+=`<tr class="row${late?' late':''}${o.desdobrar?' desd':''}${hit?' search-hit':''}" data-id="${o.id}">
             <td><span class="handle planner-only" draggable="true">⠿</span></td>
+            <td><select class="est-sel" data-est="${o.estado}" data-id="${o.id}">${ESTADOS.map(e=>`<option ${e===o.estado?'selected':''}>${e}</option>`).join('')}</select></td>
             <td><b>${o.dsl||''}</b>${l==='EM'?`<br><select class="bt-sel" data-id="${o.id}"><option value="">— B/T? —</option><option value="B" ${o.bancaTapete==='B'?'selected':''}>Banca</option><option value="T" ${o.bancaTapete==='T'?'selected':''}>Tapete</option></select>`:''}</td>
             <td class="mini prod-cell" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</td>
             <td class="mini">${o.lote||''}</td>
@@ -441,7 +442,6 @@ function renderBoard(){
             <td class="tnum">${min2hm(r.startMin%(24*60))}</td>
             <td class="tnum">${min2hm(r.endMin%(24*60))}</td>
             <td class="tnum mini">${r.durH.toFixed(2)}h</td>
-            <td><select class="est-sel" data-est="${o.estado}" data-id="${o.id}">${ESTADOS.map(e=>`<option ${e===o.estado?'selected':''}>${e}</option>`).join('')}</select></td>
             <td class="tnum mini">${o.hFimR||''}</td>
             <td class="tnum mini" style="color:${ot==null?'#bbb':(ot>10?'#b91c1c':'#15803d')}">${ot==null?'—':(ot>0?'+':'')+min2hm(ot)}</td>
             <td class="mini">${o.qvDsl||o.qvPlan||''}</td>
@@ -560,8 +560,8 @@ function openModal(id){
      ${fld('Produto entrada','f_prod',o.produtoEntrada,{prodLock:true})}
      <div class="fld"><label>Calibre (auto)</label><input id="f_cal" value="${String(o.calibre||'').replace(/"/g,'&quot;')}" readonly title="Preenchido automaticamente pelo Produto"></div>
      ${fld('Qualidades','f_qual',o.qualidades,{prodLock:true})}
-     <div class="fld"><label>Qtd (unidades) — usada para programar</label><input id="f_qtd" type="number" step="1" value="${Math.round((+o.qtd||0)*1000)}" ${isProd()?'disabled':''}></div>
-     <div class="fld"><label>Qtd objetivo (só indicação)</label><input id="f_qtdnec" type="number" step="1" value="${Math.round((+o.qtdNecessaria||0)*1000)}" ${isProd()?'disabled':''}></div>
+     <div class="fld"><label>Qtd (unidades)</label><input id="f_qtd" type="number" step="1" value="${Math.round((+o.qtd||0)*1000)}" ${isProd()?'disabled':''}></div>
+     <div class="fld"><label>Qtd objetivo</label><input id="f_qtdnec" type="number" step="1" value="${Math.round((+o.qtdNecessaria||0)*1000)}" ${isProd()?'disabled':''}></div>
    </div>
    <div class="sec-title">Desdobramento / 2ª passagem</div>
    <div class="grid3">
