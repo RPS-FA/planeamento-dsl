@@ -321,6 +321,8 @@ function scheduleLine(l){
     if(!startDay)continue;
     if(curDate===null||cmpDay(curDate,startDay)<0){curDate=startDay;curMin=dayWindowFor(l,curDate).ini;}
     else curMin+=setup;
+    const _manual=hm2min(op.hInicioP);   // início manual força a hora nesse dia
+    if(_manual!=null){const win0=dayWindowFor(l,startDay);if(win0){curDate=startDay;curMin=Math.min(Math.max(_manual,win0.ini),win0.fim-1);}}
     let remMin=durHoras(op)*60;const totalDur=remMin||1;const totalQtd=(+op.qtd||0);let guard=0;
     while(remMin>0.01&&guard++<800){
       let win=dayWindowFor(l,curDate);
@@ -615,6 +617,7 @@ function fld(label,id,val,opts){val=val==null?'':val;opts=opts||{};const dis=opt
   if(opts.type==='select'){return `<div class="fld"><label>${label}</label><select id="${id}" ${dis}>${opts.options.map(o=>`<option ${o===val?'selected':''}>${o}</option>`).join('')}</select></div>`;}
   if(opts.type==='textarea'){return `<div class="fld" style="grid-column:1/-1"><label>${label}</label><textarea id="${id}" rows="2" ${dis}>${val}</textarea></div>`;}
   if(opts.type==='check'){return `<div class="fld"><label>${label}</label><select id="${id}" ${dis}><option value="false" ${!val?'selected':''}>Não</option><option value="true" ${val?'selected':''}>Sim</option></select></div>`;}
+  if(opts.type==='time'){const v=/^\d{1,2}:\d{2}/.test(String(val))?String(val).slice(0,5):'';return `<div class="fld"><label>${label}</label><input type="time" id="${id}" value="${v}" ${dis}></div>`;}
   return `<div class="fld"><label>${label}</label><input id="${id}" value="${String(val).replace(/"/g,'&quot;')}" ${dis}></div>`;}
 
 function openModal(id){
@@ -633,6 +636,7 @@ function openModal(id){
      ${fld('Qualidades','f_qual',o.qualidades,{prodLock:true})}
      <div class="fld"><label>Qtd (unidades)</label><input id="f_qtd" type="number" step="1" value="${Math.round((+o.qtd||0)*1000)}" ${isProd()?'disabled':''}></div>
      <div class="fld"><label>Qtd objetivo</label><input id="f_qtdnec" type="number" step="1" value="${Math.round((+o.qtdNecessaria||0)*1000)}" ${isProd()?'disabled':''}></div>
+     ${fld('Início manual (forçar)','f_hini',o.hInicioP,{type:'time',prodLock:true})}
      ${fld('Observações','f_obs',o.obs,{type:'textarea'})}
    </div>
    <div class="sec-title">Desdobramento / 2ª passagem</div>
@@ -655,11 +659,11 @@ function openModal(id){
    </div>
    <div class="sec-title">Execução (Produção)</div>
    <div class="grid3">
-     ${fld('Início real','f_hir',o.hInicioR)}
-     ${fld('Fim real','f_hfr',o.hFimR)}
-     ${fld('Tempo atraso','f_atr',o.tempoAtraso)}
+     ${fld('Início real','f_hir',o.hInicioR,{type:'time'})}
+     ${fld('Fim real','f_hfr',o.hFimR,{type:'time'})}
+     ${fld('Tempo atraso','f_atr',o.tempoAtraso,{type:'time'})}
      ${fld('Qtd real','f_qreal',o.qtdReal)}
-     ${fld('Tempo perdido avaria','f_avaria',o.temposPerdidosAvaria)}
+     ${fld('Tempo perdido avaria','f_avaria',o.temposPerdidosAvaria,{type:'time'})}
      ${fld('Colaborador','f_colab',o.colaborador)}
    </div>`;
   document.getElementById('modalBody').innerHTML=body;
@@ -683,6 +687,7 @@ async function saveModal(){
     set('dsl',gv('f_dsl'));set('cliente',gv('f_cliente'));set('produtoEntrada',prod);
     set('calibre',calibreFrom(prod)||gv('f_cal'));set('qualidades',gv('f_qual')||qualidadeFrom(prod));
     set('qtd',(+gv('f_qtd')||0)/1000);set('qtdNecessaria',(+gv('f_qtdnec')||0)/1000); // input em unidades -> guardado em milhares
+    set('hInicioP',gv('f_hini'));   // início manual (forçar); vazio = automático
     set('desdobrar',gv('f_desd')==='true');set('qtdPrevistaDesd',+gv('f_qpdesd')||0);
     set('qvUpPlan',gv('f_qvup'));set('qvPlan',gv('f_qv'));set('qvDownPlan',gv('f_qvdn'));set('proximoPasso',gv('f_prox'));
     // Linha/Turno/Estado/Início geridos no quadro (drag-drop) — não tocados aqui.
