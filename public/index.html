@@ -598,6 +598,7 @@ function openModal(id){
      ${fld('Qualidades','f_qual',o.qualidades,{prodLock:true})}
      <div class="fld"><label>Qtd (unidades)</label><input id="f_qtd" type="number" step="1" value="${Math.round((+o.qtd||0)*1000)}" ${isProd()?'disabled':''}></div>
      <div class="fld"><label>Qtd objetivo</label><input id="f_qtdnec" type="number" step="1" value="${Math.round((+o.qtdNecessaria||0)*1000)}" ${isProd()?'disabled':''}></div>
+     ${fld('Observações','f_obs',o.obs,{type:'textarea'})}
    </div>
    <div class="sec-title">Desdobramento / 2ª passagem</div>
    <div class="grid3">
@@ -625,8 +626,7 @@ function openModal(id){
      ${fld('Qtd real','f_qreal',o.qtdReal)}
      ${fld('Tempo perdido avaria','f_avaria',o.temposPerdidosAvaria)}
      ${fld('Colaborador','f_colab',o.colaborador)}
-   </div>
-   ${fld('Observações','f_obs',o.obs,{type:'textarea'})}`;
+   </div>`;
   document.getElementById('modalBody').innerHTML=body;
   // preenchimento automático de calibre + qualidade a partir do Produto
   const pe=document.getElementById('f_prod');
@@ -748,7 +748,7 @@ document.getElementById('btnReset').addEventListener('click',async()=>{if(!confi
 document.getElementById('btnSave').addEventListener('click',saveModal);
 document.getElementById('btnCancel').addEventListener('click',closeModal);
 document.getElementById('btnDelete').addEventListener('click',deleteCurrent);
-document.getElementById('modalBg').addEventListener('click',e=>{if(e.target.id==='modalBg')closeModal();});
+// (a janela só fecha com Cancelar ou Guardar — clicar fora não fecha)
 document.getElementById('wkPrev').addEventListener('click',()=>{ANCHOR=new Date(ANCHOR.getFullYear(),ANCHOR.getMonth()-1,1);render();});
 document.getElementById('wkNext').addEventListener('click',()=>{ANCHOR=new Date(ANCHOR.getFullYear(),ANCHOR.getMonth()+1,1);render();});
 document.getElementById('wkToday').addEventListener('click',()=>{const t=new Date();ANCHOR=new Date(t.getFullYear(),t.getMonth(),1);render();});
