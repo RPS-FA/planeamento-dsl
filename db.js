@@ -71,6 +71,8 @@ const DEFAULT_SETTINGS = {
   },
   // override de turno/fecho por dia "YYYY-MM-DD"
   turnosPorDia: {},
+  // nº de turnos (1/2) por dia e linha: { "YYYY-MM-DD": { "1":2, "6":1, ... } }
+  turnosDia: {},
   setupMin: 10,          // setup entre ordens (min)
   capacidades: DEFAULT_CAPACIDADES,
   // sábado/domingo: por defeito sábado manhã, domingo fechado
