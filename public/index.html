@@ -470,7 +470,7 @@ function renderBoard(){
       if(!closed){
         inner+= lineClosed
           ? `<span class="cap" style="color:#b91c1c;font-weight:600">fechada</span>`
-          : `<select class="turno-sel" data-date="${dk}" data-linha="${l}" ${isProd()?'disabled':''}><option value="1" ${tno===1?'selected':''}>1 turno</option><option value="2" ${tno===2?'selected':''}>2 turnos</option></select>`;
+          : `<select class="turno-sel" data-date="${dk}" data-linha="${l}"><option value="1" ${tno===1?'selected':''}>1 turno</option><option value="2" ${tno===2?'selected':''}>2 turnos</option></select>`;
       }
       inner+=`<span class="lz-right">`;
       if(!closed){inner+=`<button class="lz-btn planner-only" data-date="${dk}" data-linha="${l}" data-act="${lineClosed?'open':'close'}">${lineClosed?'Reabrir':'Fechar'}</button>`;}
