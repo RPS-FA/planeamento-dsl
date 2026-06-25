@@ -270,7 +270,7 @@ let _tt;function toast(msg,kind){const t=document.getElementById('toast');t.text
 /* ---------------- capacidade / turno ---------------- */
 function capOf(linha){const c=(SETTINGS.capacidades||{})[linha];return c&&c.krH?c.krH:17000;}
 function tipoOf(linha){const c=(SETTINGS.capacidades||{})[linha];return c&&c.tipo?c.tipo:'DSL';}
-function durHoras(op){const kr=capOf(op.linha);const q=(+op.qtd||0)*1000;return kr>0?q/kr:0;}
+function durHoras(op){const kr=capOf(op.linha);let q=(+op.qtd||0);if(op.desdobrar)q+=(+op.qtdDesdobramento||0);return kr>0?q*1000/kr:0;}
 function turnoWindow(turno){const t=(SETTINGS.turnos||{})[turno]||(SETTINGS.turnos||{})[1]||{ini:'08:00',fim:'17:00',almocoIni:'12:00',almocoFim:'13:00'};return t;}
 function dayOverride(d){return (SETTINGS.turnosPorDia||{})[dateKey(d)]||null;}
 function isDayClosed(d){const o=dayOverride(d);if(o&&o.fechado)return true;const dow=(d.getDay()+6)%7;if(dow===6&&SETTINGS.domingoFechado)return true;return false;}
@@ -483,7 +483,7 @@ function renderBoard(){
             <td class="tnum mini">${isLast?(o.hFimR||''):''}</td>
             <td class="tnum mini" style="color:${ot==null?'#bbb':(ot>10?'#b91c1c':'#15803d')}">${ot==null?'—':(ot>0?'+':'')+min2hm(ot)}</td>
             <td class="mini">${o.qvDsl||o.qvPlan||''}</td>
-            <td class="mini">${o.desdobrar?((+o.qtdDesdobramento||0).toFixed(1)):''}</td>
+            <td class="mini">${o.desdobrar?Math.round((+o.qtdDesdobramento||0)*1000):''}</td>
           </tr>`;
         });
         inner+='</tbody></table>';
@@ -604,7 +604,7 @@ function openModal(id){
    <div class="sec-title">Desdobramento / 2ª passagem</div>
    <div class="grid3">
      ${fld('Desdobra?','f_desd',o.desdobrar,{type:'check',prodLock:true})}
-     ${fld('Qtd desdobramento','f_qdesd',o.qtdDesdobramento)}
+     <div class="fld"><label>Qtd desdobramento (unidades)</label><input id="f_qdesd" type="number" step="1" value="${Math.round((+o.qtdDesdobramento||0)*1000)}"></div>
      ${fld('Qtd prevista desd.','f_qpdesd',o.qtdPrevistaDesd,{prodLock:true})}
      ${fld('Motivo 2ª passagem','f_mot',o.motivo2aPassagem)}
      ${fld('Causa raiz','f_causa',o.causaRaiz2a)}
@@ -637,6 +637,10 @@ function openModal(id){
 function blankOp(){return{dsl:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Aberto',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',bancaTapete:'',weekKey:'',diaIdx:0,sortIdx:0};}
 function gv(id){const e=document.getElementById(id);return e?e.value:'';}
 async function saveModal(){
+  // Desdobramento obrigatório quando Desdobra = Sim
+  const _curDesd=editingId?((DATA.find(x=>x.id===editingId)||{}).desdobrar):false;
+  const _willDesd=isProd()?_curDesd:(gv('f_desd')==='true');
+  if(_willDesd && !((+gv('f_qdesd')||0)>0)){toast('Qtd desdobramento é obrigatória quando Desdobra = Sim.','err');return;}
   snapshot();
   const o=editingId?Object.assign({},DATA.find(x=>x.id===editingId)):blankOp();
   const set=(k,v)=>{o[k]=v;};
@@ -650,7 +654,7 @@ async function saveModal(){
     // Linha/Turno/Estado/Início geridos no quadro (drag-drop) — não tocados aqui.
   }
   set('lote',gv('f_lote'));
-  set('qtdDesdobramento',+gv('f_qdesd')||0);set('motivo2aPassagem',gv('f_mot'));set('causaRaiz2a',gv('f_causa'));
+  set('qtdDesdobramento',(+gv('f_qdesd')||0)/1000);set('motivo2aPassagem',gv('f_mot'));set('causaRaiz2a',gv('f_causa'));
   set('qvUpDsl',gv('f_qvupd'));set('qvDsl',gv('f_qvd'));set('qvDownDsl',gv('f_qvdnd'));
   set('hInicioR',gv('f_hir'));set('hFimR',gv('f_hfr'));set('tempoAtraso',gv('f_atr'));
   set('qtdReal',+gv('f_qreal')||0);set('temposPerdidosAvaria',gv('f_avaria'));set('colaborador',gv('f_colab'));set('obs',gv('f_obs'));
