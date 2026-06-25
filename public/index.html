@@ -79,7 +79,11 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .line-zone{border-top:1px solid var(--c-line)}
 .line-zone .lz-head{display:flex;align-items:center;gap:8px;padding:3px 10px;background:#eef3ea;font-size:11px;font-weight:600;color:var(--c-primary-dark)}
 .line-zone .lz-head .cap{font-weight:400;color:var(--c-muted)}
-.line-zone .lz-head .turno-sel{margin-left:auto;font-size:10px;border:1px solid var(--c-line);border-radius:4px;padding:1px 3px;background:#fff}
+.line-zone .lz-head .turno-sel{margin-left:8px;font-size:10px;border:1px solid var(--c-line);border-radius:4px;padding:1px 3px;background:#fff}
+.line-zone .lz-head .lz-right{margin-left:auto;display:flex;gap:6px;align-items:center}
+.line-zone .lz-head .lz-btn{font-size:10px;padding:1px 8px;background:#fdecec;color:#b91c1c;border:1px solid #f3c4c4;border-radius:4px;cursor:pointer}
+.line-zone.lz-closed{opacity:.7}
+.line-zone.lz-closed .lz-head{background:#f0e2e2;color:#7a2e2e}
 .line-zone.drag-target{outline:2px dashed var(--c-accent);outline-offset:-3px;background:#fbf6ee}
 .line-zone .empty{padding:6px 10px;color:#b7c2b1;font-size:11px;font-style:italic}
 
@@ -281,12 +285,14 @@ function isDayClosed(d){const o=dayOverride(d);if(o&&o.fechado)return true;const
 function breaksOf(turno){const t=turnoWindow(turno);const b=[];if(t.almocoIni&&t.almocoFim)b.push([hm2min(t.almocoIni),hm2min(t.almocoFim)]);if(t.jantarIni&&t.jantarFim)b.push([hm2min(t.jantarIni),hm2min(t.jantarFim)]);return b;}
 
 // nº de turnos da linha NUM DIA (1 ou 2) — definido no quadro (settings.turnosDia)
-function lineTurnoForDate(l,d){const td=(SETTINGS.turnosDia||{})[dateKey(d)];const v=td&&td[l];return (v===2||v==='2')?2:1;}
+// 0 = linha fechada nesse dia; 1 ou 2 turnos
+function lineTurnoForDate(l,d){const td=(SETTINGS.turnosDia||{})[dateKey(d)];const v=td&&td[l];if(v===0||v==='0')return 0;return (v===2||v==='2')?2:1;}
 function dDate(o){const m=(o.weekKey||'').match(/(\d+)-W(\d+)/);if(!m)return null;const j=new Date(+m[1],0,4);const mon=mondayOf(j);mon.setDate(mon.getDate()+(+m[2]-1)*7+(+o.diaIdx||0));mon.setHours(0,0,0,0);return mon;}
 function cmpDay(a,b){const ka=dateKey(a),kb=dateKey(b);return ka<kb?-1:ka>kb?1:0;}
 // Janela útil do dia para a linha (min). null = dia fechado/sem capacidade.
 function dayWindowFor(l,d){
   if(isDayClosed(d))return null;
+  if(lineTurnoForDate(l,d)===0)return null;   // linha fechada nesse dia
   const ov=dayOverride(d);const dow=(d.getDay()+6)%7;let ini,fim,breaks;
   if(dow===5){ini=hm2min(SETTINGS.sabadoIni||'07:00');fim=hm2min(SETTINGS.sabadoFim||'11:00');breaks=[];}
   else{const tno=lineTurnoForDate(l,d);const t=turnoWindow(tno);ini=hm2min(t.ini);fim=hm2min(t.fim);if(fim<=ini)fim+=1440;breaks=breaksOf(tno);}
@@ -335,7 +341,8 @@ function scheduleLine(l){
   Object.values(byOp).forEach(list=>{
     list.sort((a,b)=>a.date-b.date||a.startMin-b.startMin);
     const days=new Set(list.map(s=>dateKey(s.date)));
-    list.forEach((s,i)=>{s.partIdx=i+1;s.total=list.length;s.multiDay=days.size>1;});
+    list.forEach((s,i)=>{s.partIdx=i+1;s.total=list.length;s.multiDay=days.size>1;
+      s.carriedNext=list.slice(i+1).reduce((a,x)=>a+(+x.qtdSeg||0),0);}); // qtd que transita p/ dias seguintes
   });
   _schedCache[l]=segs;return segs;
 }
@@ -454,13 +461,23 @@ function renderBoard(){
       <span class="d-turno">${closed?'(fechado)':''}</span><span class="spacer"></span>`;
     block.appendChild(head);
     board.lines.forEach(l=>{
-      const zone=document.createElement('div');zone.className='line-zone'+((l==='4'||l==='5')?' line-hl':'')+(l==='EM'?' line-em':'');zone.dataset.linha=l;zone.dataset.date=dateKey(d);
+      const tno=lineTurnoForDate(l,d);
+      const lineClosed=tno===0;
+      const zone=document.createElement('div');zone.className='line-zone'+((l==='4'||l==='5')?' line-hl':'')+(l==='EM'?' line-em':'')+(lineClosed?' lz-closed':'');zone.dataset.linha=l;zone.dataset.date=dateKey(d);
       const lbl=lineLabel(l);
       const rows=sched[l];
-      const tno=lineTurnoForDate(l,d);
-      let inner=`<div class="lz-head">${lbl} <span class="cap">${capOf(l)} un/h</span>
-        <select class="turno-sel" data-date="${dk}" data-linha="${l}" ${isProd()?'disabled':''}><option value="1" ${tno===1?'selected':''}>1 turno</option><option value="2" ${tno===2?'selected':''}>2 turnos</option></select></div>`;
-      if(rows.length){
+      let inner=`<div class="lz-head">${lbl} `;
+      if(!closed){
+        inner+= lineClosed
+          ? `<span class="cap" style="color:#b91c1c;font-weight:600">fechada</span>`
+          : `<select class="turno-sel" data-date="${dk}" data-linha="${l}" ${isProd()?'disabled':''}><option value="1" ${tno===1?'selected':''}>1 turno</option><option value="2" ${tno===2?'selected':''}>2 turnos</option></select>`;
+      }
+      inner+=`<span class="lz-right">`;
+      if(!closed){inner+=`<button class="lz-btn planner-only" data-date="${dk}" data-linha="${l}" data-act="${lineClosed?'open':'close'}">${lineClosed?'Reabrir':'Fechar'}</button>`;}
+      inner+=`</span></div>`;
+      if(lineClosed){
+        inner+=`<div class="empty">Linha fechada neste dia — ordens transitam para o dia útil seguinte.</div>`;
+      }else if(rows.length){
         inner+=`<table class="plan"><colgroup>
           <col style="width:22px"><col style="width:128px"><col style="width:92px"><col style="width:21%"><col style="width:100px"><col style="width:92px"><col style="width:66px">
           <col style="width:54px"><col style="width:54px"><col style="width:50px"><col style="width:62px"><col style="width:64px"><col style="width:64px"><col style="width:48px"></colgroup>
@@ -472,8 +489,8 @@ function renderBoard(){
           const ot=isLast?onTimeInfo(o,r.endMin):null;
           const late=ot!=null&&ot>10;
           const hit=searching&&matchesSearch(o);
-          const segDur=((r.endMin-r.startMin)/60);
-          const contFlag=r.multiDay?`<span class="contflag" title="Transita entre dias">${r.partIdx>1?'↳ ':''}parte ${r.partIdx}/${r.total}${r.partIdx<r.total?' →':''}</span>`:'';
+          const totalDurH=durHoras(o);
+          const contFlag=r.multiDay?`<span class="contflag" title="Transita entre dias">${r.partIdx>1?'↳ ':''}parte ${r.partIdx}/${r.total}${r.partIdx<r.total?` → passa ${Math.round((+r.carriedNext||0)*1000)} un`:''}</span>`:'';
           inner+=`<tr class="row${late?' late':''}${o.desdobrar?' desd':''}${hit?' search-hit':''}${r.multiDay?' cont':''}" data-id="${o.id}">
             <td><span class="handle planner-only" draggable="true">⠿</span></td>
             <td><select class="est-sel" data-est="${o.estado}" data-id="${o.id}">${ESTADOS.map(e=>`<option ${e===o.estado?'selected':''}>${e}</option>`).join('')}</select></td>
@@ -484,7 +501,7 @@ function renderBoard(){
             <td class="tnum">${Math.round((+r.qtdSeg||0)*1000)}</td>
             <td class="tnum">${min2hm(r.startMin%(24*60))}</td>
             <td class="tnum">${min2hm(r.endMin%(24*60))}</td>
-            <td class="tnum mini">${segDur.toFixed(2)}h</td>
+            <td class="tnum mini">${totalDurH.toFixed(2)}h</td>
             <td class="tnum mini">${isLast?(o.hFimR||''):''}</td>
             <td class="tnum mini" style="color:${ot==null?'#bbb':(ot>10?'#b91c1c':'#15803d')}">${ot==null?'—':(ot>0?'+':'')+min2hm(ot)}</td>
             <td class="mini">${o.qvDsl||o.qvPlan||''}</td>
@@ -499,6 +516,8 @@ function renderBoard(){
       bindZone(zone);
       const ts=zone.querySelector('.turno-sel');
       if(ts)ts.addEventListener('change',()=>changeTurnoDia(ts.dataset.date,ts.dataset.linha,+ts.value));
+      const cb=zone.querySelector('.lz-btn');
+      if(cb)cb.addEventListener('click',()=>changeTurnoDia(cb.dataset.date,cb.dataset.linha,cb.dataset.act==='close'?0:1));
       zone.querySelectorAll('tr.row').forEach(tr=>{
         const h=tr.querySelector('.handle');
         if(h)h.addEventListener('dragstart',e=>{dragOp=DATA.find(x=>x.id==tr.dataset.id);e.dataTransfer.effectAllowed='move';});
