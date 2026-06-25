@@ -184,6 +184,9 @@ const LINHAS_1_5=['1','2','3','4','5'];
 const LINHAS_6_10=['6','7','8','9','10'];
 const ESPECIAIS=['B','EE','T'];
 const ESPECIAIS_LABEL={'B':'Banca','EE':'Escolha Eletrónica','T':'Tapete'};
+// Etiquetas de apresentação das linhas (a chave interna mantém-se 1..10/B/EE/T)
+const LINE_LABELS={'1':'EE - DSL 1','2':'EE - DSL 2','3':'EE - DSL 3','4':'DSL - 4','5':'DSL - 5','6':'EE - DSL 6','7':'EE - DSL 7','8':'EE - DSL 8','9':'Linha 9','10':'Linha 10'};
+function lineLabel(l){return LINE_LABELS[l]||(ESPECIAIS.includes(l)?`${l} · ${ESPECIAIS_LABEL[l]}`:`Linha ${l}`);}
 const ESTADOS=['Por planear','Planeada','Transita Dia anterior','Em Processo','Terminada','Concluída'];
 const PLANEADOR_PW='Cork2026!';
 
@@ -374,7 +377,7 @@ function renderBoard(){
     block.appendChild(head);
     board.lines.forEach(l=>{
       const zone=document.createElement('div');zone.className='line-zone';zone.dataset.linha=l;zone.dataset.date=dateKey(d);
-      const lbl=ESPECIAIS.includes(l)?`${l} · ${ESPECIAIS_LABEL[l]}`:`Linha ${l}`;
+      const lbl=lineLabel(l);
       const rows=sched[l];
       let inner=`<div class="lz-head">${lbl} <span class="cap">${tipoOf(l)} · ${(capOf(l)/1000).toFixed(1)} mil/h</span></div>`;
       if(rows.length){
@@ -514,7 +517,7 @@ function openModal(id){
    </div>
    <div class="sec-title">Planeamento</div>
    <div class="grid3">
-     ${fld('Linha','f_linha',o.linha,{type:'select',options:allLines,prodLock:true})}
+     <div class="fld"><label>Linha</label><select id="f_linha" ${isProd()?'disabled':''}>${allLines.map(l=>`<option value="${l}" ${l===o.linha?'selected':''}>${l===''?'— Kanban —':lineLabel(l)}</option>`).join('')}</select></div>
      ${fld('Turno','f_turno',String(o.turno||1),{type:'select',options:['1','2','3'],prodLock:true})}
      ${fld('Estado','f_estado',o.estado,{type:'select',options:ESTADOS})}
      ${fld('Qtd (milhares)','f_qtd',o.qtd,{prodLock:true})}
@@ -591,7 +594,7 @@ function renderCfg(){
   const el=document.getElementById('board');
   const caps=SETTINGS.capacidades||{};
   const allLines=[...LINHAS_1_5,...LINHAS_6_10,...ESPECIAIS];
-  let capRows=allLines.map(l=>`<tr><td>${ESPECIAIS.includes(l)?l+' · '+ESPECIAIS_LABEL[l]:'Linha '+l}</td>
+  let capRows=allLines.map(l=>`<tr><td>${lineLabel(l)}</td>
      <td><input id="cap_${l}" type="number" value="${(caps[l]&&caps[l].krH)||17000}" ${isProd()?'disabled':''}></td>
      <td><select id="tipo_${l}" ${isProd()?'disabled':''}><option ${(caps[l]&&caps[l].tipo)==='DSL'?'selected':''}>DSL</option><option ${(caps[l]&&caps[l].tipo)==='VDSL'?'selected':''}>VDSL</option></select></td></tr>`).join('');
   const t1=(SETTINGS.turnos||{})[1]||{},t2=(SETTINGS.turnos||{})[2]||{};
@@ -628,7 +631,7 @@ function exportExcel(){
   const year=ANCHOR.getFullYear(),month=ANCHOR.getMonth();const nDays=new Date(year,month+1,0).getDate();
   for(let day=1;day<=nDays;day++){const d=new Date(year,month,day);const monday=mondayOf(d);const dia=diaIdxOf(d);
     board.lines.forEach(l=>{scheduleLineDay(l,monday,dia).forEach(r=>{const o=r.op;const ot=onTimeInfo(o,r.endMin);
-      rows.push({Data:dateKey(d),Dia:DIAS_PT[dia],Linha:l,Turno:o.turno,DSL:o.dsl,Produto:o.produtoEntrada,Lote:o.lote,Cliente:o.cliente,
+      rows.push({Data:dateKey(d),Dia:DIAS_PT[dia],Linha:lineLabel(l),Turno:o.turno,DSL:o.dsl,Produto:o.produtoEntrada,Lote:o.lote,Cliente:o.cliente,
         'Qtd (mil)':+o.qtd||0,Estado:o.estado,'Inicio':min2hm(r.startMin%1440),'Fim':min2hm(r.endMin%1440),'Dur (h)':+r.durH.toFixed(2),
         'Fim real':o.hFimR||'','On-time (min)':ot==null?'':ot,Desdobra:o.desdobrar?'Sim':'',
         'Qtd desd':+o.qtdDesdobramento||0,'Motivo 2a':o.motivo2aPassagem||'',QV:o.qvDsl||o.qvPlan||'',OBS:o.obs||''});});});}
