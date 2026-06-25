@@ -420,7 +420,7 @@ function renderBoard(){
       const zone=document.createElement('div');zone.className='line-zone'+((l==='4'||l==='5')?' line-hl':'');zone.dataset.linha=l;zone.dataset.date=dateKey(d);
       const lbl=lineLabel(l);
       const rows=sched[l];
-      let inner=`<div class="lz-head">${lbl} <span class="cap">${tipoOf(l)} · ${(capOf(l)/1000).toFixed(1)} mil/h</span></div>`;
+      let inner=`<div class="lz-head">${lbl} <span class="cap">${(capOf(l)/1000).toFixed(1)} mil/h</span></div>`;
       if(rows.length){
         inner+=`<table class="plan"><colgroup>
           <col style="width:22px"><col style="width:96px"><col style="width:23%"><col style="width:104px"><col style="width:96px"><col style="width:52px">
@@ -618,10 +618,11 @@ async function saveModal(){
   set('qvUpDsl',gv('f_qvupd'));set('qvDsl',gv('f_qvd'));set('qvDownDsl',gv('f_qvdnd'));
   set('hInicioR',gv('f_hir'));set('hFimR',gv('f_hfr'));set('tempoAtraso',gv('f_atr'));
   set('qtdReal',+gv('f_qreal')||0);set('temposPerdidosAvaria',gv('f_avaria'));set('colaborador',gv('f_colab'));set('obs',gv('f_obs'));
+  const savingId=editingId;            // guardar ANTES de closeModal (que põe editingId=null)
   closeModal();
   try{
     setConn('loading','a guardar…');
-    if(editingId){const s=await Api.putOp(editingId,o);Object.assign(DATA.find(x=>x.id===editingId),s);}
+    if(savingId){const s=await Api.putOp(savingId,o);Object.assign(DATA.find(x=>x.id===savingId),s);}
     else{const s=await Api.postOp(o);DATA.push(s);}
     setConn('ok','ligado');toast('Guardado.');render();
   }catch(e){setConn('error','erro');toast('Falha: '+e.message,'err');}
@@ -634,12 +635,11 @@ function renderCfg(){
   const el=document.getElementById('board');
   const caps=SETTINGS.capacidades||{};
   let capRows=ALL_LINES.map(l=>`<tr><td>${lineLabel(l)}</td>
-     <td><input id="cap_${l}" type="number" value="${(caps[l]&&caps[l].krH)||(l==='EM'?8500:17000)}" ${isProd()?'disabled':''}></td>
-     <td><select id="tipo_${l}" ${isProd()?'disabled':''}><option ${(caps[l]&&caps[l].tipo)==='DSL'?'selected':''}>DSL</option><option ${(caps[l]&&caps[l].tipo)==='VDSL'?'selected':''}>VDSL</option></select></td></tr>`).join('');
+     <td><input id="cap_${l}" type="number" value="${(caps[l]&&caps[l].krH)||(l==='EM'?8500:17000)}" ${isProd()?'disabled':''}></td></tr>`).join('');
   const t1=(SETTINGS.turnos||{})[1]||{},t2=(SETTINGS.turnos||{})[2]||{};
   el.innerHTML=`<div class="cfg">
     <h2>Capacidade por linha (rolhas/h)</h2>
-    <table><tr><th>Linha</th><th>Rolhas/h</th><th>Tipo</th></tr>${capRows}</table>
+    <table><tr><th>Linha</th><th>Rolhas/h</th></tr>${capRows}</table>
     <h2>Turnos</h2>
     <table>
       <tr><th>Turno</th><th>Início</th><th>Fim</th><th>Almoço</th><th>Jantar</th></tr>
@@ -656,7 +656,7 @@ function renderCfg(){
   const b=document.getElementById('btnSaveCfg');if(b)b.onclick=saveCfg;
 }
 async function saveCfg(){
-  const caps={};ALL_LINES.forEach(l=>{caps[l]={krH:+gv('cap_'+l)||(l==='EM'?8500:17000),tipo:gv('tipo_'+l)||'DSL'};});
+  const caps={};ALL_LINES.forEach(l=>{caps[l]={krH:+gv('cap_'+l)||(l==='EM'?8500:17000)};});
   const turnos={1:{ini:gv('t1ini'),fim:gv('t1fim'),almocoIni:gv('t1ai'),almocoFim:gv('t1af')},
                 2:{ini:gv('t2ini'),fim:gv('t2fim'),jantarIni:gv('t2ji'),jantarFim:gv('t2jf')}}; // T2 só jantar
   const payload={capacidades:caps,turnos:turnos,setupMin:+gv('setupMin')||10};
