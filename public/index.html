@@ -88,6 +88,16 @@ table.plan td{padding:3px 6px;border-bottom:1px solid #eef2ea;vertical-align:mid
 table.plan tr.row:hover{background:#f7faf4}
 table.plan tr.late{background:#fdecec}
 table.plan tr.desd td{box-shadow:inset 3px 0 0 #f0a93a}
+table.plan tr.search-hit td{background:#fff3bf!important}
+table.plan tr.search-hit td:first-child{box-shadow:inset 4px 0 0 #e0a008}
+.card.search-hit{outline:2px solid #e0a008;box-shadow:0 0 0 3px #ffe9a8}
+.search-bar{position:sticky;top:0;z-index:3;background:#fffbe6;border:1px solid #f0d98c;border-radius:6px;padding:6px 10px;margin-bottom:10px;font-size:11.5px;color:#7a5b00;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.search-bar .mchip{background:#fff;border:1px solid #e3c97a;border-radius:12px;padding:2px 9px;cursor:pointer;color:#7a5b00}
+.search-bar .mchip.cur{background:#f0d98c;font-weight:600}
+.search-bar .mchip:hover{background:#f7e9b8}
+/* destaque das linhas DSL-4 e DSL-5 */
+.line-zone.line-hl .lz-head{background:#d8e9f7;color:#1c4f7a}
+.line-zone.line-hl{box-shadow:inset 3px 0 0 #5b8fc4}
 .handle{cursor:grab;color:#bcc7b6;user-select:none;padding:0 2px}
 .drop-above{box-shadow:inset 0 2px 0 var(--c-accent)}
 .drop-below{box-shadow:inset 0 -2px 0 var(--c-accent)}
@@ -320,10 +330,10 @@ function renderLegend(){
 
 /* ---------------- POOL ---------------- */
 function matchesSearch(o){const v=SEARCH.v.trim().toLowerCase();if(!v)return true;return [o.dsl,o.lote,o.cliente,o.produtoEntrada,o.obs].some(x=>(x||'').toLowerCase().includes(v));}
-function cardHTML(o){
+function cardHTML(o,hit){
   const desd=o.desdobrar?'<span class="badge desd">DESD</span>':'';
   const urg=/urg|encomenda/i.test(o.obs||'')?'<span class="badge urg">URG</span>':'';
-  return `<div class="card" draggable="true" data-id="${o.id}" data-est="${o.estado}">
+  return `<div class="card${hit?' search-hit':''}" draggable="true" data-id="${o.id}" data-est="${o.estado}">
     <div class="c-top"><span class="c-dsl">${o.dsl||o.lote||'—'}</span><span class="c-qtd">${(+o.qtd||0).toFixed(1)} mil</span></div>
     <div class="c-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div>
     <div class="c-meta"><span>${o.cliente||''}</span><span class="badge">${o.calibre||''}</span>${o.qualidades?`<span class="badge">${o.qualidades}</span>`:''}${desd}${urg}</div>
@@ -331,9 +341,11 @@ function cardHTML(o){
 }
 function renderPool(){
   const el=document.getElementById('pool');
-  const pend=DATA.filter(o=>!o.linha&&matchesSearch(o));
-  let html=`<h3>Kanban · novas ordens (${pend.length})</h3>`;
-  html+=pend.map(cardHTML).join('')||'<div class="mini" style="padding:8px">Sem ordens por planear.</div>';
+  const searching=!!SEARCH.v.trim();
+  const all=DATA.filter(o=>!o.linha);
+  const pend=all.filter(matchesSearch);
+  let html=`<h3>Kanban · novas ordens (${searching?pend.length+'/'+all.length:all.length})</h3>`;
+  html+=pend.map(o=>cardHTML(o,searching)).join('')||'<div class="mini" style="padding:8px">'+(searching?'Sem matches no Kanban.':'Sem ordens por planear.')+'</div>';
   el.innerHTML=html;
   el.querySelectorAll('.card').forEach(c=>bindCardDrag(c));
   el.ondragover=e=>{e.preventDefault();el.style.background='#fbf6ee';};
@@ -354,12 +366,33 @@ function render(){
   document.body.classList.toggle('producao',isProd());
 }
 function monthLabel(){return `${MESES_PT[ANCHOR.getMonth()]} ${ANCHOR.getFullYear()}`;}
+function opMonthDate(o){if(!o.linha||!o.weekKey)return null;const m=o.weekKey.match(/(\d+)-W(\d+)/);if(!m)return null;const j=new Date(+m[1],0,4);const mon=mondayOf(j);mon.setDate(mon.getDate()+(+m[2]-1)*7+(+o.diaIdx||0));return new Date(mon.getFullYear(),mon.getMonth(),1);}
 function opCountForMonth(){const y=ANCHOR.getFullYear(),mo=ANCHOR.getMonth();return DATA.filter(o=>{if(!ALL_LINES.includes(o.linha)||!o.weekKey)return false;const m=o.weekKey.match(/(\d+)-W(\d+)/);if(!m)return false;const j=new Date(+m[1],0,4);const mon=mondayOf(j);mon.setDate(mon.getDate()+(+m[2]-1)*7+(+o.diaIdx||0));return mon.getFullYear()===y&&mon.getMonth()===mo;}).length;}
 function diaIdxOf(d){return (d.getDay()+6)%7;}
 
+function renderSearchBar(el){
+  const term=SEARCH.v.trim();if(!term)return;
+  const matches=DATA.filter(matchesSearch);
+  const curKey=ANCHOR.getFullYear()*12+ANCHOR.getMonth();
+  const byMonth={};let kb=0;
+  matches.forEach(o=>{const md=opMonthDate(o);if(!md){kb++;return;}const k=md.getFullYear()*12+md.getMonth();(byMonth[k]=byMonth[k]||{d:md,n:0}).n++;});
+  const curN=(byMonth[curKey]&&byMonth[curKey].n)||0;
+  const bar=document.createElement('div');bar.className='search-bar';
+  bar.innerHTML=`🔎 <b>"${term.replace(/</g,'&lt;')}"</b> — ${matches.length} resultado(s) · ${curN} neste mês${kb?`, ${kb} no Kanban`:''}${Object.keys(byMonth).length?' · saltar para: ':''}`;
+  Object.values(byMonth).sort((a,b)=>a.d-b.d).forEach(x=>{
+    const k=x.d.getFullYear()*12+x.d.getMonth();
+    const chip=document.createElement('span');chip.className='mchip'+(k===curKey?' cur':'');
+    chip.textContent=`${MESES_PT[x.d.getMonth()]} ${String(x.d.getFullYear()).slice(2)}: ${x.n}`;
+    chip.onclick=()=>{ANCHOR=new Date(x.d);render();};
+    bar.appendChild(chip);
+  });
+  el.appendChild(bar);
+}
 function renderBoard(){
   const el=document.getElementById('board');el.innerHTML='';
+  renderSearchBar(el);
   const board=BOARDS[ACTIVE_TAB];
+  const searching=!!SEARCH.v.trim();
   const year=ANCHOR.getFullYear(),month=ANCHOR.getMonth();
   const nDays=new Date(year,month+1,0).getDate();
   for(let day=1;day<=nDays;day++){
@@ -376,7 +409,7 @@ function renderBoard(){
       <span class="d-turno">${closed?'(fechado)':''}</span><span class="spacer"></span>`;
     block.appendChild(head);
     board.lines.forEach(l=>{
-      const zone=document.createElement('div');zone.className='line-zone';zone.dataset.linha=l;zone.dataset.date=dateKey(d);
+      const zone=document.createElement('div');zone.className='line-zone'+((l==='4'||l==='5')?' line-hl':'');zone.dataset.linha=l;zone.dataset.date=dateKey(d);
       const lbl=lineLabel(l);
       const rows=sched[l];
       let inner=`<div class="lz-head">${lbl} <span class="cap">${tipoOf(l)} · ${(capOf(l)/1000).toFixed(1)} mil/h</span></div>`;
@@ -385,10 +418,10 @@ function renderBoard(){
           <th></th><th>DSL</th><th>Produto</th><th>Lote</th><th>Cliente</th><th>Qtd</th>
           <th>Início</th><th>Fim</th><th>Dur</th><th>Estado</th><th>Real fim</th><th>On-time</th><th>QV</th><th>Desd.</th></tr></thead><tbody>`;
         rows.forEach(r=>{
-          if(!matchesSearch(r.op))return;
           const o=r.op;const ot=onTimeInfo(o,r.endMin);
           const late=ot!=null&&ot>10;
-          inner+=`<tr class="row${late?' late':''}${o.desdobrar?' desd':''}" data-id="${o.id}">
+          const hit=searching&&matchesSearch(o);
+          inner+=`<tr class="row${late?' late':''}${o.desdobrar?' desd':''}${hit?' search-hit':''}" data-id="${o.id}">
             <td><span class="handle planner-only" draggable="true">⠿</span></td>
             <td><b>${o.dsl||''}</b></td>
             <td class="mini" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${(o.produtoEntrada||'').slice(0,28)}</td>
