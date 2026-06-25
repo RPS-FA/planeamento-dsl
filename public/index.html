@@ -132,6 +132,7 @@ body.producao .planner-only{display:none!important}
   <div class="tools">
     <span id="conn" class="conn-chip loading">a ligar…</span>
     <select id="profileSel" title="Perfil"><option value="producao">Produção</option><option value="planeador">Planeador</option></select>
+    <button class="ghost planner-only" id="btnUndo" title="Anular última ação" disabled>↶ Anular</button>
     <button class="primary planner-only" id="btnNew">+ Nova ordem</button>
     <button class="ghost" id="btnExport">Exportar Excel</button>
     <button class="ghost planner-only" id="btnReset" title="Repor seed">↺</button>
@@ -199,6 +200,25 @@ let PROFILE=localStorage.getItem('dsl_profile')||'producao';
 let editingId=null;
 let dragOp=null;
 const SEARCH={v:''};
+
+/* ---------------- UNDO (só planeador) ---------------- */
+let UNDO_STACK=[];const UNDO_MAX=25;
+function snapshot(){UNDO_STACK.push(JSON.stringify(DATA));if(UNDO_STACK.length>UNDO_MAX)UNDO_STACK.shift();updateUndoBtn();}
+function updateUndoBtn(){const b=document.getElementById('btnUndo');if(b)b.disabled=(UNDO_STACK.length===0)||isProd();}
+async function doUndo(){
+  if(isProd()||!UNDO_STACK.length)return;
+  const prev=JSON.parse(UNDO_STACK.pop());
+  const pMap={},cMap={};
+  prev.forEach(o=>{if(o.id!=null)pMap[o.id]=o;});
+  DATA.forEach(o=>{if(o.id!=null)cMap[o.id]=o;});
+  const tasks=[];
+  for(const id in pMap){if(!(id in cMap)){const o=Object.assign({},pMap[id]);delete o.id;tasks.push(Api.postOp(o));}}       // recriar apagadas
+  for(const id in cMap){if(!(id in pMap)){tasks.push(Api.delOp(+id));}}                                                  // apagar criadas
+  for(const id in pMap){if((id in cMap)&&JSON.stringify(pMap[id])!==JSON.stringify(cMap[id])){tasks.push(Api.putOp(+id,pMap[id]));}} // repor alteradas
+  DATA=prev;updateUndoBtn();render();
+  try{setConn('loading','a anular…');await Promise.all(tasks);setConn('ok','ligado');toast('Ação anulada.');await loadState();}
+  catch(e){setConn('error','erro');toast('Falha ao anular: '+e.message,'err');}
+}
 
 /* ---------------- helpers tempo ---------------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -434,6 +454,7 @@ function reindex(linha,wk,dia){
       .forEach((o,i)=>o.sortIdx=i);
 }
 async function moveToDate(op,linha,dateStr){
+  snapshot();
   const d=new Date(dateStr+'T00:00:00');const wk=weekKeyOf(mondayOf(d));const dia=diaIdxOf(d);
   const oldL=op.linha,oldW=op.weekKey,oldD=+op.diaIdx||0;
   op.linha=linha;op.weekKey=wk;op.diaIdx=dia;
@@ -444,12 +465,14 @@ async function moveToDate(op,linha,dateStr){
   render();await persist(op);
 }
 async function moveToPool(op){
+  snapshot();
   const oldL=op.linha,oldW=op.weekKey,oldD=+op.diaIdx||0;
   op.linha='';op.weekKey='';op.diaIdx=0;op.sortIdx=0;op.estado='Por planear';
   if(oldL)reindex(oldL,oldW,oldD);
   render();await persist(op);
 }
 async function moveRelative(op,target,pos){
+  snapshot();
   const wk=target.weekKey,linha=target.linha,dia=+target.diaIdx||0;
   op.linha=linha;op.weekKey=wk;op.diaIdx=dia;
   const list=DATA.filter(o=>o.linha===linha&&o.weekKey===wk&&(+o.diaIdx||0)===dia&&o.id!==op.id)
@@ -459,7 +482,7 @@ async function moveRelative(op,target,pos){
   list.forEach((o,i)=>o.sortIdx=i);
   render();await persist(op);
 }
-async function changeEstado(id,val){const op=DATA.find(o=>o.id===id);if(!op)return;op.estado=val;render();await persist(op);}
+async function changeEstado(id,val){const op=DATA.find(o=>o.id===id);if(!op)return;snapshot();op.estado=val;render();await persist(op);}
 
 /* ---------------- persistência ---------------- */
 async function persist(op){
@@ -532,6 +555,7 @@ function openModal(id){
 function blankOp(){return{dsl:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Por planear',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',weekKey:'',diaIdx:0,sortIdx:0};}
 function gv(id){const e=document.getElementById(id);return e?e.value:'';}
 async function saveModal(){
+  snapshot();
   const o=editingId?Object.assign({},DATA.find(x=>x.id===editingId)):blankOp();
   const set=(k,v)=>{o[k]=v;};
   if(!isProd()){
@@ -560,7 +584,7 @@ async function saveModal(){
   }catch(e){setConn('error','erro');toast('Falha: '+e.message,'err');}
 }
 function closeModal(){document.getElementById('modalBg').classList.remove('show');editingId=null;}
-async function deleteCurrent(){if(!editingId)return;if(!confirm('Apagar esta ordem?'))return;const id=editingId;closeModal();try{await Api.delOp(id);DATA=DATA.filter(o=>o.id!==id);toast('Apagada.');render();}catch(e){toast('Falha: '+e.message,'err');}}
+async function deleteCurrent(){if(!editingId)return;if(!confirm('Apagar esta ordem?'))return;snapshot();const id=editingId;closeModal();try{await Api.delOp(id);DATA=DATA.filter(o=>o.id!==id);toast('Apagada.');render();}catch(e){toast('Falha: '+e.message,'err');}}
 
 /* ---------------- Configurações ---------------- */
 function renderCfg(){
@@ -615,7 +639,7 @@ function exportExcel(){
 }
 
 /* ---------------- perfil / boot ---------------- */
-function applyProfile(){document.getElementById('profileSel').value=PROFILE;document.body.classList.toggle('producao',isProd());}
+function applyProfile(){document.getElementById('profileSel').value=PROFILE;document.body.classList.toggle('producao',isProd());updateUndoBtn();}
 function changeProfile(v){
   // Password desativada temporariamente — alternância direta de perfil.
   PROFILE=v;localStorage.setItem('dsl_profile',v);applyProfile();render();
@@ -634,6 +658,8 @@ async function loadState(){
 }
 
 document.getElementById('profileSel').addEventListener('change',e=>changeProfile(e.target.value));
+document.getElementById('btnUndo').addEventListener('click',doUndo);
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'&&!isProd()&&!document.getElementById('modalBg').classList.contains('show')){e.preventDefault();doUndo();}});
 document.getElementById('btnNew').addEventListener('click',()=>openModal(null));
 document.getElementById('btnExport').addEventListener('click',exportExcel);
 document.getElementById('btnReset').addEventListener('click',async()=>{if(!confirm('Repor todas as ordens do seed inicial? Isto apaga alterações.'))return;try{DATA=await Api.reset();toast('Reposto.');render();}catch(e){toast('Falha: '+e.message,'err');}});
