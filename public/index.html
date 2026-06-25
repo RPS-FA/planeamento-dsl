@@ -98,6 +98,7 @@ table.plan tr.search-hit td:first-child{box-shadow:inset 4px 0 0 #e0a008}
 /* destaque das linhas DSL-4 e DSL-5 */
 .line-zone.line-hl .lz-head{background:#d8e9f7;color:#1c4f7a}
 .line-zone.line-hl{box-shadow:inset 3px 0 0 #5b8fc4}
+.bt-sel{font-size:9.5px;margin-top:2px;border:1px solid var(--c-line);border-radius:4px;padding:1px 2px;background:#f3eee4}
 .handle{cursor:grab;color:#bcc7b6;user-select:none;padding:0 2px}
 .drop-above{box-shadow:inset 0 2px 0 var(--c-accent)}
 .drop-below{box-shadow:inset 0 -2px 0 var(--c-accent)}
@@ -195,12 +196,12 @@ const LINHAS_6_10=['6','7','8','9','10'];
 const ESPECIAIS=['B','EE','T'];
 const ESPECIAIS_LABEL={'B':'Banca','EE':'Escolha Eletrónica','T':'Tapete'};
 // Etiquetas de apresentação das linhas (a chave interna mantém-se 1..10/B/EE/T)
-const LINE_LABELS={'1':'EE - DSL 1','2':'EE - DSL 2','3':'EE - DSL 3','4':'DSL - 4','5':'DSL - 5','6':'EE - DSL 6','7':'EE - DSL 7','8':'EE - DSL 8','9':'Linha 9','10':'Linha 10'};
+const LINE_LABELS={'1':'EE - DSL 1','2':'EE - DSL 2','3':'EE - DSL 3','4':'DSL - 4','5':'DSL - 5','6':'EE - DSL 6','7':'EE - DSL 7','8':'EE - DSL 8','EM':'Escolha Manual'};
 function lineLabel(l){return LINE_LABELS[l]||(ESPECIAIS.includes(l)?`${l} · ${ESPECIAIS_LABEL[l]}`:`Linha ${l}`);}
 const ESTADOS=['Por planear','Planeada','Transita Dia anterior','Em Processo','Terminada','Concluída'];
 const PLANEADOR_PW='Cork2026!';
 
-const ALL_LINES=[...LINHAS_1_5,...LINHAS_6_10,...ESPECIAIS]; // 1..10 + B/EE/T
+const ALL_LINES=['1','2','3','4','5','6','7','8','EM']; // EE-DSL 1..8 + Escolha Manual
 const BOARDS={
   plan:{label:'Plano Dia · Todas as linhas', lines:ALL_LINES},
 };
@@ -428,7 +429,7 @@ function renderBoard(){
           const hit=searching&&matchesSearch(o);
           inner+=`<tr class="row${late?' late':''}${o.desdobrar?' desd':''}${hit?' search-hit':''}" data-id="${o.id}">
             <td><span class="handle planner-only" draggable="true">⠿</span></td>
-            <td><b>${o.dsl||''}</b></td>
+            <td><b>${o.dsl||''}</b>${l==='EM'?`<br><select class="bt-sel" data-id="${o.id}"><option value="">— B/T? —</option><option value="B" ${o.bancaTapete==='B'?'selected':''}>Banca</option><option value="T" ${o.bancaTapete==='T'?'selected':''}>Tapete</option></select>`:''}</td>
             <td class="mini" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${(o.produtoEntrada||'').slice(0,28)}</td>
             <td class="mini">${o.lote||''}</td>
             <td class="mini">${o.cliente||''}</td>
@@ -452,9 +453,11 @@ function renderBoard(){
       zone.querySelectorAll('tr.row').forEach(tr=>{
         const h=tr.querySelector('.handle');
         if(h)h.addEventListener('dragstart',e=>{dragOp=DATA.find(x=>x.id==tr.dataset.id);e.dataTransfer.effectAllowed='move';});
-        tr.addEventListener('click',e=>{if(e.target.classList.contains('est-sel')||e.target.classList.contains('handle'))return;openModal(+tr.dataset.id);});
+        tr.addEventListener('click',e=>{if(e.target.classList.contains('est-sel')||e.target.classList.contains('bt-sel')||e.target.classList.contains('handle'))return;openModal(+tr.dataset.id);});
         const sel=tr.querySelector('.est-sel');
         sel.addEventListener('change',()=>changeEstado(+sel.dataset.id,sel.value));
+        const bt=tr.querySelector('.bt-sel');
+        if(bt)bt.addEventListener('change',()=>changeBancaTapete(+bt.dataset.id,bt.value));
         bindRowReorder(tr);
       });
       block.appendChild(zone);
@@ -524,6 +527,7 @@ async function moveRelative(op,target,pos){
   render();await persist(op);
 }
 async function changeEstado(id,val){const op=DATA.find(o=>o.id===id);if(!op)return;snapshot();op.estado=val;render();await persist(op);}
+async function changeBancaTapete(id,val){const op=DATA.find(o=>o.id===id);if(!op)return;snapshot();op.bancaTapete=val;render();await persist(op);}
 
 /* ---------------- persistência ---------------- */
 async function persist(op){
@@ -589,7 +593,7 @@ function openModal(id){
   if(pe&&!isProd()){pe.addEventListener('input',()=>{const v=pe.value;const c=document.getElementById('f_cal');const q=document.getElementById('f_qual');if(c)c.value=calibreFrom(v);if(q)q.value=qualidadeFrom(v);});}
   document.getElementById('modalBg').classList.add('show');
 }
-function blankOp(){return{dsl:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Por planear',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',weekKey:'',diaIdx:0,sortIdx:0};}
+function blankOp(){return{dsl:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Por planear',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',bancaTapete:'',weekKey:'',diaIdx:0,sortIdx:0};}
 function gv(id){const e=document.getElementById(id);return e?e.value:'';}
 async function saveModal(){
   snapshot();
@@ -624,9 +628,8 @@ async function deleteCurrent(){if(!editingId)return;if(!confirm('Apagar esta ord
 function renderCfg(){
   const el=document.getElementById('board');
   const caps=SETTINGS.capacidades||{};
-  const allLines=[...LINHAS_1_5,...LINHAS_6_10,...ESPECIAIS];
-  let capRows=allLines.map(l=>`<tr><td>${lineLabel(l)}</td>
-     <td><input id="cap_${l}" type="number" value="${(caps[l]&&caps[l].krH)||17000}" ${isProd()?'disabled':''}></td>
+  let capRows=ALL_LINES.map(l=>`<tr><td>${lineLabel(l)}</td>
+     <td><input id="cap_${l}" type="number" value="${(caps[l]&&caps[l].krH)||(l==='EM'?8500:17000)}" ${isProd()?'disabled':''}></td>
      <td><select id="tipo_${l}" ${isProd()?'disabled':''}><option ${(caps[l]&&caps[l].tipo)==='DSL'?'selected':''}>DSL</option><option ${(caps[l]&&caps[l].tipo)==='VDSL'?'selected':''}>VDSL</option></select></td></tr>`).join('');
   const t1=(SETTINGS.turnos||{})[1]||{},t2=(SETTINGS.turnos||{})[2]||{};
   el.innerHTML=`<div class="cfg">
@@ -648,7 +651,7 @@ function renderCfg(){
   const b=document.getElementById('btnSaveCfg');if(b)b.onclick=saveCfg;
 }
 async function saveCfg(){
-  const caps={};[...LINHAS_1_5,...LINHAS_6_10,...ESPECIAIS].forEach(l=>{caps[l]={krH:+gv('cap_'+l)||17000,tipo:gv('tipo_'+l)||'DSL'};});
+  const caps={};ALL_LINES.forEach(l=>{caps[l]={krH:+gv('cap_'+l)||(l==='EM'?8500:17000),tipo:gv('tipo_'+l)||'DSL'};});
   const turnos={1:{ini:gv('t1ini'),fim:gv('t1fim'),almocoIni:gv('t1ai'),almocoFim:gv('t1af')},
                 2:{ini:gv('t2ini'),fim:gv('t2fim'),almocoIni:gv('t2ai'),almocoFim:gv('t2af'),jantarIni:gv('t2ji'),jantarFim:gv('t2jf')}};
   const payload={capacidades:caps,turnos:turnos,setupMin:+gv('setupMin')||10};

@@ -60,8 +60,8 @@ const LINHAS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
 const AREAS_ESPECIAIS = ['B', 'EE', 'T']; // Banca, Escolha Eletrónica, Tapete
 
 const DEFAULT_CAPACIDADES = {};
-LINHAS.forEach((l) => { DEFAULT_CAPACIDADES[l] = { krH: 17000, tipo: 'DSL' }; });
-AREAS_ESPECIAIS.forEach((a) => { DEFAULT_CAPACIDADES[a] = { krH: 8500, tipo: 'VDSL' }; });
+['1','2','3','4','5','6','7','8'].forEach((l) => { DEFAULT_CAPACIDADES[l] = { krH: 17000, tipo: 'DSL' }; });
+DEFAULT_CAPACIDADES['EM'] = { krH: 8500, tipo: 'Manual' }; // Escolha Manual (Banca/Tapete)
 
 const DEFAULT_SETTINGS = {
   // janelas de turno (HH:MM). Turno 1 = 1 turno (dia). Turno 2 = 2 turnos (até noite).
@@ -137,6 +137,30 @@ async function cleanupEmptyPool() {
        AND COALESCE(payload->>'qtd','0') IN ('', '0', '0.0')
   `);
   if (r.rowCount > 0) console.log(`[db] cleanupEmptyPool: ${r.rowCount} ordens vazias removidas.`);
+}
+
+// Reestruturação das linhas: apaga ordens das linhas 9 e EE; converte
+// as áreas B (Banca) e T (Tapete) para a linha 'EM' (Escolha Manual),
+// guardando a origem em payload.bancaTapete. Idempotente.
+async function migrateEscolhaManual() {
+  if (!pool) return;
+  const del = await pool.query(`DELETE FROM ops WHERE linha IN ('9','EE')`);
+  if (del.rowCount) console.log(`[db] migrateEscolhaManual: ${del.rowCount} ordens das linhas 9/EE apagadas.`);
+  const upd = await pool.query(`
+    UPDATE ops
+       SET payload = jsonb_set(jsonb_set(payload, '{bancaTapete}', payload->'linha'), '{linha}', '"EM"'::jsonb),
+           linha = 'EM'
+     WHERE linha IN ('B','T')`);
+  if (upd.rowCount) console.log(`[db] migrateEscolhaManual: ${upd.rowCount} ordens B/T -> Escolha Manual.`);
+  const capR = await pool.query(`SELECT value FROM settings WHERE key='capacidades'`);
+  if (capR.rows.length) {
+    const caps = capR.rows[0].value || {};
+    if (!caps.EM) {
+      caps.EM = { krH: 8500, tipo: 'Manual' };
+      await pool.query(`UPDATE settings SET value=$1, updated_at=NOW() WHERE key='capacidades'`, [JSON.stringify(caps)]);
+      console.log('[db] migrateEscolhaManual: capacidade EM adicionada.');
+    }
+  }
 }
 
 async function seedIfEmpty() {
@@ -233,7 +257,7 @@ async function resetOps(by) {
 }
 
 module.exports = {
-  isConnected, initSchema, ensureDefaultSettings, seedIfEmpty, cleanupEmptyPool,
+  isConnected, initSchema, ensureDefaultSettings, seedIfEmpty, cleanupEmptyPool, migrateEscolhaManual,
   listOps, getOp, createOp, updateOp, deleteOp,
   getSettings, putSettings, deleteAllOps, resetOps,
   SEED_OPS, DEFAULT_SETTINGS,
