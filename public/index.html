@@ -190,7 +190,7 @@ const BOARDS={
 let DATA=[];
 let SETTINGS={};
 let ACTIVE_TAB='b15';
-let ACTIVE_MONDAY=null;
+let ANCHOR=null;
 let PROFILE=localStorage.getItem('dsl_profile')||'producao';
 let editingId=null;
 let dragOp=null;
@@ -306,7 +306,7 @@ function cardHTML(o){
 function renderPool(){
   const el=document.getElementById('pool');
   const pend=DATA.filter(o=>!o.linha&&matchesSearch(o));
-  let html=`<h3>Capacidade · por planear (${pend.length})</h3>`;
+  let html=`<h3>Kanban · novas ordens (${pend.length})</h3>`;
   html+=pend.map(cardHTML).join('')||'<div class="mini" style="padding:8px">Sem ordens por planear.</div>';
   el.innerHTML=html;
   el.querySelectorAll('.card').forEach(c=>bindCardDrag(c));
@@ -322,21 +322,25 @@ function render(){
   const wb=document.getElementById('weekbar');
   if(ACTIVE_TAB==='cfg'){wrap.classList.add('full');document.getElementById('pool').style.display='none';wb.style.display='none';renderCfg();document.body.classList.toggle('producao',isProd());return;}
   wb.style.display='flex';wrap.classList.remove('full');document.getElementById('pool').style.display='block';
-  document.getElementById('wkLabel').textContent=weekLabel();
+  document.getElementById('wkLabel').textContent=monthLabel();
   renderPool();renderBoard();
   document.body.classList.toggle('producao',isProd());
 }
-function weekLabel(){const m=ACTIVE_MONDAY;const wk=weekKeyOf(m);const a=m,b=dateOfWeekDay(m,5);return `${wk} · ${a.getDate()} ${MESES_PT[a.getMonth()]} – ${b.getDate()} ${MESES_PT[b.getMonth()]}`;}
+function monthLabel(){return `${MESES_PT[ANCHOR.getMonth()]} ${ANCHOR.getFullYear()}`;}
+function diaIdxOf(d){return (d.getDay()+6)%7;}
 
 function renderBoard(){
   const el=document.getElementById('board');el.innerHTML='';
-  const board=BOARDS[ACTIVE_TAB];const monday=ACTIVE_MONDAY;
-  for(let dia=0;dia<7;dia++){
-    const d=dateOfWeekDay(monday,dia);
+  const board=BOARDS[ACTIVE_TAB];
+  const year=ANCHOR.getFullYear(),month=ANCHOR.getMonth();
+  const nDays=new Date(year,month+1,0).getDate();
+  for(let day=1;day<=nDays;day++){
+    const d=new Date(year,month,day);
+    const monday=mondayOf(d);const dia=diaIdxOf(d);
     const closed=isDayClosed(d);
     const sched={}; let any=false;
     board.lines.forEach(l=>{const s=scheduleLineDay(l,monday,dia);sched[l]=s;if(s.length)any=true;});
-    if(dia===6&&!any&&closed)continue;
+    if(closed&&!any)continue;                 // esconder dias fechados/sem ordens
     const block=document.createElement('div');block.className='day-block';
     const head=document.createElement('div');
     head.className='day-head'+(dia>=5?' fds':'')+(closed?' closed':'');
@@ -344,7 +348,7 @@ function renderBoard(){
       <span class="d-turno">${closed?'(fechado)':''}</span><span class="spacer"></span>`;
     block.appendChild(head);
     board.lines.forEach(l=>{
-      const zone=document.createElement('div');zone.className='line-zone';zone.dataset.linha=l;zone.dataset.dia=dia;
+      const zone=document.createElement('div');zone.className='line-zone';zone.dataset.linha=l;zone.dataset.date=dateKey(d);
       const lbl=ESPECIAIS.includes(l)?`${l} · ${ESPECIAIS_LABEL[l]}`:`Linha ${l}`;
       const rows=sched[l];
       let inner=`<div class="lz-head">${lbl} <span class="cap">${tipoOf(l)} · ${(capOf(l)/1000).toFixed(1)} mil/h</span></div>`;
@@ -406,7 +410,7 @@ function bindZone(zone){
     e.preventDefault();zone.classList.remove('drag-target');
     if(!dragOp||isProd())return;
     if(e.target.closest('tr.row'))return;
-    moveToLineDay(dragOp,zone.dataset.linha,+zone.dataset.dia);
+    moveToDate(dragOp,zone.dataset.linha,zone.dataset.date);
   });
 }
 function bindRowReorder(tr){
@@ -424,8 +428,8 @@ function reindex(linha,wk,dia){
       .sort((a,b)=>(+a.sortIdx||0)-(+b.sortIdx||0))
       .forEach((o,i)=>o.sortIdx=i);
 }
-async function moveToLineDay(op,linha,dia){
-  const monday=ACTIVE_MONDAY;const wk=weekKeyOf(monday);
+async function moveToDate(op,linha,dateStr){
+  const d=new Date(dateStr+'T00:00:00');const wk=weekKeyOf(mondayOf(d));const dia=diaIdxOf(d);
   const oldL=op.linha,oldW=op.weekKey,oldD=+op.diaIdx||0;
   op.linha=linha;op.weekKey=wk;op.diaIdx=dia;
   const peers=DATA.filter(o=>o.linha===linha&&o.weekKey===wk&&(+o.diaIdx||0)===dia&&o.id!==op.id);
@@ -533,7 +537,7 @@ async function saveModal(){
     set('desdobrar',gv('f_desd')==='true');set('qtdPrevistaDesd',+gv('f_qpdesd')||0);
     set('qvUpPlan',gv('f_qvup'));set('qvPlan',gv('f_qv'));set('qvDownPlan',gv('f_qvdn'));set('proximoPasso',gv('f_prox'));
     if(newLinha!==o.linha){
-      if(newLinha){o.linha=newLinha;o.weekKey=o.weekKey||weekKeyOf(ACTIVE_MONDAY);const peers=DATA.filter(x=>x.linha===newLinha&&x.weekKey===o.weekKey&&(+x.diaIdx||0)===(+o.diaIdx||0)&&x.id!==o.id);o.sortIdx=peers.length;}
+      if(newLinha){o.linha=newLinha;if(!o.weekKey){const d1=new Date(ANCHOR.getFullYear(),ANCHOR.getMonth(),1);o.weekKey=weekKeyOf(mondayOf(d1));o.diaIdx=diaIdxOf(d1);}const peers=DATA.filter(x=>x.linha===newLinha&&x.weekKey===o.weekKey&&(+x.diaIdx||0)===(+o.diaIdx||0)&&x.id!==o.id);o.sortIdx=peers.length;}
       else{o.linha='';o.weekKey='';o.diaIdx=0;o.estado='Por planear';}
     }
   }
@@ -591,7 +595,7 @@ async function saveCfg(){
 
 /* ---------------- Export Excel ---------------- */
 function exportExcel(){
-  const board=BOARDS[ACTIVE_TAB]||BOARDS.b15;const monday=ACTIVE_MONDAY;const rows=[];
+  const board=BOARDS[ACTIVE_TAB]||BOARDS.b15;const monday=ANCHOR;const rows=[];
   for(let dia=0;dia<7;dia++){const d=dateOfWeekDay(monday,dia);
     board.lines.forEach(l=>{scheduleLineDay(l,monday,dia).forEach(r=>{const o=r.op;const ot=onTimeInfo(o,r.endMin);
       rows.push({Data:dateKey(d),Dia:DIAS_PT[dia],Linha:l,Turno:o.turno,DSL:o.dsl,Produto:o.produtoEntrada,Lote:o.lote,Cliente:o.cliente,
@@ -612,12 +616,15 @@ function changeProfile(v){
 }
 async function loadState(){
   try{setConn('loading','a carregar…');const st=await Api.getState();DATA=st.ops||[];SETTINGS=st.settings||{};
-    if(!ACTIVE_MONDAY){const today=new Date();ACTIVE_MONDAY=mondayOf(today);
-      const has=DATA.some(o=>o.weekKey===weekKeyOf(ACTIVE_MONDAY)&&o.linha);
-      if(!has){const wks=[...new Set(DATA.filter(o=>o.linha&&o.weekKey).map(o=>o.weekKey))].sort();
-        if(wks.length){const last=wks[wks.length-1];const m=last.match(/(\d+)-W(\d+)/);if(m){const jan4=new Date(+m[1],0,4);const wkMon=mondayOf(jan4);wkMon.setDate(wkMon.getDate()+(+m[2]-1)*7);ACTIVE_MONDAY=wkMon;}}}}
+    if(!ANCHOR){const today=new Date();ANCHOR=new Date(today.getFullYear(),today.getMonth(),1);
+      const hasMonth=d=>DATA.some(o=>{if(!o.linha||!o.weekKey)return false;const m=o.weekKey.match(/(\d+)-W(\d+)/);if(!m)return false;const j=new Date(+m[1],0,4);const mon=mondayOf(j);mon.setDate(mon.getDate()+(+m[2]-1)*7+(+o.diaIdx||0));return mon.getFullYear()===d.getFullYear()&&mon.getMonth()===d.getMonth();});
+      if(!hasMonth(ANCHOR)){
+        // saltar para o mês com ordens mais recente
+        let best=null;DATA.forEach(o=>{if(!o.linha||!o.weekKey)return;const m=o.weekKey.match(/(\d+)-W(\d+)/);if(!m)return;const j=new Date(+m[1],0,4);const mon=mondayOf(j);mon.setDate(mon.getDate()+(+m[2]-1)*7+(+o.diaIdx||0));const key=mon.getFullYear()*12+mon.getMonth();if(best===null||key>best.key)best={key,d:new Date(mon.getFullYear(),mon.getMonth(),1)};});
+        if(best)ANCHOR=best.d;
+      }}
     setConn('ok','ligado');render();
-  }catch(e){setConn('error','sem ligação');toast('Falha ao carregar: '+e.message,'err');DATA=[];SETTINGS={};if(!ACTIVE_MONDAY)ACTIVE_MONDAY=mondayOf(new Date());render();}
+  }catch(e){setConn('error','sem ligação');toast('Falha ao carregar: '+e.message,'err');DATA=[];SETTINGS={};if(!ANCHOR){const t=new Date();ANCHOR=new Date(t.getFullYear(),t.getMonth(),1);}render();}
 }
 
 document.getElementById('profileSel').addEventListener('change',e=>changeProfile(e.target.value));
@@ -628,9 +635,9 @@ document.getElementById('btnSave').addEventListener('click',saveModal);
 document.getElementById('btnCancel').addEventListener('click',closeModal);
 document.getElementById('btnDelete').addEventListener('click',deleteCurrent);
 document.getElementById('modalBg').addEventListener('click',e=>{if(e.target.id==='modalBg')closeModal();});
-document.getElementById('wkPrev').addEventListener('click',()=>{const x=new Date(ACTIVE_MONDAY);x.setDate(x.getDate()-7);ACTIVE_MONDAY=x;render();});
-document.getElementById('wkNext').addEventListener('click',()=>{const x=new Date(ACTIVE_MONDAY);x.setDate(x.getDate()+7);ACTIVE_MONDAY=x;render();});
-document.getElementById('wkToday').addEventListener('click',()=>{ACTIVE_MONDAY=mondayOf(new Date());render();});
+document.getElementById('wkPrev').addEventListener('click',()=>{ANCHOR=new Date(ANCHOR.getFullYear(),ANCHOR.getMonth()-1,1);render();});
+document.getElementById('wkNext').addEventListener('click',()=>{ANCHOR=new Date(ANCHOR.getFullYear(),ANCHOR.getMonth()+1,1);render();});
+document.getElementById('wkToday').addEventListener('click',()=>{const t=new Date();ANCHOR=new Date(t.getFullYear(),t.getMonth(),1);render();});
 document.getElementById('search').addEventListener('input',e=>{SEARCH.v=e.target.value;render();});
 
 applyProfile();
