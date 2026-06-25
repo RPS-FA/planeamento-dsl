@@ -287,10 +287,9 @@ function scheduleLineDay(linha,monday,diaIdx){
   let winFim=hm2min((ov&&ov.fim)||t.fim); if(winFim<=winIni)winFim+=24*60;
   const brks=breaksOf(turno);
   const setup=+SETTINGS.setupMin||0;
-  let cur=winIni; const out=[];
+  let cur=winIni; const out=[];          // 1ª ordem começa no início do turno
   for(const op of ops){
-    if(op.inicioMode==='manual'&&op.hInicioP){const mi=hm2min(op.hInicioP);if(mi!=null)cur=mi<winIni?winIni:mi;}
-    for(const br of brks)if(cur>=br[0]&&cur<br[1])cur=br[1];
+    for(const br of brks)if(cur>=br[0]&&cur<br[1])cur=br[1];  // se cair numa pausa, salta-a
     const durH=durHoras(op); let rem=durH*60; let start=cur; let end=cur; let guard=0;
     while(rem>0&&guard++<50){
       let nextBrk=null;
