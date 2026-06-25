@@ -123,6 +123,21 @@ async function ensureDefaultSettings() {
   }
 }
 
+// Remove ordens vazias do pool (linhas sem DSL/lote/produto/qtd) que vieram
+// da extração do Excel. Não toca em ordens com linha atribuída nem em ordens reais.
+async function cleanupEmptyPool() {
+  if (!pool) return;
+  const r = await pool.query(`
+    DELETE FROM ops
+     WHERE (linha IS NULL OR linha = '')
+       AND COALESCE(payload->>'dsl','')            IN ('', '0')
+       AND COALESCE(payload->>'lote','')           IN ('', '0')
+       AND COALESCE(payload->>'produtoEntrada','')  IN ('', '0')
+       AND COALESCE(payload->>'qtd','0')           IN ('', '0', '0.0')
+  `);
+  if (r.rowCount > 0) console.log(`[db] cleanupEmptyPool: ${r.rowCount} ordens vazias removidas.`);
+}
+
 async function seedIfEmpty() {
   if (!pool) return;
   const r = await pool.query('SELECT COUNT(*)::int AS n FROM ops');
@@ -217,7 +232,7 @@ async function resetOps(by) {
 }
 
 module.exports = {
-  isConnected, initSchema, ensureDefaultSettings, seedIfEmpty,
+  isConnected, initSchema, ensureDefaultSettings, seedIfEmpty, cleanupEmptyPool,
   listOps, getOp, createOp, updateOp, deleteOp,
   getSettings, putSettings, deleteAllOps, resetOps,
   SEED_OPS, DEFAULT_SETTINGS,

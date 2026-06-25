@@ -330,6 +330,8 @@ function renderLegend(){
 
 /* ---------------- POOL ---------------- */
 function matchesSearch(o){const v=SEARCH.v.trim().toLowerCase();if(!v)return true;return [o.dsl,o.lote,o.cliente,o.produtoEntrada,o.obs].some(x=>(x||'').toLowerCase().includes(v));}
+// ordem "real": tem DSL/lote/produto válidos ou quantidade — exclui linhas vazias da extração
+function isRealOrder(o){const dsl=String(o.dsl||'').trim();const lote=String(o.lote||'').trim();const prod=String(o.produtoEntrada||'').trim();return (dsl&&dsl!=='0')||(lote&&lote!=='0')||(prod&&prod!=='0')||(+o.qtd>0);}
 function cardHTML(o,hit){
   const desd=o.desdobrar?'<span class="badge desd">DESD</span>':'';
   const urg=/urg|encomenda/i.test(o.obs||'')?'<span class="badge urg">URG</span>':'';
@@ -342,7 +344,7 @@ function cardHTML(o,hit){
 function renderPool(){
   const el=document.getElementById('pool');
   const searching=!!SEARCH.v.trim();
-  const all=DATA.filter(o=>!o.linha);
+  const all=DATA.filter(o=>!o.linha&&isRealOrder(o));
   const pend=all.filter(matchesSearch);
   let html=`<h3>Kanban · novas ordens (${searching?pend.length+'/'+all.length:all.length})</h3>`;
   html+=pend.map(o=>cardHTML(o,searching)).join('')||'<div class="mini" style="padding:8px">'+(searching?'Sem matches no Kanban.':'Sem ordens por planear.')+'</div>';
