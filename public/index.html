@@ -342,7 +342,7 @@ function cardHTML(o,hit){
   const desd=o.desdobrar?'<span class="badge desd">DESD</span>':'';
   const urg=/urg|encomenda/i.test(o.obs||'')?'<span class="badge urg">URG</span>':'';
   return `<div class="card${hit?' search-hit':''}" draggable="true" data-id="${o.id}" data-est="${o.estado}">
-    <div class="c-top"><span class="c-dsl">${o.dsl||o.lote||'—'}</span><span class="c-qtd">${(+o.qtd||0).toFixed(1)} mil</span></div>
+    <div class="c-top"><span class="c-dsl">${o.dsl||o.lote||'—'}</span><span class="c-qtd">${Math.round((+o.qtd||0)*1000)} un</span></div>
     <div class="c-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div>
     <div class="c-meta"><span>${o.cliente||''}</span><span class="badge">${o.calibre||''}</span>${o.qualidades?`<span class="badge">${o.qualidades}</span>`:''}${desd}${urg}</div>
   </div>`;
@@ -420,11 +420,11 @@ function renderBoard(){
       const zone=document.createElement('div');zone.className='line-zone'+((l==='4'||l==='5')?' line-hl':'');zone.dataset.linha=l;zone.dataset.date=dateKey(d);
       const lbl=lineLabel(l);
       const rows=sched[l];
-      let inner=`<div class="lz-head">${lbl} <span class="cap">${(capOf(l)/1000).toFixed(1)} mil/h</span></div>`;
+      let inner=`<div class="lz-head">${lbl} <span class="cap">${capOf(l)} un/h</span></div>`;
       if(rows.length){
         inner+=`<table class="plan"><colgroup>
-          <col style="width:22px"><col style="width:96px"><col style="width:23%"><col style="width:104px"><col style="width:96px"><col style="width:52px">
-          <col style="width:54px"><col style="width:54px"><col style="width:50px"><col style="width:132px"><col style="width:62px"><col style="width:64px"><col style="width:70px"><col style="width:50px"></colgroup>
+          <col style="width:22px"><col style="width:92px"><col style="width:21%"><col style="width:100px"><col style="width:92px"><col style="width:66px">
+          <col style="width:54px"><col style="width:54px"><col style="width:50px"><col style="width:128px"><col style="width:62px"><col style="width:64px"><col style="width:64px"><col style="width:48px"></colgroup>
           <thead><tr>
           <th></th><th>DSL</th><th>Produto</th><th>Lote</th><th>Cliente</th><th>Qtd</th>
           <th>Início</th><th>Fim</th><th>Dur</th><th>Estado</th><th>Real fim</th><th>On-time</th><th>QV</th><th>Desd.</th></tr></thead><tbody>`;
@@ -438,7 +438,7 @@ function renderBoard(){
             <td class="mini prod-cell" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</td>
             <td class="mini">${o.lote||''}</td>
             <td class="mini">${o.cliente||''}</td>
-            <td class="tnum">${(+o.qtd||0).toFixed(1)}</td>
+            <td class="tnum">${Math.round((+o.qtd||0)*1000)}</td>
             <td class="tnum">${min2hm(r.startMin%(24*60))}</td>
             <td class="tnum">${min2hm(r.endMin%(24*60))}</td>
             <td class="tnum mini">${r.durH.toFixed(2)}h</td>
@@ -561,8 +561,8 @@ function openModal(id){
      ${fld('Produto entrada','f_prod',o.produtoEntrada,{prodLock:true})}
      <div class="fld"><label>Calibre (auto)</label><input id="f_cal" value="${String(o.calibre||'').replace(/"/g,'&quot;')}" readonly title="Preenchido automaticamente pelo Produto"></div>
      ${fld('Qualidades','f_qual',o.qualidades,{prodLock:true})}
-     ${fld('Qtd (milhares)','f_qtd',o.qtd,{prodLock:true})}
-     ${fld('Qtd necessária','f_qtdnec',o.qtdNecessaria,{prodLock:true})}
+     <div class="fld"><label>Qtd (unidades) — usada para programar</label><input id="f_qtd" type="number" step="1" value="${Math.round((+o.qtd||0)*1000)}" ${isProd()?'disabled':''}></div>
+     <div class="fld"><label>Qtd objetivo (só indicação)</label><input id="f_qtdnec" type="number" step="1" value="${Math.round((+o.qtdNecessaria||0)*1000)}" ${isProd()?'disabled':''}></div>
    </div>
    <div class="sec-title">Desdobramento / 2ª passagem</div>
    <div class="grid3">
@@ -608,7 +608,7 @@ async function saveModal(){
     const prod=gv('f_prod');
     set('dsl',gv('f_dsl'));set('cliente',gv('f_cliente'));set('produtoEntrada',prod);
     set('calibre',calibreFrom(prod)||gv('f_cal'));set('qualidades',gv('f_qual')||qualidadeFrom(prod));
-    set('qtd',+gv('f_qtd')||0);set('qtdNecessaria',+gv('f_qtdnec')||0);
+    set('qtd',(+gv('f_qtd')||0)/1000);set('qtdNecessaria',(+gv('f_qtdnec')||0)/1000); // input em unidades -> guardado em milhares
     set('desdobrar',gv('f_desd')==='true');set('qtdPrevistaDesd',+gv('f_qpdesd')||0);
     set('qvUpPlan',gv('f_qvup'));set('qvPlan',gv('f_qv'));set('qvDownPlan',gv('f_qvdn'));set('proximoPasso',gv('f_prox'));
     // Linha/Turno/Estado/Início geridos no quadro (drag-drop) — não tocados aqui.
@@ -671,7 +671,7 @@ function exportExcel(){
   for(let day=1;day<=nDays;day++){const d=new Date(year,month,day);const monday=mondayOf(d);const dia=diaIdxOf(d);
     board.lines.forEach(l=>{scheduleLineDay(l,monday,dia).forEach(r=>{const o=r.op;const ot=onTimeInfo(o,r.endMin);
       rows.push({Data:dateKey(d),Dia:DIAS_PT[dia],Linha:lineLabel(l),Turno:o.turno,DSL:o.dsl,Produto:o.produtoEntrada,Lote:o.lote,Cliente:o.cliente,
-        'Qtd (mil)':+o.qtd||0,Estado:o.estado,'Inicio':min2hm(r.startMin%1440),'Fim':min2hm(r.endMin%1440),'Dur (h)':+r.durH.toFixed(2),
+        'Qtd':Math.round((+o.qtd||0)*1000),'Qtd objetivo':Math.round((+o.qtdNecessaria||0)*1000),Estado:o.estado,'Inicio':min2hm(r.startMin%1440),'Fim':min2hm(r.endMin%1440),'Dur (h)':+r.durH.toFixed(2),
         'Fim real':o.hFimR||'','On-time (min)':ot==null?'':ot,Desdobra:o.desdobrar?'Sim':'',
         'Qtd desd':+o.qtdDesdobramento||0,'Motivo 2a':o.motivo2aPassagem||'',QV:o.qvDsl||o.qvPlan||'',OBS:o.obs||''});});});}
   if(!rows.length){toast('Sem ordens neste mês.','err');return;}
