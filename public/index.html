@@ -62,12 +62,12 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .card .badge{font-size:9px;padding:1px 5px;border-radius:4px;background:#eef3ea}
 .card .badge.desd{background:#fde9c7;color:#92560a}
 .card .badge.urg{background:#fde8e8;color:var(--c-warn)}
-.card[data-est="Por planear"]{border-left-color:var(--est-pool)}
-.card[data-est="Planeada"]{border-left-color:var(--est-plan)}
-.card[data-est="Transita Dia anterior"]{border-left-color:var(--est-trans)}
-.card[data-est="Em Processo"]{border-left-color:var(--est-proc)}
-.card[data-est="Terminada"]{border-left-color:var(--est-term)}
-.card[data-est="Concluída"]{border-left-color:var(--est-concl)}
+.card[data-est="Aberto"]{border-left-color:#cfcfcf}
+.card[data-est="Liberado"]{border-left-color:#00B050}
+.card[data-est="Em Processo"]{border-left-color:#FFA500}
+.card[data-est="Em Processo - Desdobrar"]{border-left-color:#ED7D31}
+.card[data-est="Terminado"]{border-left-color:#E0218A}
+.card[data-est="Concluído Planeamento"]{border-left-color:#92D050}
 
 .day-block{margin-bottom:14px;border:1px solid var(--c-line);border-radius:var(--r);overflow:hidden;background:#fff;box-shadow:var(--sh)}
 .day-head{display:flex;align-items:center;gap:10px;padding:6px 10px;background:var(--c-primary);color:#fff;position:sticky;top:0;z-index:2}
@@ -107,11 +107,12 @@ table.plan tr.cont td{background:#fff8ef}
 .drop-above{box-shadow:inset 0 2px 0 var(--c-accent)}
 .drop-below{box-shadow:inset 0 -2px 0 var(--c-accent)}
 .est-sel{font-size:10px;border-radius:4px;padding:2px 4px;border:1px solid var(--c-line)}
-.est-sel[data-est="Em Processo"]{background:var(--est-proc)}
-.est-sel[data-est="Terminada"]{background:var(--est-term);color:#fff}
-.est-sel[data-est="Transita Dia anterior"]{background:var(--est-trans)}
-.est-sel[data-est="Planeada"]{background:var(--est-plan)}
-.est-sel[data-est="Concluída"]{background:var(--est-concl);color:#fff}
+.est-sel[data-est="Aberto"]{background:#fff;color:#21301f}
+.est-sel[data-est="Liberado"]{background:#00B050;color:#fff}
+.est-sel[data-est="Em Processo"]{background:#FFA500;color:#3a2c18}
+.est-sel[data-est="Em Processo - Desdobrar"]{background:#ED7D31;color:#fff}
+.est-sel[data-est="Terminado"]{background:#E0218A;color:#fff}
+.est-sel[data-est="Concluído Planeamento"]{background:#92D050;color:#21301f}
 .mini{font-size:10px;color:var(--c-muted)}
 .tnum{font-variant-numeric:tabular-nums}
 
@@ -202,7 +203,8 @@ const ESPECIAIS_LABEL={'B':'Banca','EE':'Escolha Eletrónica','T':'Tapete'};
 // Etiquetas de apresentação das linhas (a chave interna mantém-se 1..10/B/EE/T)
 const LINE_LABELS={'1':'EE - DSL 1','2':'EE - DSL 2','3':'EE - DSL 3','4':'DSL - 4','5':'DSL - 5','6':'EE - DSL 6','7':'EE - DSL 7','8':'EE - DSL 8','EM':'Escolha Manual'};
 function lineLabel(l){return LINE_LABELS[l]||(ESPECIAIS.includes(l)?`${l} · ${ESPECIAIS_LABEL[l]}`:`Linha ${l}`);}
-const ESTADOS=['Por planear','Planeada','Transita Dia anterior','Em Processo','Terminada','Concluída'];
+const ESTADOS=['Aberto','Liberado','Em Processo','Em Processo - Desdobrar','Terminado','Concluído Planeamento'];
+const ESTADO_POOL='Aberto';
 const PLANEADOR_PW='Cork2026!';
 
 const ALL_LINES=['1','2','3','4','5','6','7','8','EM']; // EE-DSL 1..8 + Escolha Manual
@@ -355,10 +357,10 @@ function renderTabs(){
   const tc=document.createElement('div');tc.className='tab'+(ACTIVE_TAB==='cfg'?' active':'');
   tc.textContent='Configurações';tc.onclick=()=>{ACTIVE_TAB='cfg';render();};el.appendChild(tc);
 }
-function estColor(e){return{'Por planear':'#D9D9D9','Planeada':'#86C47A','Transita Dia anterior':'#e6cfa8','Em Processo':'#FFA500','Terminada':'#00B050','Concluída':'#00B0F0'}[e]||'#ccc';}
+function estColor(e){return{'Aberto':'#FFFFFF','Liberado':'#00B050','Em Processo':'#FFA500','Em Processo - Desdobrar':'#ED7D31','Terminado':'#E0218A','Concluído Planeamento':'#92D050'}[e]||'#ccc';}
 function renderLegend(){
   const el=document.getElementById('legend');
-  el.innerHTML=ESTADOS.map(e=>`<span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:4px;vertical-align:-1px;background:${estColor(e)}"></i>${e}</span>`).join('')
+  el.innerHTML=ESTADOS.map(e=>`<span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;border:1px solid #bbb;margin-right:4px;vertical-align:-1px;background:${estColor(e)}"></i>${e}</span>`).join('')
     +`<span style="margin-left:auto">🟧 borda = desdobramento / 2ª passagem</span>`;
 }
 
@@ -544,14 +546,13 @@ async function moveToDate(op,linha,dateStr){
   op.linha=linha;op.weekKey=wk;op.diaIdx=dia;
   const peers=DATA.filter(o=>o.linha===linha&&o.weekKey===wk&&(+o.diaIdx||0)===dia&&o.id!==op.id);
   op.sortIdx=peers.length;
-  if(op.estado==='Por planear')op.estado='Planeada';
   if(oldL)reindex(oldL,oldW,oldD);reindex(linha,wk,dia);
   render();await persist(op);
 }
 async function moveToPool(op){
   snapshot();
   const oldL=op.linha,oldW=op.weekKey,oldD=+op.diaIdx||0;
-  op.linha='';op.weekKey='';op.diaIdx=0;op.sortIdx=0;op.estado='Por planear';
+  op.linha='';op.weekKey='';op.diaIdx=0;op.sortIdx=0;op.estado=ESTADO_POOL;
   if(oldL)reindex(oldL,oldW,oldD);
   render();await persist(op);
 }
@@ -633,7 +634,7 @@ function openModal(id){
   if(pe&&!isProd()){pe.addEventListener('input',()=>{const v=pe.value;const c=document.getElementById('f_cal');const q=document.getElementById('f_qual');if(c)c.value=calibreFrom(v);if(q)q.value=qualidadeFrom(v);});}
   document.getElementById('modalBg').classList.add('show');
 }
-function blankOp(){return{dsl:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Por planear',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',bancaTapete:'',weekKey:'',diaIdx:0,sortIdx:0};}
+function blankOp(){return{dsl:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Aberto',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',bancaTapete:'',weekKey:'',diaIdx:0,sortIdx:0};}
 function gv(id){const e=document.getElementById(id);return e?e.value:'';}
 async function saveModal(){
   snapshot();

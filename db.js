@@ -177,6 +177,27 @@ async function migrateTurno2NoLunch() {
   }
 }
 
+// Remapeia estados antigos para o novo conjunto. Idempotente.
+async function migrateEstados() {
+  if (!pool) return;
+  const map = {
+    'Por planear': 'Aberto',
+    'Planeada': 'Liberado',
+    'Transita Dia anterior': 'Aberto',
+    'Terminada': 'Terminado',
+    'Concluída': 'Concluído Planeamento',
+  };
+  let total = 0;
+  for (const [oldV, newV] of Object.entries(map)) {
+    const r = await pool.query(
+      `UPDATE ops SET payload = jsonb_set(payload, '{estado}', to_jsonb($2::text)),
+              updated_at = NOW(), updated_by = 'migration-estados'
+        WHERE payload->>'estado' = $1`, [oldV, newV]);
+    total += r.rowCount;
+  }
+  if (total) console.log(`[db] migrateEstados: ${total} ordens remapeadas.`);
+}
+
 async function seedIfEmpty() {
   if (!pool) return;
   const r = await pool.query('SELECT COUNT(*)::int AS n FROM ops');
@@ -271,7 +292,7 @@ async function resetOps(by) {
 }
 
 module.exports = {
-  isConnected, initSchema, ensureDefaultSettings, seedIfEmpty, cleanupEmptyPool, migrateEscolhaManual, migrateTurno2NoLunch,
+  isConnected, initSchema, ensureDefaultSettings, seedIfEmpty, cleanupEmptyPool, migrateEscolhaManual, migrateTurno2NoLunch, migrateEstados,
   listOps, getOp, createOp, updateOp, deleteOp,
   getSettings, putSettings, deleteAllOps, resetOps,
   SEED_OPS, DEFAULT_SETTINGS,

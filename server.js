@@ -199,6 +199,7 @@ app.get('*', (req, res, next) => {
       await db.cleanupEmptyPool();
       await db.migrateEscolhaManual();
       await db.migrateTurno2NoLunch();
+      await db.migrateEstados();
     } else {
       console.warn('[server] A arrancar em modo demo (sem persistência). Escritas devolvem 503.');
     }
