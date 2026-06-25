@@ -607,7 +607,7 @@ function exportExcel(){
 /* ---------------- perfil / boot ---------------- */
 function applyProfile(){document.getElementById('profileSel').value=PROFILE;document.body.classList.toggle('producao',isProd());}
 function changeProfile(v){
-  if(v==='planeador'){const pw=prompt('Password do planeador:');if(pw!==PLANEADOR_PW){toast('Password incorreta.','err');document.getElementById('profileSel').value='producao';return;}}
+  // Password desativada temporariamente — alternância direta de perfil.
   PROFILE=v;localStorage.setItem('dsl_profile',v);applyProfile();render();
 }
 async function loadState(){
