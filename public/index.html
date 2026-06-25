@@ -101,6 +101,8 @@ table.plan tr.search-hit td:first-child{box-shadow:inset 4px 0 0 #e0a008}
 .line-zone.line-hl .lz-head{background:#d8e9f7;color:#1c4f7a}
 .line-zone.line-hl{box-shadow:inset 3px 0 0 #5b8fc4}
 .bt-sel{font-size:9.5px;margin-top:2px;border:1px solid var(--c-line);border-radius:4px;padding:1px 2px;background:#f3eee4}
+.contflag{display:inline-block;margin-left:5px;font-size:9px;font-weight:600;color:#7a3b00;background:#ffe3c2;border-radius:4px;padding:0 5px}
+table.plan tr.cont td{background:#fff8ef}
 .handle{cursor:grab;color:#bcc7b6;user-select:none;padding:0 2px}
 .drop-above{box-shadow:inset 0 2px 0 var(--c-accent)}
 .drop-below{box-shadow:inset 0 -2px 0 var(--c-accent)}
@@ -273,37 +275,66 @@ function isDayClosed(d){const o=dayOverride(d);if(o&&o.fechado)return true;const
 
 function breaksOf(turno){const t=turnoWindow(turno);const b=[];if(t.almocoIni&&t.almocoFim)b.push([hm2min(t.almocoIni),hm2min(t.almocoFim)]);if(t.jantarIni&&t.jantarFim)b.push([hm2min(t.jantarIni),hm2min(t.jantarFim)]);return b;}
 
-/* Escalonamento de um (linha,dia): [{op,startMin,endMin,durH}] */
-function scheduleLineDay(linha,monday,diaIdx){
-  const wk=weekKeyOf(monday);
-  const ops=DATA.filter(o=>o.linha===linha&&o.weekKey===wk&&(+o.diaIdx||0)===diaIdx)
-                .sort((a,b)=>(+a.sortIdx||0)-(+b.sortIdx||0));
-  if(!ops.length)return [];
-  const d=dateOfWeekDay(monday,diaIdx);
-  const ov=dayOverride(d);
-  const turno=Math.max(1,...ops.map(o=>+o.turno||1));
-  const t=turnoWindow(turno);
-  let winIni=hm2min((ov&&ov.ini)||t.ini);
-  let winFim=hm2min((ov&&ov.fim)||t.fim); if(winFim<=winIni)winFim+=24*60;
-  const brks=breaksOf(turno);
-  const setup=+SETTINGS.setupMin||0;
-  let cur=winIni; const out=[];          // 1ª ordem começa no início do turno
-  for(const op of ops){
-    for(const br of brks)if(cur>=br[0]&&cur<br[1])cur=br[1];  // se cair numa pausa, salta-a
-    const durH=durHoras(op); let rem=durH*60; let start=cur; let end=cur; let guard=0;
-    while(rem>0&&guard++<50){
-      let nextBrk=null;
-      for(const br of brks)if(end<br[0]&&(nextBrk===null||br[0]<nextBrk))nextBrk=br[0];
-      const stop=nextBrk!==null?nextBrk:winFim;
-      const avail=stop-end;
-      if(rem<=avail){end+=rem;rem=0;}
-      else{rem-=avail;end=stop;const nb=brks.find(br=>br[0]===stop);if(nb)end=nb[1];else{end+=rem;rem=0;}}
-    }
-    out.push({op,startMin:start,endMin:end,durH});
-    cur=end+setup;
-  }
-  return out;
+// nº de turnos da linha (1 ou 2)
+function lineTurno(l){const c=(SETTINGS.capacidades||{})[l];return (c&&(c.turno===2||c.turno==='2'))?2:1;}
+function dDate(o){const m=(o.weekKey||'').match(/(\d+)-W(\d+)/);if(!m)return null;const j=new Date(+m[1],0,4);const mon=mondayOf(j);mon.setDate(mon.getDate()+(+m[2]-1)*7+(+o.diaIdx||0));mon.setHours(0,0,0,0);return mon;}
+function cmpDay(a,b){const ka=dateKey(a),kb=dateKey(b);return ka<kb?-1:ka>kb?1:0;}
+// Janela útil do dia para a linha (min). null = dia fechado/sem capacidade.
+function dayWindowFor(l,d){
+  if(isDayClosed(d))return null;
+  const ov=dayOverride(d);const dow=(d.getDay()+6)%7;let ini,fim,breaks;
+  if(dow===5){ini=hm2min(SETTINGS.sabadoIni||'07:00');fim=hm2min(SETTINGS.sabadoFim||'11:00');breaks=[];}
+  else{const t=turnoWindow(lineTurno(l));ini=hm2min(t.ini);fim=hm2min(t.fim);if(fim<=ini)fim+=1440;breaks=breaksOf(lineTurno(l));}
+  if(ov&&ov.ini)ini=hm2min(ov.ini);
+  if(ov&&ov.fim){fim=hm2min(ov.fim);if(fim<=ini)fim+=1440;}
+  return {ini,fim,breaks};
 }
+// minutos de trabalho disponíveis a partir de 'start' até ao fim do turno (descontando pausas)
+function workCapacity(start,breaks,winFim){let cap=winFim-start;for(const b of breaks){const s=Math.max(b[0],start),e=Math.min(b[1],winFim);if(e>s)cap-=(e-s);}return Math.max(0,cap);}
+// relógio de fim após 'work' minutos de trabalho a partir de 'start', absorvendo as pausas
+function spanEnd(start,work,breaks,winFim){let t=start,left=work,g=0;while(left>0.0001&&t<winFim&&g++<60){const ib=breaks.find(b=>t>=b[0]&&t<b[1]);if(ib){t=ib[1];continue;}let nb=null;for(const b of breaks)if(t<b[0]&&(nb===null||b[0]<nb))nb=b[0];const stop=Math.min(winFim,nb===null?winFim:nb);const chunk=Math.min(left,stop-t);t+=chunk;left-=chunk;if(left>0.0001){const bb=breaks.find(b=>b[0]===t);if(bb)t=bb[1];else break;}}return t;}
+// Escalona TODA a linha cronologicamente, 1 segmento por dia, transitando para o
+// dia seguinte quando o turno esgota. { 'YYYY-MM-DD': [ {op,startMin,endMin,qtdSeg,partIdx,total,multiDay} ] }
+const _schedCache={};
+function scheduleLine(l){
+  if(_schedCache[l])return _schedCache[l];
+  const orders=DATA.filter(o=>o.linha===l&&o.weekKey&&dDate(o))
+    .sort((a,b)=>cmpDay(dDate(a),dDate(b))||((+a.sortIdx||0)-(+b.sortIdx||0)));
+  const segs={};const setup=+SETTINGS.setupMin||0;
+  const push=(date,op,s,e,q)=>{const k=dateKey(date);(segs[k]=segs[k]||[]).push({op,startMin:s,endMin:e,qtdSeg:q,date:new Date(date)});};
+  const nextOpen=(date)=>{let d=new Date(date);for(let i=0;i<500;i++){d.setDate(d.getDate()+1);if(dayWindowFor(l,d))return d;}return null;};
+  let curDate=null,curMin=0;
+  for(const op of orders){
+    let startDay=dDate(op),w=dayWindowFor(l,startDay);
+    while(!w){startDay=nextOpen(startDay);if(!startDay)break;w=dayWindowFor(l,startDay);}
+    if(!startDay)continue;
+    if(curDate===null||cmpDay(curDate,startDay)<0){curDate=startDay;curMin=dayWindowFor(l,curDate).ini;}
+    else curMin+=setup;
+    let remMin=durHoras(op)*60;const totalDur=remMin||1;const totalQtd=(+op.qtd||0);let guard=0;
+    while(remMin>0.01&&guard++<800){
+      let win=dayWindowFor(l,curDate);
+      if(!win){const nd=nextOpen(curDate);if(!nd)break;curDate=nd;curMin=dayWindowFor(l,curDate).ini;continue;}
+      if(curMin<win.ini)curMin=win.ini;
+      for(const br of win.breaks)if(curMin>=br[0]&&curMin<br[1])curMin=br[1];
+      if(curMin>=win.fim){const nd=nextOpen(curDate);if(!nd)break;curDate=nd;curMin=dayWindowFor(l,curDate).ini;continue;}
+      const cap=workCapacity(curMin,win.breaks,win.fim);
+      if(cap<=0){const nd=nextOpen(curDate);if(!nd)break;curDate=nd;curMin=dayWindowFor(l,curDate).ini;continue;}
+      const work=Math.min(remMin,cap);const segEnd=spanEnd(curMin,work,win.breaks,win.fim);
+      push(curDate,op,curMin,segEnd,totalQtd*(work/totalDur));
+      remMin-=work;
+      if(remMin>0.01){const nd=nextOpen(curDate);if(!nd)break;curDate=nd;curMin=dayWindowFor(l,curDate).ini;}
+      else curMin=segEnd;
+    }
+  }
+  const byOp={};Object.values(segs).flat().forEach(s=>{(byOp[s.op.id]=byOp[s.op.id]||[]).push(s);});
+  Object.values(byOp).forEach(list=>{
+    list.sort((a,b)=>a.date-b.date||a.startMin-b.startMin);
+    const days=new Set(list.map(s=>dateKey(s.date)));
+    list.forEach((s,i)=>{s.partIdx=i+1;s.total=list.length;s.multiDay=days.size>1;});
+  });
+  _schedCache[l]=segs;return segs;
+}
+function clearSchedCache(){for(const k in _schedCache)delete _schedCache[k];}
 
 function onTimeInfo(op,endPlanMin){
   if(!op.hFimR)return null;
@@ -362,6 +393,7 @@ function renderPool(){
 
 /* ---------------- BOARD ---------------- */
 function render(){
+  clearSchedCache();
   renderTabs();renderLegend();
   const wrap=document.getElementById('wrap');
   const wb=document.getElementById('weekbar');
@@ -402,12 +434,13 @@ function renderBoard(){
   const searching=!!SEARCH.v.trim();
   const year=ANCHOR.getFullYear(),month=ANCHOR.getMonth();
   const nDays=new Date(year,month+1,0).getDate();
+  const lineSegs={};board.lines.forEach(l=>lineSegs[l]=scheduleLine(l));   // escalona toda a linha 1x
   for(let day=1;day<=nDays;day++){
     const d=new Date(year,month,day);
-    const monday=mondayOf(d);const dia=diaIdxOf(d);
+    const dia=diaIdxOf(d);const dk=dateKey(d);
     const closed=isDayClosed(d);
     const sched={}; let any=false;
-    board.lines.forEach(l=>{const s=scheduleLineDay(l,monday,dia);sched[l]=s;if(s.length)any=true;});
+    board.lines.forEach(l=>{const s=lineSegs[l][dk]||[];sched[l]=s;if(s.length)any=true;});
     if(closed&&!any)continue;                 // esconder dias fechados/sem ordens
     const block=document.createElement('div');block.className='day-block';
     const head=document.createElement('div');
@@ -419,7 +452,7 @@ function renderBoard(){
       const zone=document.createElement('div');zone.className='line-zone'+((l==='4'||l==='5')?' line-hl':'');zone.dataset.linha=l;zone.dataset.date=dateKey(d);
       const lbl=lineLabel(l);
       const rows=sched[l];
-      let inner=`<div class="lz-head">${lbl} <span class="cap">${capOf(l)} un/h</span></div>`;
+      let inner=`<div class="lz-head">${lbl} <span class="cap">${capOf(l)} un/h · ${lineTurno(l)} turno${lineTurno(l)>1?'s':''}</span></div>`;
       if(rows.length){
         inner+=`<table class="plan"><colgroup>
           <col style="width:22px"><col style="width:128px"><col style="width:92px"><col style="width:21%"><col style="width:100px"><col style="width:92px"><col style="width:66px">
@@ -428,21 +461,24 @@ function renderBoard(){
           <th></th><th>Estado</th><th>DSL</th><th>Produto</th><th>Lote</th><th>Cliente</th><th>Qtd</th>
           <th>Início</th><th>Fim</th><th>Dur</th><th>Real fim</th><th>On-time</th><th>QV</th><th>Desd.</th></tr></thead><tbody>`;
         rows.forEach(r=>{
-          const o=r.op;const ot=onTimeInfo(o,r.endMin);
+          const o=r.op;const isLast=r.partIdx===r.total;
+          const ot=isLast?onTimeInfo(o,r.endMin):null;
           const late=ot!=null&&ot>10;
           const hit=searching&&matchesSearch(o);
-          inner+=`<tr class="row${late?' late':''}${o.desdobrar?' desd':''}${hit?' search-hit':''}" data-id="${o.id}">
+          const segDur=((r.endMin-r.startMin)/60);
+          const contFlag=r.multiDay?`<span class="contflag" title="Transita entre dias">${r.partIdx>1?'↳ ':''}parte ${r.partIdx}/${r.total}${r.partIdx<r.total?' →':''}</span>`:'';
+          inner+=`<tr class="row${late?' late':''}${o.desdobrar?' desd':''}${hit?' search-hit':''}${r.multiDay?' cont':''}" data-id="${o.id}">
             <td><span class="handle planner-only" draggable="true">⠿</span></td>
             <td><select class="est-sel" data-est="${o.estado}" data-id="${o.id}">${ESTADOS.map(e=>`<option ${e===o.estado?'selected':''}>${e}</option>`).join('')}</select></td>
-            <td><b>${o.dsl||''}</b>${l==='EM'?`<br><select class="bt-sel" data-id="${o.id}"><option value="">— B/T? —</option><option value="B" ${o.bancaTapete==='B'?'selected':''}>Banca</option><option value="T" ${o.bancaTapete==='T'?'selected':''}>Tapete</option></select>`:''}</td>
+            <td><b>${o.dsl||''}</b>${contFlag}${l==='EM'?`<br><select class="bt-sel" data-id="${o.id}"><option value="">— B/T? —</option><option value="B" ${o.bancaTapete==='B'?'selected':''}>Banca</option><option value="T" ${o.bancaTapete==='T'?'selected':''}>Tapete</option></select>`:''}</td>
             <td class="mini prod-cell" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</td>
             <td class="mini">${o.lote||''}</td>
             <td class="mini">${o.cliente||''}</td>
-            <td class="tnum">${Math.round((+o.qtd||0)*1000)}</td>
+            <td class="tnum">${Math.round((+r.qtdSeg||0)*1000)}</td>
             <td class="tnum">${min2hm(r.startMin%(24*60))}</td>
             <td class="tnum">${min2hm(r.endMin%(24*60))}</td>
-            <td class="tnum mini">${r.durH.toFixed(2)}h</td>
-            <td class="tnum mini">${o.hFimR||''}</td>
+            <td class="tnum mini">${segDur.toFixed(2)}h</td>
+            <td class="tnum mini">${isLast?(o.hFimR||''):''}</td>
             <td class="tnum mini" style="color:${ot==null?'#bbb':(ot>10?'#b91c1c':'#15803d')}">${ot==null?'—':(ot>0?'+':'')+min2hm(ot)}</td>
             <td class="mini">${o.qvDsl||o.qvPlan||''}</td>
             <td class="mini">${o.desdobrar?((+o.qtdDesdobramento||0).toFixed(1)):''}</td>
@@ -634,11 +670,12 @@ function renderCfg(){
   const el=document.getElementById('board');
   const caps=SETTINGS.capacidades||{};
   let capRows=ALL_LINES.map(l=>`<tr><td>${lineLabel(l)}</td>
-     <td><input id="cap_${l}" type="number" value="${(caps[l]&&caps[l].krH)||(l==='EM'?8500:17000)}" ${isProd()?'disabled':''}></td></tr>`).join('');
+     <td><input id="cap_${l}" type="number" value="${(caps[l]&&caps[l].krH)||(l==='EM'?8500:17000)}" ${isProd()?'disabled':''}></td>
+     <td><select id="turno_${l}" ${isProd()?'disabled':''}><option value="1" ${(caps[l]&&caps[l].turno==2)?'':'selected'}>1 turno</option><option value="2" ${(caps[l]&&caps[l].turno==2)?'selected':''}>2 turnos</option></select></td></tr>`).join('');
   const t1=(SETTINGS.turnos||{})[1]||{},t2=(SETTINGS.turnos||{})[2]||{};
   el.innerHTML=`<div class="cfg">
     <h2>Capacidade por linha (rolhas/h)</h2>
-    <table><tr><th>Linha</th><th>Rolhas/h</th></tr>${capRows}</table>
+    <table><tr><th>Linha</th><th>Rolhas/h</th><th>Turnos</th></tr>${capRows}</table>
     <h2>Turnos</h2>
     <table>
       <tr><th>Turno</th><th>Início</th><th>Fim</th><th>Almoço</th><th>Jantar</th></tr>
@@ -655,7 +692,7 @@ function renderCfg(){
   const b=document.getElementById('btnSaveCfg');if(b)b.onclick=saveCfg;
 }
 async function saveCfg(){
-  const caps={};ALL_LINES.forEach(l=>{caps[l]={krH:+gv('cap_'+l)||(l==='EM'?8500:17000)};});
+  const caps={};ALL_LINES.forEach(l=>{caps[l]={krH:+gv('cap_'+l)||(l==='EM'?8500:17000),turno:(+gv('turno_'+l)===2?2:1)};});
   const turnos={1:{ini:gv('t1ini'),fim:gv('t1fim'),almocoIni:gv('t1ai'),almocoFim:gv('t1af')},
                 2:{ini:gv('t2ini'),fim:gv('t2fim'),jantarIni:gv('t2ji'),jantarFim:gv('t2jf')}}; // T2 só jantar
   const payload={capacidades:caps,turnos:turnos,setupMin:+gv('setupMin')||10};
@@ -665,14 +702,18 @@ async function saveCfg(){
 
 /* ---------------- Export Excel ---------------- */
 function exportExcel(){
+  clearSchedCache();
   const board=BOARDS[ACTIVE_TAB]||BOARDS.plan;const rows=[];
-  const year=ANCHOR.getFullYear(),month=ANCHOR.getMonth();const nDays=new Date(year,month+1,0).getDate();
-  for(let day=1;day<=nDays;day++){const d=new Date(year,month,day);const monday=mondayOf(d);const dia=diaIdxOf(d);
-    board.lines.forEach(l=>{scheduleLineDay(l,monday,dia).forEach(r=>{const o=r.op;const ot=onTimeInfo(o,r.endMin);
-      rows.push({Data:dateKey(d),Dia:DIAS_PT[dia],Linha:lineLabel(l),Turno:o.turno,DSL:o.dsl,Produto:o.produtoEntrada,Lote:o.lote,Cliente:o.cliente,
-        'Qtd':Math.round((+o.qtd||0)*1000),'Qtd objetivo':Math.round((+o.qtdNecessaria||0)*1000),Estado:o.estado,'Inicio':min2hm(r.startMin%1440),'Fim':min2hm(r.endMin%1440),'Dur (h)':+r.durH.toFixed(2),
-        'Fim real':o.hFimR||'','On-time (min)':ot==null?'':ot,Desdobra:o.desdobrar?'Sim':'',
-        'Qtd desd':+o.qtdDesdobramento||0,'Motivo 2a':o.motivo2aPassagem||'',QV:o.qvDsl||o.qvPlan||'',OBS:o.obs||''});});});}
+  const year=ANCHOR.getFullYear(),month=ANCHOR.getMonth();
+  board.lines.forEach(l=>{const segs=scheduleLine(l);
+    Object.keys(segs).forEach(dk=>{const d=new Date(dk+'T00:00:00');if(d.getFullYear()!==year||d.getMonth()!==month)return;
+      segs[dk].forEach(r=>{const o=r.op;const isLast=r.partIdx===r.total;const ot=isLast?onTimeInfo(o,r.endMin):null;
+        rows.push({Data:dk,Dia:DIAS_PT[diaIdxOf(d)],Linha:lineLabel(l),Turnos:lineTurno(l),DSL:o.dsl,Produto:o.produtoEntrada,Lote:o.lote,Cliente:o.cliente,
+          'Qtd seg':Math.round((+r.qtdSeg||0)*1000),'Qtd total':Math.round((+o.qtd||0)*1000),'Qtd objetivo':Math.round((+o.qtdNecessaria||0)*1000),
+          Parte:r.multiDay?`${r.partIdx}/${r.total}`:'',Estado:o.estado,'Inicio':min2hm(r.startMin%1440),'Fim':min2hm(r.endMin%1440),'Dur (h)':+((r.endMin-r.startMin)/60).toFixed(2),
+          'Fim real':isLast?(o.hFimR||''):'','On-time (min)':ot==null?'':ot,Desdobra:o.desdobrar?'Sim':'',
+          'Qtd desd':+o.qtdDesdobramento||0,'Motivo 2a':o.motivo2aPassagem||'',QV:o.qvDsl||o.qvPlan||'',OBS:o.obs||''});});});});
+  rows.sort((a,b)=>a.Data<b.Data?-1:a.Data>b.Data?1:(a.Linha<b.Linha?-1:1));
   if(!rows.length){toast('Sem ordens neste mês.','err');return;}
   const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Plano');

@@ -60,8 +60,8 @@ const LINHAS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
 const AREAS_ESPECIAIS = ['B', 'EE', 'T']; // Banca, Escolha Eletrónica, Tapete
 
 const DEFAULT_CAPACIDADES = {};
-['1','2','3','4','5','6','7','8'].forEach((l) => { DEFAULT_CAPACIDADES[l] = { krH: 17000, tipo: 'DSL' }; });
-DEFAULT_CAPACIDADES['EM'] = { krH: 8500, tipo: 'Manual' }; // Escolha Manual (Banca/Tapete)
+['1','2','3','4','5','6','7','8'].forEach((l) => { DEFAULT_CAPACIDADES[l] = { krH: 17000, turno: 1 }; });
+DEFAULT_CAPACIDADES['EM'] = { krH: 8500, turno: 1 }; // Escolha Manual (Banca/Tapete)
 
 const DEFAULT_SETTINGS = {
   // janelas de turno (HH:MM). Turno 1 = 1 turno (dia). Turno 2 = 2 turnos (até noite).
