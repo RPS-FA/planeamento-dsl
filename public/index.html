@@ -181,15 +181,14 @@ const ESPECIAIS_LABEL={'B':'Banca','EE':'Escolha Eletrónica','T':'Tapete'};
 const ESTADOS=['Por planear','Planeada','Transita Dia anterior','Em Processo','Terminada','Concluída'];
 const PLANEADOR_PW='Cork2026!';
 
+const ALL_LINES=[...LINHAS_1_5,...LINHAS_6_10,...ESPECIAIS]; // 1..10 + B/EE/T
 const BOARDS={
-  b15:{label:'Plano Dia · Linhas 1-5', lines:LINHAS_1_5},
-  b610:{label:'Plano Dia · Linhas 6-10', lines:LINHAS_6_10},
-  besp:{label:'Áreas Especiais', lines:ESPECIAIS},
+  plan:{label:'Plano Dia · Todas as linhas', lines:ALL_LINES},
 };
 
 let DATA=[];
 let SETTINGS={};
-let ACTIVE_TAB='b15';
+let ACTIVE_TAB='plan';
 let ANCHOR=null;
 let PROFILE=localStorage.getItem('dsl_profile')||'producao';
 let editingId=null;
@@ -275,11 +274,10 @@ function onTimeInfo(op,endPlanMin){
 /* ---------------- TABS ---------------- */
 function renderTabs(){
   const el=document.getElementById('tabs');el.innerHTML='';
-  const counts={b15:0,b610:0,besp:0};
-  DATA.forEach(o=>{if(LINHAS_1_5.includes(o.linha))counts.b15++;else if(LINHAS_6_10.includes(o.linha))counts.b610++;else if(ESPECIAIS.includes(o.linha))counts.besp++;});
+  const alloc=DATA.filter(o=>ALL_LINES.includes(o.linha)).length;
   Object.entries(BOARDS).forEach(([k,b])=>{
     const t=document.createElement('div');t.className='tab'+(ACTIVE_TAB===k?' active':'');
-    t.innerHTML=b.label+` <span class="cnt">${counts[k]}</span>`;
+    t.innerHTML=b.label+` <span class="cnt">${alloc}</span>`;
     t.onclick=()=>{ACTIVE_TAB=k;render();};el.appendChild(t);
   });
   const tc=document.createElement('div');tc.className='tab'+(ACTIVE_TAB==='cfg'?' active':'');
@@ -595,17 +593,18 @@ async function saveCfg(){
 
 /* ---------------- Export Excel ---------------- */
 function exportExcel(){
-  const board=BOARDS[ACTIVE_TAB]||BOARDS.b15;const monday=ANCHOR;const rows=[];
-  for(let dia=0;dia<7;dia++){const d=dateOfWeekDay(monday,dia);
+  const board=BOARDS[ACTIVE_TAB]||BOARDS.plan;const rows=[];
+  const year=ANCHOR.getFullYear(),month=ANCHOR.getMonth();const nDays=new Date(year,month+1,0).getDate();
+  for(let day=1;day<=nDays;day++){const d=new Date(year,month,day);const monday=mondayOf(d);const dia=diaIdxOf(d);
     board.lines.forEach(l=>{scheduleLineDay(l,monday,dia).forEach(r=>{const o=r.op;const ot=onTimeInfo(o,r.endMin);
       rows.push({Data:dateKey(d),Dia:DIAS_PT[dia],Linha:l,Turno:o.turno,DSL:o.dsl,Produto:o.produtoEntrada,Lote:o.lote,Cliente:o.cliente,
         'Qtd (mil)':+o.qtd||0,Estado:o.estado,'Inicio':min2hm(r.startMin%1440),'Fim':min2hm(r.endMin%1440),'Dur (h)':+r.durH.toFixed(2),
         'Fim real':o.hFimR||'','On-time (min)':ot==null?'':ot,Desdobra:o.desdobrar?'Sim':'',
         'Qtd desd':+o.qtdDesdobramento||0,'Motivo 2a':o.motivo2aPassagem||'',QV:o.qvDsl||o.qvPlan||'',OBS:o.obs||''});});});}
-  if(!rows.length){toast('Sem ordens nesta semana/quadro.','err');return;}
+  if(!rows.length){toast('Sem ordens neste mês.','err');return;}
   const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Plano');
-  XLSX.writeFile(wb,`Planeamento_DSL_${weekKeyOf(monday)}_${ACTIVE_TAB}.xlsx`);
+  XLSX.writeFile(wb,`Planeamento_DSL_${ANCHOR.getFullYear()}-${pad(ANCHOR.getMonth()+1)}.xlsx`);
 }
 
 /* ---------------- perfil / boot ---------------- */
