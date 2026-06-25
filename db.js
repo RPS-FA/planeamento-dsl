@@ -127,13 +127,14 @@ async function ensureDefaultSettings() {
 // da extração do Excel. Não toca em ordens com linha atribuída nem em ordens reais.
 async function cleanupEmptyPool() {
   if (!pool) return;
+  // Vazio = NULL, '', '0' ou erro do Excel (#NAME?, #REF!, #VALUE!, #N/A, #DIV/0!…)
   const r = await pool.query(`
     DELETE FROM ops
      WHERE (linha IS NULL OR linha = '')
-       AND COALESCE(payload->>'dsl','')            IN ('', '0')
-       AND COALESCE(payload->>'lote','')           IN ('', '0')
-       AND COALESCE(payload->>'produtoEntrada','')  IN ('', '0')
-       AND COALESCE(payload->>'qtd','0')           IN ('', '0', '0.0')
+       AND (payload->>'dsl' IS NULL OR payload->>'dsl' IN ('', '0') OR payload->>'dsl' LIKE '#%')
+       AND (payload->>'lote' IS NULL OR payload->>'lote' IN ('', '0') OR payload->>'lote' LIKE '#%')
+       AND (payload->>'produtoEntrada' IS NULL OR payload->>'produtoEntrada' IN ('', '0') OR payload->>'produtoEntrada' LIKE '#%')
+       AND COALESCE(payload->>'qtd','0') IN ('', '0', '0.0')
   `);
   if (r.rowCount > 0) console.log(`[db] cleanupEmptyPool: ${r.rowCount} ordens vazias removidas.`);
 }

@@ -244,6 +244,7 @@ function dateKey(d){return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.ge
 function hm2min(s){if(!s||!/^\d{1,2}:\d{2}/.test(s))return null;const[a,b]=s.split(':');return(+a)*60+(+b);}
 function min2hm(m){m=Math.round(m);const neg=m<0;m=Math.abs(m);return(neg?'-':'')+pad(Math.floor(m/60))+':'+pad(m%60);}
 function calibreFrom(prod){const m=(prod||'').match(/(\d{2})[xX](\d{3})/);if(m)return m[1]+'x'+m[2];const m2=(prod||'').match(/(\d{2})[xX](\d{2})(?!\d)/);return m2?m2[1]+'x'+m2[2]+'0':'';}
+function qualidadeFrom(prod){const m=(prod||'').match(/\d{2}[xX]\d{2,3}-(\d{3,4})/);return m?m[1]:'';}
 
 /* ---------------- API ---------------- */
 const Api={
@@ -330,8 +331,10 @@ function renderLegend(){
 
 /* ---------------- POOL ---------------- */
 function matchesSearch(o){const v=SEARCH.v.trim().toLowerCase();if(!v)return true;return [o.dsl,o.lote,o.cliente,o.produtoEntrada,o.obs].some(x=>(x||'').toLowerCase().includes(v));}
-// ordem "real": tem DSL/lote/produto válidos ou quantidade — exclui linhas vazias da extração
-function isRealOrder(o){const dsl=String(o.dsl||'').trim();const lote=String(o.lote||'').trim();const prod=String(o.produtoEntrada||'').trim();return (dsl&&dsl!=='0')||(lote&&lote!=='0')||(prod&&prod!=='0')||(+o.qtd>0);}
+// valor "vazio" inclui '0' e erros do Excel (#NAME?, #REF!, #VALUE!, #N/A, #DIV/0!…)
+function blankVal(x){x=String(x==null?'':x).trim();return (!x||x==='0'||/^#[A-Z0-9_\/]+[!?]?$/i.test(x))?'':x;}
+// ordem "real": tem DSL/lote/produto válidos ou quantidade — exclui linhas vazias/erro da extração
+function isRealOrder(o){return !!(blankVal(o.dsl)||blankVal(o.lote)||blankVal(o.produtoEntrada))||(+o.qtd>0);}
 function cardHTML(o,hit){
   const desd=o.desdobrar?'<span class="badge desd">DESD</span>':'';
   const urg=/urg|encomenda/i.test(o.obs||'')?'<span class="badge urg">URG</span>':'';
@@ -543,21 +546,14 @@ function openModal(id){
   const body=`
    <div class="sec-title">Identificação</div>
    <div class="grid3">
-     ${fld('Nº DSL','f_dsl',o.dsl,{prodLock:true})}
+     ${fld('OP DSL','f_dsl',o.dsl,{prodLock:true})}
      ${fld('Lote','f_lote',o.lote)}
      ${fld('Cliente','f_cliente',o.cliente,{prodLock:true})}
      ${fld('Produto entrada','f_prod',o.produtoEntrada,{prodLock:true})}
-     ${fld('Calibre','f_cal',o.calibre,{prodLock:true})}
+     <div class="fld"><label>Calibre (auto)</label><input id="f_cal" value="${String(o.calibre||'').replace(/"/g,'&quot;')}" readonly title="Preenchido automaticamente pelo Produto"></div>
      ${fld('Qualidades','f_qual',o.qualidades,{prodLock:true})}
-   </div>
-   <div class="sec-title">Planeamento</div>
-   <div class="grid3">
-     <div class="fld"><label>Linha</label><select id="f_linha" ${isProd()?'disabled':''}>${allLines.map(l=>`<option value="${l}" ${l===o.linha?'selected':''}>${l===''?'— Kanban —':lineLabel(l)}</option>`).join('')}</select></div>
-     ${fld('Turno','f_turno',String(o.turno||1),{type:'select',options:['1','2','3'],prodLock:true})}
-     ${fld('Estado','f_estado',o.estado,{type:'select',options:ESTADOS})}
      ${fld('Qtd (milhares)','f_qtd',o.qtd,{prodLock:true})}
      ${fld('Qtd necessária','f_qtdnec',o.qtdNecessaria,{prodLock:true})}
-     ${fld('Início manual (HH:MM)','f_hini',o.hInicioP,{prodLock:true})}
    </div>
    <div class="sec-title">Desdobramento / 2ª passagem</div>
    <div class="grid3">
@@ -588,6 +584,9 @@ function openModal(id){
    </div>
    ${fld('Observações','f_obs',o.obs,{type:'textarea'})}`;
   document.getElementById('modalBody').innerHTML=body;
+  // preenchimento automático de calibre + qualidade a partir do Produto
+  const pe=document.getElementById('f_prod');
+  if(pe&&!isProd()){pe.addEventListener('input',()=>{const v=pe.value;const c=document.getElementById('f_cal');const q=document.getElementById('f_qual');if(c)c.value=calibreFrom(v);if(q)q.value=qualidadeFrom(v);});}
   document.getElementById('modalBg').classList.add('show');
 }
 function blankOp(){return{dsl:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Por planear',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',weekKey:'',diaIdx:0,sortIdx:0};}
@@ -597,18 +596,15 @@ async function saveModal(){
   const o=editingId?Object.assign({},DATA.find(x=>x.id===editingId)):blankOp();
   const set=(k,v)=>{o[k]=v;};
   if(!isProd()){
-    set('dsl',gv('f_dsl'));set('cliente',gv('f_cliente'));set('produtoEntrada',gv('f_prod'));
-    set('calibre',gv('f_cal')||calibreFrom(gv('f_prod')));set('qualidades',gv('f_qual'));
-    const newLinha=gv('f_linha');set('turno',+gv('f_turno')||1);set('qtd',+gv('f_qtd')||0);
-    set('qtdNecessaria',+gv('f_qtdnec')||0);set('hInicioP',gv('f_hini'));set('inicioMode',gv('f_hini')?'manual':'auto');
+    const prod=gv('f_prod');
+    set('dsl',gv('f_dsl'));set('cliente',gv('f_cliente'));set('produtoEntrada',prod);
+    set('calibre',calibreFrom(prod)||gv('f_cal'));set('qualidades',gv('f_qual')||qualidadeFrom(prod));
+    set('qtd',+gv('f_qtd')||0);set('qtdNecessaria',+gv('f_qtdnec')||0);
     set('desdobrar',gv('f_desd')==='true');set('qtdPrevistaDesd',+gv('f_qpdesd')||0);
     set('qvUpPlan',gv('f_qvup'));set('qvPlan',gv('f_qv'));set('qvDownPlan',gv('f_qvdn'));set('proximoPasso',gv('f_prox'));
-    if(newLinha!==o.linha){
-      if(newLinha){o.linha=newLinha;if(!o.weekKey){const d1=new Date(ANCHOR.getFullYear(),ANCHOR.getMonth(),1);o.weekKey=weekKeyOf(mondayOf(d1));o.diaIdx=diaIdxOf(d1);}const peers=DATA.filter(x=>x.linha===newLinha&&x.weekKey===o.weekKey&&(+x.diaIdx||0)===(+o.diaIdx||0)&&x.id!==o.id);o.sortIdx=peers.length;}
-      else{o.linha='';o.weekKey='';o.diaIdx=0;o.estado='Por planear';}
-    }
+    // Linha/Turno/Estado/Início geridos no quadro (drag-drop) — não tocados aqui.
   }
-  set('estado',gv('f_estado'));set('lote',gv('f_lote'));
+  set('lote',gv('f_lote'));
   set('qtdDesdobramento',+gv('f_qdesd')||0);set('motivo2aPassagem',gv('f_mot'));set('causaRaiz2a',gv('f_causa'));
   set('qvUpDsl',gv('f_qvupd'));set('qvDsl',gv('f_qvd'));set('qvDownDsl',gv('f_qvdnd'));
   set('hInicioR',gv('f_hir'));set('hFimR',gv('f_hfr'));set('tempoAtraso',gv('f_atr'));
