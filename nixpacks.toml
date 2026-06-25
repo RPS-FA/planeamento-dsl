@@ -1,0 +1,10 @@
+# Nixpacks — força Node 20 para builds reproduzíveis no Railway
+
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.install]
+cmds = ["npm ci --omit=dev || npm install --omit=dev"]
+
+[start]
+cmd = "npm start"

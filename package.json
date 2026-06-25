@@ -1,0 +1,20 @@
+{
+  "name": "planeamento-dsl",
+  "version": "1.0.0",
+  "description": "Planeamento de produção - DSL (Cork Supply / Harv 81 Group)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "compression": "^1.8.1",
+    "express": "^4.22.2",
+    "pg": "^8.22.0"
+  },
+  "private": true,
+  "author": "Cork Supply",
+  "license": "UNLICENSED"
+}
