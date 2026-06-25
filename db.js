@@ -67,7 +67,7 @@ const DEFAULT_SETTINGS = {
   // janelas de turno (HH:MM). Turno 1 = 1 turno (dia). Turno 2 = 2 turnos (até noite).
   turnos: {
     1: { ini: '08:00', fim: '17:00', almocoIni: '12:00', almocoFim: '13:00' },
-    2: { ini: '07:00', fim: '01:00', almocoIni: '12:00', almocoFim: '13:00', jantarIni: '20:30', jantarFim: '21:30' },
+    2: { ini: '17:00', fim: '01:00', jantarIni: '20:30', jantarFim: '21:30' }, // só jantar
   },
   // override de turno/fecho por dia "YYYY-MM-DD"
   turnosPorDia: {},
@@ -160,6 +160,20 @@ async function migrateEscolhaManual() {
       await pool.query(`UPDATE settings SET value=$1, updated_at=NOW() WHERE key='capacidades'`, [JSON.stringify(caps)]);
       console.log('[db] migrateEscolhaManual: capacidade EM adicionada.');
     }
+  }
+}
+
+// Turno 2 (noite) deixa de ter almoço — só jantar. Remove almoço do turno 2
+// nas settings já existentes. Idempotente.
+async function migrateTurno2NoLunch() {
+  if (!pool) return;
+  const r = await pool.query(`SELECT value FROM settings WHERE key='turnos'`);
+  if (!r.rows.length) return;
+  const t = r.rows[0].value || {};
+  if (t['2'] && (t['2'].almocoIni !== undefined || t['2'].almocoFim !== undefined)) {
+    delete t['2'].almocoIni; delete t['2'].almocoFim;
+    await pool.query(`UPDATE settings SET value=$1, updated_at=NOW() WHERE key='turnos'`, [JSON.stringify(t)]);
+    console.log('[db] migrateTurno2NoLunch: almoço removido do turno 2.');
   }
 }
 
@@ -257,7 +271,7 @@ async function resetOps(by) {
 }
 
 module.exports = {
-  isConnected, initSchema, ensureDefaultSettings, seedIfEmpty, cleanupEmptyPool, migrateEscolhaManual,
+  isConnected, initSchema, ensureDefaultSettings, seedIfEmpty, cleanupEmptyPool, migrateEscolhaManual, migrateTurno2NoLunch,
   listOps, getOp, createOp, updateOp, deleteOp,
   getSettings, putSettings, deleteAllOps, resetOps,
   SEED_OPS, DEFAULT_SETTINGS,

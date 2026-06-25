@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Planeamento DSL — Cork Supply</title>
+<title>DSL Planeamento — Cork Supply</title>
 <style>
 :root{
   --c-bg:#f4f7f1; --c-panel:#fff; --c-ink:#21301f; --c-muted:#6b7a66;
@@ -140,7 +140,7 @@ body.producao .planner-only{display:none!important}
 </head>
 <body>
 <header>
-  <div class="brand">Planeamento DSL <small>Cork Supply · Harv 81 Group</small></div>
+  <div class="brand">DSL Planeamento <small>Cork Supply · Harv 81 Group</small></div>
   <div class="spacer"></div>
   <div class="tools">
     <span id="conn" class="conn-chip loading">a ligar…</span>
@@ -645,8 +645,8 @@ function renderCfg(){
       <tr><th>Turno</th><th>Início</th><th>Fim</th><th>Almoço</th><th>Jantar</th></tr>
       <tr><td>1 (dia)</td><td><input id="t1ini" value="${t1.ini||'08:00'}" ${isProd()?'disabled':''}></td><td><input id="t1fim" value="${t1.fim||'17:00'}" ${isProd()?'disabled':''}></td>
           <td><input id="t1ai" value="${t1.almocoIni||'12:00'}" ${isProd()?'disabled':''}>–<input id="t1af" value="${t1.almocoFim||'13:00'}" ${isProd()?'disabled':''}></td><td>—</td></tr>
-      <tr><td>2 (noite)</td><td><input id="t2ini" value="${t2.ini||'07:00'}" ${isProd()?'disabled':''}></td><td><input id="t2fim" value="${t2.fim||'01:00'}" ${isProd()?'disabled':''}></td>
-          <td><input id="t2ai" value="${t2.almocoIni||'12:00'}" ${isProd()?'disabled':''}>–<input id="t2af" value="${t2.almocoFim||'13:00'}" ${isProd()?'disabled':''}></td>
+      <tr><td>2 (noite)</td><td><input id="t2ini" value="${t2.ini||'17:00'}" ${isProd()?'disabled':''}></td><td><input id="t2fim" value="${t2.fim||'01:00'}" ${isProd()?'disabled':''}></td>
+          <td>—</td>
           <td><input id="t2ji" value="${t2.jantarIni||'20:30'}" ${isProd()?'disabled':''}>–<input id="t2jf" value="${t2.jantarFim||'21:30'}" ${isProd()?'disabled':''}></td></tr>
     </table>
     <h2>Geral</h2>
@@ -658,7 +658,7 @@ function renderCfg(){
 async function saveCfg(){
   const caps={};ALL_LINES.forEach(l=>{caps[l]={krH:+gv('cap_'+l)||(l==='EM'?8500:17000),tipo:gv('tipo_'+l)||'DSL'};});
   const turnos={1:{ini:gv('t1ini'),fim:gv('t1fim'),almocoIni:gv('t1ai'),almocoFim:gv('t1af')},
-                2:{ini:gv('t2ini'),fim:gv('t2fim'),almocoIni:gv('t2ai'),almocoFim:gv('t2af'),jantarIni:gv('t2ji'),jantarFim:gv('t2jf')}};
+                2:{ini:gv('t2ini'),fim:gv('t2fim'),jantarIni:gv('t2ji'),jantarFim:gv('t2jf')}}; // T2 só jantar
   const payload={capacidades:caps,turnos:turnos,setupMin:+gv('setupMin')||10};
   try{const s=await Api.putSettings(payload);Object.assign(SETTINGS,s);toast('Configurações guardadas.');render();}
   catch(e){toast('Falha: '+e.message,'err');}
