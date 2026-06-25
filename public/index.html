@@ -82,7 +82,9 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .line-zone.drag-target{outline:2px dashed var(--c-accent);outline-offset:-3px;background:#fbf6ee}
 .line-zone .empty{padding:6px 10px;color:#b7c2b1;font-size:11px;font-style:italic}
 
-table.plan{width:100%;border-collapse:collapse;font-size:11px}
+table.plan{width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed}
+table.plan td.prod-cell{white-space:normal;word-break:break-word;font-size:10px;line-height:1.25}
+table.plan td{overflow:hidden;text-overflow:ellipsis}
 table.plan th{background:#f0f4ec;color:var(--c-muted);font-weight:600;padding:3px 6px;text-align:left;border-bottom:1px solid var(--c-line);white-space:nowrap;font-size:10px}
 table.plan td{padding:3px 6px;border-bottom:1px solid #eef2ea;vertical-align:middle}
 table.plan tr.row:hover{background:#f7faf4}
@@ -420,7 +422,10 @@ function renderBoard(){
       const rows=sched[l];
       let inner=`<div class="lz-head">${lbl} <span class="cap">${tipoOf(l)} · ${(capOf(l)/1000).toFixed(1)} mil/h</span></div>`;
       if(rows.length){
-        inner+=`<table class="plan"><thead><tr>
+        inner+=`<table class="plan"><colgroup>
+          <col style="width:22px"><col style="width:96px"><col style="width:23%"><col style="width:104px"><col style="width:96px"><col style="width:52px">
+          <col style="width:54px"><col style="width:54px"><col style="width:50px"><col style="width:132px"><col style="width:62px"><col style="width:64px"><col style="width:70px"><col style="width:50px"></colgroup>
+          <thead><tr>
           <th></th><th>DSL</th><th>Produto</th><th>Lote</th><th>Cliente</th><th>Qtd</th>
           <th>Início</th><th>Fim</th><th>Dur</th><th>Estado</th><th>Real fim</th><th>On-time</th><th>QV</th><th>Desd.</th></tr></thead><tbody>`;
         rows.forEach(r=>{
@@ -430,7 +435,7 @@ function renderBoard(){
           inner+=`<tr class="row${late?' late':''}${o.desdobrar?' desd':''}${hit?' search-hit':''}" data-id="${o.id}">
             <td><span class="handle planner-only" draggable="true">⠿</span></td>
             <td><b>${o.dsl||''}</b>${l==='EM'?`<br><select class="bt-sel" data-id="${o.id}"><option value="">— B/T? —</option><option value="B" ${o.bancaTapete==='B'?'selected':''}>Banca</option><option value="T" ${o.bancaTapete==='T'?'selected':''}>Tapete</option></select>`:''}</td>
-            <td class="mini" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${(o.produtoEntrada||'').slice(0,28)}</td>
+            <td class="mini prod-cell" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</td>
             <td class="mini">${o.lote||''}</td>
             <td class="mini">${o.cliente||''}</td>
             <td class="tnum">${(+o.qtd||0).toFixed(1)}</td>
