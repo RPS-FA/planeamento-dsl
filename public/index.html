@@ -86,8 +86,9 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .ocard .oc-prod{font-size:10px;color:var(--c-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ocard .oc-meta{font-size:10px;color:var(--c-muted);margin-top:2px;display:flex;gap:5px;flex-wrap:wrap;align-items:center}
 .ocard .oc-time{font-size:10.5px;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums;color:var(--c-ink)}
-.ocard.oc-late{background:#fdecec}.ocard.oc-late .oc-time{color:#b91c1c}
-.ocard.oc-ontime{background:#eafaef}.ocard.oc-ontime .oc-time{color:#15803d}
+.ocard .oc-real{font-size:10px;font-weight:600;font-variant-numeric:tabular-nums;color:#6b7a66;margin-top:1px}
+.ocard.oc-late{background:#fdecec}.ocard.oc-late .oc-real{color:#b91c1c}
+.ocard.oc-ontime{background:#eafaef}.ocard.oc-ontime .oc-real{color:#15803d}
 .ocard.search-hit{outline:2px solid #00e000;box-shadow:0 0 0 3px #b6ff7a}
 .ocard.oc-urgent{border:1px solid #e0218a;box-shadow:0 0 0 2px #fad1e6}
 .card .badge.urg,.ocard .badge.urg{background:#fde8e8;color:#b91c1c;font-weight:700}
@@ -517,7 +518,8 @@ function ocardHTML(l,r,searching){
     <div class="oc-top"><b>${o.dsl||o.lote||'—'}</b><span class="oc-q">${Math.round((+r.qtdSeg||0)*1000)} un</span></div>
     <div class="oc-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div>
     <div class="oc-meta">${o.cliente||''}${o.calibre?' · '+o.calibre:''}${o.qualidades?' · '+o.qualidades:''} ${urg}${desd}${cont}</div>
-    <div class="oc-time">⏱ ${min2hm(r.startMin%1440)} → ${min2hm(r.endMin%1440)}${o.hFimR?` · real ${o.hFimR}`:''}</div>
+    <div class="oc-time">⏱ Plan ${min2hm(r.startMin%1440)} → ${min2hm(r.endMin%1440)}</div>
+    ${(isLast&&(o.hInicioR||o.hFimR))?`<div class="oc-real">▶ Real ${o.hInicioR||'--:--'} → ${o.hFimR||'--:--'}</div>`:''}
     ${l==='EM'?`<select class="bt-sel" data-id="${o.id}"><option value="">— B/T? —</option><option value="B" ${o.bancaTapete==='B'?'selected':''}>Banca</option><option value="T" ${o.bancaTapete==='T'?'selected':''}>Tapete</option></select>`:''}
   </div>`;
 }
