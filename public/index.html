@@ -62,7 +62,9 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .mg-date.fds{background:#efe7d6;color:#6b5836;border-color:#ddccae}
 .mg-cell{border:1px solid var(--c-line);border-radius:6px;background:#fafdf8;padding:5px;display:flex;flex-direction:column;gap:5px;min-width:0}
 .mg-cell.drag-target{outline:2px dashed var(--c-accent);outline-offset:-2px;background:#fbf6ee}
-.mg-cap{font-size:9.5px;font-weight:600;color:#3a5a82;text-align:right}
+.mg-cellhead{display:flex;justify-content:space-between;align-items:center;gap:4px}
+.mg-cellhead .turno-sel{font-size:9.5px;border:1px solid var(--c-line);border-radius:4px;padding:0 2px;background:#fff}
+.mg-cap{font-size:9.5px;font-weight:600;color:#3a5a82;white-space:nowrap}
 .mg-cap.low{color:#b91c1c}
 .mgrid .ocard{cursor:grab}
 .mcol{flex:0 0 250px;width:250px;min-width:250px;max-width:250px;background:#fff;border:1px solid var(--c-line);border-radius:var(--r);box-shadow:var(--sh);display:flex;flex-direction:column;max-height:calc(100vh - 210px)}
@@ -353,7 +355,9 @@ function dayWindowFor(l,d){
   if(lineTurnoForDate(l,d)===0)return null;   // linha fechada nesse dia
   const ov=dayOverride(d);const dow=(d.getDay()+6)%7;let ini,fim,breaks;
   if(dow===5){ini=hm2min(SETTINGS.sabadoIni||'07:00');fim=hm2min(SETTINGS.sabadoFim||'11:00');breaks=[];}
-  else{const tno=lineTurnoForDate(l,d);const t=turnoWindow(tno);ini=hm2min(t.ini);fim=hm2min(t.fim);if(fim<=ini)fim+=1440;breaks=breaksOf(tno);}
+  else{const tno=lineTurnoForDate(l,d);const t1=turnoWindow(1);
+    if(tno>=2){const t2=turnoWindow(2);ini=hm2min(t1.ini);fim=hm2min(t2.fim);if(fim<=ini)fim+=1440;breaks=breaksOf(1).concat(breaksOf(2));}
+    else{ini=hm2min(t1.ini);fim=hm2min(t1.fim);if(fim<=ini)fim+=1440;breaks=breaksOf(1);}}
   if(ov&&ov.ini)ini=hm2min(ov.ini);
   if(ov&&ov.fim){fim=hm2min(ov.fim);if(fim<=ini)fim+=1440;}
   return {ini,fim,breaks};
@@ -551,12 +555,14 @@ function renderBoard(){
     board.lines.forEach(l=>{try{
       const segs=segLD[l][dk]||[];
       const cell=document.createElement('div');cell.className='mg-cell';cell.dataset.linha=l;cell.dataset.date=dk;
+      const tno=lineTurnoForDate(l,d);
       const win=dayWindowFor(l,d);const usableMin=win?workCapacity(win.ini,win.breaks,win.fim):0;const capU=Math.round(usableMin/60*capOf(l));
       const usedU=Math.round(segs.reduce((a,s)=>a+(+s.qtdSeg||0),0)*1000);const freeU=Math.max(0,capU-usedU);const low=capU>0&&freeU<=capU*0.1;
-      let html=`<div class="mg-cap${low?' low':''}">livre ${freeU} / ${capU} un</div>`;
+      let html=`<div class="mg-cellhead"><select class="turno-sel" data-date="${dk}" data-linha="${l}"><option value="1" ${tno===1?'selected':''}>1 turno</option><option value="2" ${tno===2?'selected':''}>2 turnos</option></select><span class="mg-cap${low?' low':''}">livre ${freeU}/${capU}</span></div>`;
       segs.forEach(r=>html+=ocardHTML(l,r,searching));
       cell.innerHTML=html;
       grid.appendChild(cell);bindColZone(cell);bindCards(cell);
+      const ts=cell.querySelector('.turno-sel');if(ts)ts.addEventListener('change',()=>changeTurnoDia(ts.dataset.date,ts.dataset.linha,+ts.value));
     }catch(e){console.error('renderBoard célula',l,dk,e);}});
   });
   el.appendChild(grid);
