@@ -50,6 +50,35 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .pool h3{margin:4px 6px 8px;font-size:12px;color:var(--c-muted);text-transform:uppercase;letter-spacing:.5px}
 .pool .pool-sub{font-size:10.5px;color:var(--c-muted);margin:10px 6px 4px;border-top:1px dashed var(--c-line);padding-top:6px}
 .board{overflow:auto;padding:10px 12px}
+.cols{display:flex;gap:10px;align-items:flex-start}
+.mcol{flex:0 0 250px;background:#fff;border:1px solid var(--c-line);border-radius:var(--r);box-shadow:var(--sh);display:flex;flex-direction:column;max-height:calc(100vh - 210px)}
+.mcol-head{padding:7px 10px;background:var(--c-primary);color:#fff;font-weight:700;font-size:12.5px;border-radius:var(--r) var(--r) 0 0;display:flex;justify-content:space-between;align-items:center}
+.mcol-head .mcol-n{font-weight:400;font-size:10.5px;background:rgba(255,255,255,.2);border-radius:10px;padding:0 7px}
+.mcol.line-hl .mcol-head{background:#2f5d86}
+.mcol.line-em .mcol-head{background:#5b2a86}
+.mcol-body{padding:6px;overflow:auto;display:flex;flex-direction:column;gap:6px}
+.mcol.drag-target{outline:2px dashed var(--c-accent);outline-offset:-2px}
+.day-sep{font-size:10px;font-weight:700;color:var(--c-primary-dark);background:#eef3ea;border-radius:4px;padding:2px 6px;margin-top:2px}
+.ocard{background:#fff;border:1px solid var(--c-line);border-left:5px solid #ccc;border-radius:6px;padding:6px 8px;cursor:grab;box-shadow:var(--sh)}
+.ocard.dragging{opacity:.4}
+.ocard .oc-top{display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+.ocard .oc-top b{font-size:12px}
+.ocard .oc-q{font-size:10.5px;color:var(--c-primary-dark);font-weight:600;white-space:nowrap}
+.ocard .oc-prod{font-size:10px;color:var(--c-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ocard .oc-meta{font-size:10px;color:var(--c-muted);margin-top:2px;display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+.ocard .oc-time{font-size:10.5px;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums;color:var(--c-ink)}
+.ocard.oc-late{background:#fdecec}.ocard.oc-late .oc-time{color:#b91c1c}
+.ocard.oc-ontime{background:#eafaef}.ocard.oc-ontime .oc-time{color:#15803d}
+.ocard.search-hit{outline:2px solid #e0a008;box-shadow:0 0 0 3px #ffe9a8}
+.ocard[data-est="Aberto"]{border-left-color:#cfcfcf}
+.ocard[data-est="Liberado"]{border-left-color:#00B050}
+.ocard[data-est="Em Processo"]{border-left-color:#FFA500}
+.ocard[data-est="Em Processo - Desdobrar"]{border-left-color:#ED7D31}
+.ocard[data-est="Terminado"]{border-left-color:#E0218A}
+.ocard[data-est="Concluído Planeamento"]{border-left-color:#92D050}
+.ocard .bt-sel{margin-top:4px;font-size:10px;width:100%}
+.drop-above-c{box-shadow:inset 0 3px 0 var(--c-accent)}
+.drop-below-c{box-shadow:inset 0 -3px 0 var(--c-accent)}
 
 .card{background:#fff;border:1px solid var(--c-line);border-left:5px solid var(--est-plan);border-radius:6px;padding:6px 8px;margin-bottom:6px;cursor:grab;box-shadow:var(--sh)}
 .card:active{cursor:grabbing}
@@ -224,12 +253,14 @@ const PLANEADOR_PW='Cork2026!';
 
 const ALL_LINES=['1','2','3','4','5','6','7','8','EM']; // EE-DSL 1..8 + Escolha Manual
 const BOARDS={
-  plan:{label:'Plano Dia · Todas as linhas', lines:ALL_LINES},
+  eedsl:{label:'EE - DSL', lines:['1','2','3','6','7','8']},
+  dsl:{label:'DSL', lines:['4','5']},
+  em:{label:'Escolha Manual', lines:['EM']},
 };
 
 let DATA=[];
 let SETTINGS={};
-let ACTIVE_TAB='plan';
+let ACTIVE_TAB='eedsl';
 let ANCHOR=null;
 let PROFILE=localStorage.getItem('dsl_profile')||'producao';
 let editingId=null;
@@ -368,10 +399,10 @@ function onTimeInfo(op,endPlanMin){
 /* ---------------- TABS ---------------- */
 function renderTabs(){
   const el=document.getElementById('tabs');el.innerHTML='';
-  const alloc=DATA.filter(o=>ALL_LINES.includes(o.linha)).length;
   Object.entries(BOARDS).forEach(([k,b])=>{
+    const n=DATA.filter(o=>b.lines.includes(o.linha)).length;
     const t=document.createElement('div');t.className='tab'+(ACTIVE_TAB===k?' active':'');
-    t.innerHTML=b.label+` <span class="cnt">${alloc}</span>`;
+    t.innerHTML=b.label+` <span class="cnt">${n}</span>`;
     t.onclick=()=>{ACTIVE_TAB=k;render();};el.appendChild(t);
   });
   const tc=document.createElement('div');tc.className='tab'+(ACTIVE_TAB==='cfg'?' active':'');
@@ -452,74 +483,53 @@ function renderSearchBar(el){
 function renderBoard(){
   const el=document.getElementById('board');el.innerHTML='';
   renderSearchBar(el);
-  const board=BOARDS[ACTIVE_TAB];
+  const board=BOARDS[ACTIVE_TAB];if(!board)return;
   const searching=!!SEARCH.v.trim();
   const year=ANCHOR.getFullYear(),month=ANCHOR.getMonth();
-  const nDays=new Date(year,month+1,0).getDate();
-  const lineSegs={};board.lines.forEach(l=>{try{lineSegs[l]=scheduleLine(l);}catch(e){console.error('scheduleLine',l,e);lineSegs[l]={};}});   // escalona toda a linha 1x
+  const today=new Date();
+  const defDate=(today.getFullYear()===year&&today.getMonth()===month)?today:new Date(year,month,1);
+  const cols=document.createElement('div');cols.className='cols';
   board.lines.forEach(l=>{try{
-    const lblock=document.createElement('div');
-    lblock.className='line-block'+((l==='4'||l==='5')?' line-hl':'')+(l==='EM'?' line-em':'');
-    const lhead=document.createElement('div');lhead.className='line-block-head';lhead.textContent=lineLabel(l);
-    lblock.appendChild(lhead);
-    // Tabela contínua de toda a linha no mês (sem cabeçalhos de dia)
-    const segsMap=lineSegs[l];const allSegs=[];
-    Object.keys(segsMap).forEach(dk=>segsMap[dk].forEach(s=>allSegs.push(s)));
+    let segs={};try{segs=scheduleLine(l);}catch(e){console.error('scheduleLine',l,e);}
+    const allSegs=[];Object.keys(segs).forEach(dk=>segs[dk].forEach(s=>allSegs.push(s)));
     const monthSegs=allSegs.filter(s=>s.date.getFullYear()===year&&s.date.getMonth()===month)
                            .sort((a,b)=>a.date-b.date||a.startMin-b.startMin);
-    const today=new Date();
-    const defDate=(today.getFullYear()===year&&today.getMonth()===month)?today:new Date(year,month,1);
-    const zone=document.createElement('div');zone.className='line-zone';zone.dataset.linha=l;zone.dataset.date=dateKey(defDate);
+    const col=document.createElement('div');col.className='mcol'+((l==='4'||l==='5')?' line-hl':'')+(l==='EM'?' line-em':'');
+    col.dataset.linha=l;col.dataset.date=dateKey(defDate);
+    let html=`<div class="mcol-head">${lineLabel(l)} <span class="mcol-n">${monthSegs.length}</span></div><div class="mcol-body">`;
     if(monthSegs.length){
-      let inner=`<table class="plan"><colgroup>
-        <col style="width:22px"><col style="width:118px"><col style="width:74px"><col style="width:86px"><col style="width:17%"><col style="width:92px"><col style="width:84px"><col style="width:60px">
-        <col style="width:50px"><col style="width:50px"><col style="width:46px"><col style="width:50px"><col style="width:56px"><col style="width:56px"><col style="width:54px"><col style="width:44px"></colgroup>
-        <thead><tr>
-        <th></th><th>Estado</th><th>Data</th><th>DSL</th><th>Produto</th><th>Lote</th><th>Cliente</th><th>Qtd</th>
-        <th>Início</th><th>Fim</th><th>Dur</th><th>Atraso</th><th>Início real</th><th>Real fim</th><th>QV</th><th>Desd.</th></tr></thead><tbody>`;
       let lastDk=null;
       monthSegs.forEach(r=>{
-        const o=r.op;const isLast=r.partIdx===r.total;const hit=searching&&matchesSearch(o);
-        const totalDurH=durHoras(o);const dk=dateKey(r.date);const dia=diaIdxOf(r.date);
-        const newDay=dk!==lastDk;lastDk=dk;
-        const contFlag=r.multiDay?`<span class="contflag" title="Transita entre dias">${r.partIdx>1?'↳ ':''}parte ${r.partIdx}/${r.total}${r.partIdx<r.total?` → passa ${Math.round((+r.carriedNext||0)*1000)} un`:''}</span>`:'';
-        inner+=`<tr class="row${o.desdobrar?' desd':''}${hit?' search-hit':''}${r.multiDay?' cont':''}${newDay?' day-start':''}" data-id="${o.id}">
-          <td><span class="handle planner-only" draggable="true">⠿</span></td>
-          <td><select class="est-sel" data-est="${o.estado}" data-id="${o.id}">${ESTADOS.map(e=>`<option ${e===o.estado?'selected':''}>${e}</option>`).join('')}</select></td>
-          <td class="mini${newDay?' dnew':''}">${newDay?`${DIAS_PT[dia]} ${pad(r.date.getDate())}/${pad(r.date.getMonth()+1)}`:''}</td>
-          <td><b>${o.dsl||''}</b>${contFlag}${l==='EM'?`<br><select class="bt-sel" data-id="${o.id}"><option value="">— B/T? —</option><option value="B" ${o.bancaTapete==='B'?'selected':''}>Banca</option><option value="T" ${o.bancaTapete==='T'?'selected':''}>Tapete</option></select>`:''}</td>
-          <td class="mini prod-cell" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</td>
-          <td class="mini">${o.lote||''}</td>
-          <td class="mini">${o.cliente||''}</td>
-          <td class="tnum">${Math.round((+r.qtdSeg||0)*1000)}</td>
-          <td class="tnum">${min2hm(r.startMin%(24*60))}</td>
-          <td class="tnum">${min2hm(r.endMin%(24*60))}</td>
-          <td class="tnum mini">${totalDurH.toFixed(2)}h</td>
-          <td class="tnum mini" style="color:${o.tempoAtraso?'#b91c1c':'#bbb'}">${o.tempoAtraso||'—'}</td>
-          <td class="tnum mini">${isLast?(o.hInicioR||''):''}</td>
-          <td class="tnum mini">${isLast?(o.hFimR||''):''}</td>
-          <td class="mini">${o.qvDsl||o.qvPlan||''}</td>
-          <td class="mini">${o.desdobrar?Math.round((+o.qtdDesdobramento||0)*1000):''}</td>
-        </tr>`;
+        const o=r.op;const isLast=r.partIdx===r.total;const ot=isLast?onTimeInfo(o,r.endMin):null;
+        const lateCls=ot==null?'':(ot>10?' oc-late':' oc-ontime');
+        const hit=searching&&matchesSearch(o)?' search-hit':'';
+        const dk=dateKey(r.date);const dia=diaIdxOf(r.date);const newDay=dk!==lastDk;lastDk=dk;
+        const desd=o.desdobrar?'<span class="badge desd">DESD</span>':'';
+        const cont=r.multiDay?`<span class="badge" style="background:#ffe3c2;color:#7a3b00">parte ${r.partIdx}/${r.total}${r.partIdx<r.total?` → ${Math.round((+r.carriedNext||0)*1000)}`:''}</span>`:'';
+        if(newDay)html+=`<div class="day-sep">${DIAS_PT[dia]} ${pad(r.date.getDate())}/${pad(r.date.getMonth()+1)}</div>`;
+        html+=`<div class="ocard${lateCls}${hit}" draggable="true" data-id="${o.id}" data-est="${o.estado}">
+          <div class="oc-top"><b>${o.dsl||o.lote||'—'}</b><span class="oc-q">${Math.round((+r.qtdSeg||0)*1000)} un</span></div>
+          <div class="oc-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div>
+          <div class="oc-meta">${o.cliente||''}${o.calibre?' · '+o.calibre:''}${o.qualidades?' · '+o.qualidades:''} ${desd}${cont}</div>
+          <div class="oc-time">⏱ ${min2hm(r.startMin%1440)} → ${min2hm(r.endMin%1440)}${o.hFimR?` · real ${o.hFimR}`:''}</div>
+          ${l==='EM'?`<select class="bt-sel" data-id="${o.id}"><option value="">— B/T? —</option><option value="B" ${o.bancaTapete==='B'?'selected':''}>Banca</option><option value="T" ${o.bancaTapete==='T'?'selected':''}>Tapete</option></select>`:''}
+        </div>`;
       });
-      inner+='</tbody></table>';
-      zone.innerHTML=inner;
-    }else{
-      zone.innerHTML=`<div class="empty">— arrastar ordem para ${lineLabel(l)} —</div>`;
-    }
-    bindZone(zone);
-    zone.querySelectorAll('tr.row').forEach(tr=>{
-      const h=tr.querySelector('.handle');
-      if(h)h.addEventListener('dragstart',e=>{dragOp=DATA.find(x=>x.id==tr.dataset.id);e.dataTransfer.effectAllowed='move';});
-      tr.addEventListener('click',e=>{if(e.target.classList.contains('est-sel')||e.target.classList.contains('bt-sel')||e.target.classList.contains('handle'))return;openModal(+tr.dataset.id);});
-      const sel=tr.querySelector('.est-sel');sel.addEventListener('change',()=>changeEstado(+sel.dataset.id,sel.value));
-      const bt=tr.querySelector('.bt-sel');if(bt)bt.addEventListener('change',()=>changeBancaTapete(+bt.dataset.id,bt.value));
-      bindRowReorder(tr);
+    }else{html+=`<div class="empty">— arrastar ordem para aqui —</div>`;}
+    html+=`</div>`;
+    col.innerHTML=html;
+    bindColZone(col);
+    col.querySelectorAll('.ocard').forEach(c=>{
+      c.addEventListener('dragstart',e=>{dragOp=DATA.find(x=>x.id==c.dataset.id);c.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
+      c.addEventListener('dragend',()=>c.classList.remove('dragging'));
+      c.addEventListener('click',e=>{if(e.target.classList.contains('bt-sel'))return;openModal(+c.dataset.id);});
+      const bt=c.querySelector('.bt-sel');if(bt)bt.addEventListener('change',ev=>{ev.stopPropagation();changeBancaTapete(+bt.dataset.id,bt.value);});
+      bindCardReorder(c);
     });
-    lblock.appendChild(zone);
-    el.appendChild(lblock);
-  }catch(e){console.error('renderBoard linha',l,e);const b=document.createElement('div');b.className='line-block';b.innerHTML=`<div class="line-block-head">${lineLabel(l)}</div><div class="empty" style="padding:8px;color:#b91c1c">Erro a desenhar esta linha (ver consola).</div>`;el.appendChild(b);}
+    cols.appendChild(col);
+  }catch(e){console.error('renderBoard coluna',l,e);}
   });
+  el.appendChild(cols);
 }
 
 /* ---------------- drag & drop ---------------- */
@@ -548,6 +558,25 @@ function bindRowReorder(tr){
   });
 }
 
+function bindColZone(col){
+  col.addEventListener('dragover',e=>{e.preventDefault();col.classList.add('drag-target');});
+  col.addEventListener('dragleave',()=>col.classList.remove('drag-target'));
+  col.addEventListener('drop',e=>{
+    e.preventDefault();col.classList.remove('drag-target');
+    if(!dragOp||isProd())return;
+    if(e.target.closest('.ocard'))return;   // tratado pelo reorder do cartão
+    moveToDate(dragOp,col.dataset.linha,col.dataset.date);
+  });
+}
+function bindCardReorder(c){
+  c.addEventListener('dragover',e=>{if(!dragOp||isProd())return;e.preventDefault();const r=c.getBoundingClientRect();const below=(e.clientY-r.top)>r.height/2;c.classList.toggle('drop-below-c',below);c.classList.toggle('drop-above-c',!below);});
+  c.addEventListener('dragleave',()=>c.classList.remove('drop-below-c','drop-above-c'));
+  c.addEventListener('drop',e=>{
+    e.preventDefault();const below=c.classList.contains('drop-below-c');c.classList.remove('drop-below-c','drop-above-c');
+    if(!dragOp||isProd())return;const target=DATA.find(x=>x.id==c.dataset.id);if(!target||target.id===dragOp.id)return;
+    moveRelative(dragOp,target,below?'below':'above');
+  });
+}
 function reindex(linha,wk,dia){
   DATA.filter(o=>o.linha===linha&&o.weekKey===wk&&(+o.diaIdx||0)===dia)
       .sort((a,b)=>(+a.sortIdx||0)-(+b.sortIdx||0))
@@ -732,7 +761,7 @@ async function saveCfg(){
 /* ---------------- Export Excel ---------------- */
 function exportExcel(){
   clearSchedCache();
-  const board=BOARDS[ACTIVE_TAB]||BOARDS.plan;const rows=[];
+  const board=BOARDS[ACTIVE_TAB]||BOARDS.eedsl;const rows=[];
   const year=ANCHOR.getFullYear(),month=ANCHOR.getMonth();
   board.lines.forEach(l=>{const segs=scheduleLine(l);
     Object.keys(segs).forEach(dk=>{const d=new Date(dk+'T00:00:00');if(d.getFullYear()!==year||d.getMonth()!==month)return;
