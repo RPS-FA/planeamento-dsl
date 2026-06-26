@@ -74,6 +74,8 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .ocard.oc-late{background:#fdecec}.ocard.oc-late .oc-time{color:#b91c1c}
 .ocard.oc-ontime{background:#eafaef}.ocard.oc-ontime .oc-time{color:#15803d}
 .ocard.search-hit{outline:2px solid #e0a008;box-shadow:0 0 0 3px #ffe9a8}
+.ocard.oc-urgent{border:1px solid #e0218a;box-shadow:0 0 0 2px #fad1e6}
+.card .badge.urg,.ocard .badge.urg{background:#fde8e8;color:#b91c1c;font-weight:700}
 .ocard[data-est="Aberto"]{border-left-color:#cfcfcf}
 .ocard[data-est="Liberado"]{border-left-color:#00B050}
 .ocard[data-est="Em Processo"]{border-left-color:#FFA500}
@@ -430,7 +432,7 @@ function blankVal(x){x=String(x==null?'':x).trim();return (!x||x==='0'||/^#[A-Z0
 function isRealOrder(o){return !!(blankVal(o.dsl)||blankVal(o.lote)||blankVal(o.produtoEntrada))||(+o.qtd>0);}
 function cardHTML(o,hit){
   const desd=o.desdobrar?'<span class="badge desd">DESD</span>':'';
-  const urg=/urg|encomenda/i.test(o.obs||'')?'<span class="badge urg">URG</span>':'';
+  const urg=o.urgente?'<span class="badge urg">URG</span>':'';
   return `<div class="card${hit?' search-hit':''}" draggable="true" data-id="${o.id}" data-est="${o.estado}">
     <div class="c-top"><span class="c-dsl">${o.dsl||o.lote||'—'}</span><span class="c-qtd">${Math.round((+o.qtd||0)*1000)} un</span></div>
     <div class="c-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div>
@@ -514,6 +516,7 @@ function renderBoard(){
         const hit=searching&&matchesSearch(o)?' search-hit':'';
         const dk=dateKey(r.date);const dia=diaIdxOf(r.date);const newDay=dk!==lastDk;lastDk=dk;
         const desd=o.desdobrar?'<span class="badge desd">DESD</span>':'';
+        const urg=o.urgente?'<span class="badge urg">URG</span>':'';
         const cont=r.multiDay?`<span class="badge" style="background:#ffe3c2;color:#7a3b00">parte ${r.partIdx}/${r.total}${r.partIdx<r.total?` → ${Math.round((+r.carriedNext||0)*1000)}`:''}</span>`:'';
         if(newDay){
           const win=dayWindowFor(l,r.date);
@@ -523,10 +526,10 @@ function renderBoard(){
           const low=capU>0&&freeU<=capU*0.1;
           html+=`<div class="day-sep">${DIAS_PT[dia]} ${pad(r.date.getDate())}/${pad(r.date.getMonth()+1)}<span class="cap-info${low?' low':''}">livre ${freeU} / ${capU} un</span></div>`;
         }
-        html+=`<div class="ocard${lateCls}${hit}" draggable="true" data-id="${o.id}" data-est="${o.estado}">
+        html+=`<div class="ocard${lateCls}${hit}${o.urgente?' oc-urgent':''}" draggable="true" data-id="${o.id}" data-est="${o.estado}">
           <div class="oc-top"><b>${o.dsl||o.lote||'—'}</b><span class="oc-q">${Math.round((+r.qtdSeg||0)*1000)} un</span></div>
           <div class="oc-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div>
-          <div class="oc-meta">${o.cliente||''}${o.calibre?' · '+o.calibre:''}${o.qualidades?' · '+o.qualidades:''} ${desd}${cont}</div>
+          <div class="oc-meta">${o.cliente||''}${o.calibre?' · '+o.calibre:''}${o.qualidades?' · '+o.qualidades:''} ${urg}${desd}${cont}</div>
           <div class="oc-time">⏱ ${min2hm(r.startMin%1440)} → ${min2hm(r.endMin%1440)}${o.hFimR?` · real ${o.hFimR}`:''}</div>
           ${l==='EM'?`<select class="bt-sel" data-id="${o.id}"><option value="">— B/T? —</option><option value="B" ${o.bancaTapete==='B'?'selected':''}>Banca</option><option value="T" ${o.bancaTapete==='T'?'selected':''}>Tapete</option></select>`:''}
         </div>`;
@@ -667,6 +670,7 @@ function openModal(id){
      ${fld('Qualidades','f_qual',o.qualidades,{prodLock:true})}
      <div class="fld"><label>Qtd (unidades)</label><input id="f_qtd" type="number" step="1" value="${Math.round((+o.qtd||0)*1000)}" ${isProd()?'disabled':''}></div>
      <div class="fld"><label>Qtd objetivo</label><input id="f_qtdnec" type="number" step="1" value="${Math.round((+o.qtdNecessaria||0)*1000)}" ${isProd()?'disabled':''}></div>
+     ${fld('Urgente?','f_urg',o.urgente,{type:'check'})}
      ${fld('Início manual (forçar)','f_hini',o.hInicioP,{type:'time',prodLock:true})}
      ${fld('Observações','f_obs',o.obs,{type:'textarea'})}
    </div>
@@ -702,7 +706,7 @@ function openModal(id){
   if(pe&&!isProd()){pe.addEventListener('input',()=>{const v=pe.value;const c=document.getElementById('f_cal');const q=document.getElementById('f_qual');if(c)c.value=calibreFrom(v);if(q)q.value=qualidadeFrom(v);});}
   document.getElementById('modalBg').classList.add('show');
 }
-function blankOp(){return{dsl:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Aberto',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',bancaTapete:'',weekKey:'',diaIdx:0,sortIdx:0};}
+function blankOp(){return{dsl:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Aberto',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',bancaTapete:'',urgente:false,weekKey:'',diaIdx:0,sortIdx:0};}
 function gv(id){const e=document.getElementById(id);return e?e.value:'';}
 async function saveModal(){
   // Desdobramento obrigatório quando Desdobra = Sim
@@ -722,7 +726,7 @@ async function saveModal(){
     set('qvUpPlan',gv('f_qvup'));set('qvPlan',gv('f_qv'));set('qvDownPlan',gv('f_qvdn'));set('proximoPasso',gv('f_prox'));
     // Linha/Turno/Estado/Início geridos no quadro (drag-drop) — não tocados aqui.
   }
-  set('lote',gv('f_lote'));
+  set('lote',gv('f_lote'));set('urgente',gv('f_urg')==='true');
   set('qtdDesdobramento',(+gv('f_qdesd')||0)/1000);set('motivo2aPassagem',gv('f_mot'));set('causaRaiz2a',gv('f_causa'));
   set('qvUpDsl',gv('f_qvupd'));set('qvDsl',gv('f_qvd'));set('qvDownDsl',gv('f_qvdnd'));
   set('hInicioR',gv('f_hir'));set('hFimR',gv('f_hfr'));set('tempoAtraso',gv('f_atr'));
