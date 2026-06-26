@@ -456,8 +456,8 @@ function renderBoard(){
   const searching=!!SEARCH.v.trim();
   const year=ANCHOR.getFullYear(),month=ANCHOR.getMonth();
   const nDays=new Date(year,month+1,0).getDate();
-  const lineSegs={};board.lines.forEach(l=>lineSegs[l]=scheduleLine(l));   // escalona toda a linha 1x
-  board.lines.forEach(l=>{
+  const lineSegs={};board.lines.forEach(l=>{try{lineSegs[l]=scheduleLine(l);}catch(e){console.error('scheduleLine',l,e);lineSegs[l]={};}});   // escalona toda a linha 1x
+  board.lines.forEach(l=>{try{
     const lblock=document.createElement('div');
     lblock.className='line-block'+((l==='4'||l==='5')?' line-hl':'')+(l==='EM'?' line-em':'');
     const lhead=document.createElement('div');lhead.className='line-block-head';lhead.textContent=lineLabel(l);
@@ -517,6 +517,8 @@ function renderBoard(){
       bindRowReorder(tr);
     });
     lblock.appendChild(zone);
+    el.appendChild(lblock);
+  }catch(e){console.error('renderBoard linha',l,e);const b=document.createElement('div');b.className='line-block';b.innerHTML=`<div class="line-block-head">${lineLabel(l)}</div><div class="empty" style="padding:8px;color:#b91c1c">Erro a desenhar esta linha (ver consola).</div>`;el.appendChild(b);}
   });
 }
 
