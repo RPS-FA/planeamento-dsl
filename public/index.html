@@ -116,6 +116,8 @@ table.plan tr.search-hit td:first-child{box-shadow:inset 4px 0 0 #e0a008}
 .bt-sel{font-size:9.5px;margin-top:2px;border:1px solid var(--c-line);border-radius:4px;padding:1px 2px;background:#f3eee4}
 .contflag{display:inline-block;margin-left:5px;font-size:9px;font-weight:600;color:#7a3b00;background:#ffe3c2;border-radius:4px;padding:0 5px}
 table.plan tr.cont td{background:#fff8ef}
+table.plan tr.day-start td{border-top:2px solid #c4d2bb}
+table.plan td.dnew{font-weight:700;color:var(--c-primary-dark)}
 .handle{cursor:grab;color:#bcc7b6;user-select:none;padding:0 2px}
 .drop-above{box-shadow:inset 0 2px 0 var(--c-accent)}
 .drop-below{box-shadow:inset 0 -2px 0 var(--c-accent)}
@@ -460,80 +462,61 @@ function renderBoard(){
     lblock.className='line-block'+((l==='4'||l==='5')?' line-hl':'')+(l==='EM'?' line-em':'');
     const lhead=document.createElement('div');lhead.className='line-block-head';lhead.textContent=lineLabel(l);
     lblock.appendChild(lhead);
-    let anyDay=false;
-    for(let day=1;day<=nDays;day++){
-      const d=new Date(year,month,day);
-      const dia=diaIdxOf(d);const dk=dateKey(d);
-      const dayClosed=isDayClosed(d);
-      const tno=lineTurnoForDate(l,d);const lineClosed=tno===0;
-      const rows=lineSegs[l][dk]||[];
-      if((dayClosed||lineClosed)&&!rows.length)continue;  // esconder dias fechados/sem ordens
-      anyDay=true;
-      const zone=document.createElement('div');zone.className='line-zone'+(lineClosed?' lz-closed':'')+(dia>=5?' fds-zone':'');zone.dataset.linha=l;zone.dataset.date=dk;
-      const lbl=`${DIAS_PT[dia]} ${pad(d.getDate())}/${pad(d.getMonth()+1)}`;
-      let inner=`<div class="lz-head"><span class="d-date">${lbl}</span> `;
-      if(dayClosed){inner+=`<span class="cap" style="color:#9aa39a">(dia fechado)</span>`;}
-      else if(lineClosed){inner+=`<span class="cap" style="color:#b91c1c;font-weight:600">fechada</span>`;}
-      else{inner+=`<select class="turno-sel" data-date="${dk}" data-linha="${l}"><option value="1" ${tno===1?'selected':''}>1 turno</option><option value="2" ${tno===2?'selected':''}>2 turnos</option></select>`;}
-      inner+=`<span class="lz-right">`;
-      if(!dayClosed){inner+=`<button class="lz-btn planner-only" data-date="${dk}" data-linha="${l}" data-act="${lineClosed?'open':'close'}">${lineClosed?'Reabrir':'Fechar'}</button>`;}
-      inner+=`</span></div>`;
-      if(lineClosed){
-        inner+=`<div class="empty">Linha fechada neste dia — ordens transitam para o dia útil seguinte.</div>`;
-      }else if(rows.length){
-        inner+=`<table class="plan"><colgroup>
-          <col style="width:22px"><col style="width:120px"><col style="width:90px"><col style="width:19%"><col style="width:96px"><col style="width:88px"><col style="width:62px">
-          <col style="width:52px"><col style="width:52px"><col style="width:48px"><col style="width:52px"><col style="width:58px"><col style="width:58px"><col style="width:56px"><col style="width:46px"></colgroup>
-          <thead><tr>
-          <th></th><th>Estado</th><th>DSL</th><th>Produto</th><th>Lote</th><th>Cliente</th><th>Qtd</th>
-          <th>Início</th><th>Fim</th><th>Dur</th><th>Atraso</th><th>Início real</th><th>Real fim</th><th>QV</th><th>Desd.</th></tr></thead><tbody>`;
-        rows.forEach(r=>{
-          const o=r.op;const isLast=r.partIdx===r.total;
-          const hit=searching&&matchesSearch(o);
-          const totalDurH=durHoras(o);
-          const contFlag=r.multiDay?`<span class="contflag" title="Transita entre dias">${r.partIdx>1?'↳ ':''}parte ${r.partIdx}/${r.total}${r.partIdx<r.total?` → passa ${Math.round((+r.carriedNext||0)*1000)} un`:''}</span>`:'';
-          inner+=`<tr class="row${o.desdobrar?' desd':''}${hit?' search-hit':''}${r.multiDay?' cont':''}" data-id="${o.id}">
-            <td><span class="handle planner-only" draggable="true">⠿</span></td>
-            <td><select class="est-sel" data-est="${o.estado}" data-id="${o.id}">${ESTADOS.map(e=>`<option ${e===o.estado?'selected':''}>${e}</option>`).join('')}</select></td>
-            <td><b>${o.dsl||''}</b>${contFlag}${l==='EM'?`<br><select class="bt-sel" data-id="${o.id}"><option value="">— B/T? —</option><option value="B" ${o.bancaTapete==='B'?'selected':''}>Banca</option><option value="T" ${o.bancaTapete==='T'?'selected':''}>Tapete</option></select>`:''}</td>
-            <td class="mini prod-cell" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</td>
-            <td class="mini">${o.lote||''}</td>
-            <td class="mini">${o.cliente||''}</td>
-            <td class="tnum">${Math.round((+r.qtdSeg||0)*1000)}</td>
-            <td class="tnum">${min2hm(r.startMin%(24*60))}</td>
-            <td class="tnum">${min2hm(r.endMin%(24*60))}</td>
-            <td class="tnum mini">${totalDurH.toFixed(2)}h</td>
-            <td class="tnum mini" style="color:${o.tempoAtraso?'#b91c1c':'#bbb'}">${o.tempoAtraso||'—'}</td>
-            <td class="tnum mini">${isLast?(o.hInicioR||''):''}</td>
-            <td class="tnum mini">${isLast?(o.hFimR||''):''}</td>
-            <td class="mini">${o.qvDsl||o.qvPlan||''}</td>
-            <td class="mini">${o.desdobrar?Math.round((+o.qtdDesdobramento||0)*1000):''}</td>
-          </tr>`;
-        });
-        inner+='</tbody></table>';
-      }else{
-        inner+=`<div class="empty">— arrastar ordem para ${lbl} —</div>`;
-      }
-      zone.innerHTML=inner;
-      bindZone(zone);
-      const ts=zone.querySelector('.turno-sel');
-      if(ts)ts.addEventListener('change',()=>changeTurnoDia(ts.dataset.date,ts.dataset.linha,+ts.value));
-      const cb=zone.querySelector('.lz-btn');
-      if(cb)cb.addEventListener('click',()=>changeTurnoDia(cb.dataset.date,cb.dataset.linha,cb.dataset.act==='close'?0:1));
-      zone.querySelectorAll('tr.row').forEach(tr=>{
-        const h=tr.querySelector('.handle');
-        if(h)h.addEventListener('dragstart',e=>{dragOp=DATA.find(x=>x.id==tr.dataset.id);e.dataTransfer.effectAllowed='move';});
-        tr.addEventListener('click',e=>{if(e.target.classList.contains('est-sel')||e.target.classList.contains('bt-sel')||e.target.classList.contains('handle'))return;openModal(+tr.dataset.id);});
-        const sel=tr.querySelector('.est-sel');
-        sel.addEventListener('change',()=>changeEstado(+sel.dataset.id,sel.value));
-        const bt=tr.querySelector('.bt-sel');
-        if(bt)bt.addEventListener('change',()=>changeBancaTapete(+bt.dataset.id,bt.value));
-        bindRowReorder(tr);
+    // Tabela contínua de toda a linha no mês (sem cabeçalhos de dia)
+    const segsMap=lineSegs[l];const allSegs=[];
+    Object.keys(segsMap).forEach(dk=>segsMap[dk].forEach(s=>allSegs.push(s)));
+    const monthSegs=allSegs.filter(s=>s.date.getFullYear()===year&&s.date.getMonth()===month)
+                           .sort((a,b)=>a.date-b.date||a.startMin-b.startMin);
+    const today=new Date();
+    const defDate=(today.getFullYear()===year&&today.getMonth()===month)?today:new Date(year,month,1);
+    const zone=document.createElement('div');zone.className='line-zone';zone.dataset.linha=l;zone.dataset.date=dateKey(defDate);
+    if(monthSegs.length){
+      let inner=`<table class="plan"><colgroup>
+        <col style="width:22px"><col style="width:118px"><col style="width:74px"><col style="width:86px"><col style="width:17%"><col style="width:92px"><col style="width:84px"><col style="width:60px">
+        <col style="width:50px"><col style="width:50px"><col style="width:46px"><col style="width:50px"><col style="width:56px"><col style="width:56px"><col style="width:54px"><col style="width:44px"></colgroup>
+        <thead><tr>
+        <th></th><th>Estado</th><th>Data</th><th>DSL</th><th>Produto</th><th>Lote</th><th>Cliente</th><th>Qtd</th>
+        <th>Início</th><th>Fim</th><th>Dur</th><th>Atraso</th><th>Início real</th><th>Real fim</th><th>QV</th><th>Desd.</th></tr></thead><tbody>`;
+      let lastDk=null;
+      monthSegs.forEach(r=>{
+        const o=r.op;const isLast=r.partIdx===r.total;const hit=searching&&matchesSearch(o);
+        const totalDurH=durHoras(o);const dk=dateKey(r.date);const dia=diaIdxOf(r.date);
+        const newDay=dk!==lastDk;lastDk=dk;
+        const contFlag=r.multiDay?`<span class="contflag" title="Transita entre dias">${r.partIdx>1?'↳ ':''}parte ${r.partIdx}/${r.total}${r.partIdx<r.total?` → passa ${Math.round((+r.carriedNext||0)*1000)} un`:''}</span>`:'';
+        inner+=`<tr class="row${o.desdobrar?' desd':''}${hit?' search-hit':''}${r.multiDay?' cont':''}${newDay?' day-start':''}" data-id="${o.id}">
+          <td><span class="handle planner-only" draggable="true">⠿</span></td>
+          <td><select class="est-sel" data-est="${o.estado}" data-id="${o.id}">${ESTADOS.map(e=>`<option ${e===o.estado?'selected':''}>${e}</option>`).join('')}</select></td>
+          <td class="mini${newDay?' dnew':''}">${newDay?`${DIAS_PT[dia]} ${pad(r.date.getDate())}/${pad(r.date.getMonth()+1)}`:''}</td>
+          <td><b>${o.dsl||''}</b>${contFlag}${l==='EM'?`<br><select class="bt-sel" data-id="${o.id}"><option value="">— B/T? —</option><option value="B" ${o.bancaTapete==='B'?'selected':''}>Banca</option><option value="T" ${o.bancaTapete==='T'?'selected':''}>Tapete</option></select>`:''}</td>
+          <td class="mini prod-cell" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</td>
+          <td class="mini">${o.lote||''}</td>
+          <td class="mini">${o.cliente||''}</td>
+          <td class="tnum">${Math.round((+r.qtdSeg||0)*1000)}</td>
+          <td class="tnum">${min2hm(r.startMin%(24*60))}</td>
+          <td class="tnum">${min2hm(r.endMin%(24*60))}</td>
+          <td class="tnum mini">${totalDurH.toFixed(2)}h</td>
+          <td class="tnum mini" style="color:${o.tempoAtraso?'#b91c1c':'#bbb'}">${o.tempoAtraso||'—'}</td>
+          <td class="tnum mini">${isLast?(o.hInicioR||''):''}</td>
+          <td class="tnum mini">${isLast?(o.hFimR||''):''}</td>
+          <td class="mini">${o.qvDsl||o.qvPlan||''}</td>
+          <td class="mini">${o.desdobrar?Math.round((+o.qtdDesdobramento||0)*1000):''}</td>
+        </tr>`;
       });
-      lblock.appendChild(zone);
+      inner+='</tbody></table>';
+      zone.innerHTML=inner;
+    }else{
+      zone.innerHTML=`<div class="empty">— arrastar ordem para ${lineLabel(l)} —</div>`;
     }
-    if(!anyDay){const e=document.createElement('div');e.className='empty';e.style.padding='6px 10px';e.textContent='Sem ordens este mês.';lblock.appendChild(e);}
-    el.appendChild(lblock);
+    bindZone(zone);
+    zone.querySelectorAll('tr.row').forEach(tr=>{
+      const h=tr.querySelector('.handle');
+      if(h)h.addEventListener('dragstart',e=>{dragOp=DATA.find(x=>x.id==tr.dataset.id);e.dataTransfer.effectAllowed='move';});
+      tr.addEventListener('click',e=>{if(e.target.classList.contains('est-sel')||e.target.classList.contains('bt-sel')||e.target.classList.contains('handle'))return;openModal(+tr.dataset.id);});
+      const sel=tr.querySelector('.est-sel');sel.addEventListener('change',()=>changeEstado(+sel.dataset.id,sel.value));
+      const bt=tr.querySelector('.bt-sel');if(bt)bt.addEventListener('change',()=>changeBancaTapete(+bt.dataset.id,bt.value));
+      bindRowReorder(tr);
+    });
+    lblock.appendChild(zone);
   });
 }
 
