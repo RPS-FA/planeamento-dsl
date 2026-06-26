@@ -37,6 +37,7 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .tab:hover{color:#fff}
 .tab.active{color:#fff;border-bottom-color:var(--c-accent);font-weight:600}
 .tab .cnt{display:inline-block;background:rgba(255,255,255,.2);border-radius:10px;padding:0 6px;margin-left:5px;font-size:10px}
+.tab .tdot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px;border:1px solid rgba(255,255,255,.5)}
 
 .weekbar{display:flex;align-items:center;gap:10px;padding:8px 16px;background:#eaf0e6;border-bottom:1px solid var(--c-line)}
 .weekbar .wk{font-weight:700;color:var(--c-primary-dark)}
@@ -399,10 +400,13 @@ function onTimeInfo(op,endPlanMin){
 /* ---------------- TABS ---------------- */
 function renderTabs(){
   const el=document.getElementById('tabs');el.innerHTML='';
+  const BOARD_COLORS={eedsl:'#3d6b3f',dsl:'#2f5d86',em:'#5b2a86'};
   Object.entries(BOARDS).forEach(([k,b])=>{
     const n=DATA.filter(o=>b.lines.includes(o.linha)).length;
+    const col=BOARD_COLORS[k]||'var(--c-accent)';
     const t=document.createElement('div');t.className='tab'+(ACTIVE_TAB===k?' active':'');
-    t.innerHTML=b.label+` <span class="cnt">${n}</span>`;
+    t.innerHTML=`<i class="tdot" style="background:${col}"></i>${b.label} <span class="cnt">${n}</span>`;
+    if(ACTIVE_TAB===k)t.style.borderBottomColor=col;
     t.onclick=()=>{ACTIVE_TAB=k;render();};el.appendChild(t);
   });
   const tc=document.createElement('div');tc.className='tab'+(ACTIVE_TAB==='cfg'?' active':'');
