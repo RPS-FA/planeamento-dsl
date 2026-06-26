@@ -60,8 +60,8 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .mcol.line-em .mcol-head{background:#5b2a86}
 .mcol-body{padding:6px;overflow:auto;display:flex;flex-direction:column;gap:6px}
 .mcol.drag-target{outline:2px dashed var(--c-accent);outline-offset:-2px}
-.day-sep{font-size:10px;font-weight:700;color:var(--c-primary-dark);background:#eef3ea;border-radius:4px;padding:2px 6px;margin-top:2px;display:flex;justify-content:space-between;align-items:center;gap:6px}
-.day-sep .cap-info{font-weight:600;color:var(--c-muted);font-variant-numeric:tabular-nums}
+.day-sep{font-size:10.5px;font-weight:700;color:#1f3a5f;background:#dbe6f2;border:1px solid #b9cde4;border-radius:4px;padding:3px 7px;margin-top:6px;display:flex;justify-content:space-between;align-items:center;gap:6px}
+.day-sep .cap-info{font-weight:600;color:#3a5a82;font-variant-numeric:tabular-nums}
 .day-sep .cap-info.low{color:#b91c1c}
 .ocard{background:#fff;border:1px solid var(--c-line);border-left:5px solid #ccc;border-radius:6px;padding:6px 8px;cursor:grab;box-shadow:var(--sh)}
 .ocard.dragging{opacity:.4}
@@ -522,7 +522,7 @@ function renderBoard(){
           const win=dayWindowFor(l,r.date);
           const usableMin=win?workCapacity(win.ini,win.breaks,win.fim):0;
           const capU=Math.round(usableMin/60*capOf(l));
-          const freeU=capU-Math.round((usedByDay[dk]||0)*1000);
+          const freeU=Math.max(0,capU-Math.round((usedByDay[dk]||0)*1000));
           const low=capU>0&&freeU<=capU*0.1;
           html+=`<div class="day-sep">${DIAS_PT[dia]} ${pad(r.date.getDate())}/${pad(r.date.getMonth()+1)}<span class="cap-info${low?' low':''}">livre ${freeU} / ${capU} un</span></div>`;
         }
