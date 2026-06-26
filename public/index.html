@@ -70,6 +70,12 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .card[data-est="Concluído Planeamento"]{border-left-color:#92D050}
 
 .day-block{margin-bottom:14px;border:1px solid var(--c-line);border-radius:var(--r);overflow:hidden;background:#fff;box-shadow:var(--sh)}
+.line-block{margin-bottom:16px;border:1px solid var(--c-line);border-radius:var(--r);overflow:hidden;background:#fff;box-shadow:var(--sh)}
+.line-block-head{padding:8px 12px;background:var(--c-primary);color:#fff;font-weight:700;font-size:13px;position:sticky;top:0;z-index:2}
+.line-block.line-hl .line-block-head{background:#2f5d86}
+.line-block.line-em .line-block-head{background:#5b2a86}
+.line-block .line-zone .lz-head .d-date{font-weight:700;color:var(--c-primary-dark)}
+.line-block .line-zone.fds-zone .lz-head{background:#efe7d6}
 .day-head{display:flex;align-items:center;gap:10px;padding:6px 10px;background:var(--c-primary);color:#fff;position:sticky;top:0;z-index:2}
 .day-head.fds{background:#7a6a52}
 .day-head.closed{background:#9aa39a}
@@ -449,33 +455,28 @@ function renderBoard(){
   const year=ANCHOR.getFullYear(),month=ANCHOR.getMonth();
   const nDays=new Date(year,month+1,0).getDate();
   const lineSegs={};board.lines.forEach(l=>lineSegs[l]=scheduleLine(l));   // escalona toda a linha 1x
-  for(let day=1;day<=nDays;day++){
-    const d=new Date(year,month,day);
-    const dia=diaIdxOf(d);const dk=dateKey(d);
-    const closed=isDayClosed(d);
-    const sched={}; let any=false;
-    board.lines.forEach(l=>{const s=lineSegs[l][dk]||[];sched[l]=s;if(s.length)any=true;});
-    if(closed&&!any)continue;                 // esconder dias fechados/sem ordens
-    const block=document.createElement('div');block.className='day-block';
-    const head=document.createElement('div');
-    head.className='day-head'+(dia>=5?' fds':'')+(closed?' closed':'');
-    head.innerHTML=`<span class="d-date">${DIAS_PT[dia]} ${pad(d.getDate())}/${pad(d.getMonth()+1)}</span>
-      <span class="d-turno">${closed?'(fechado)':''}</span><span class="spacer"></span>`;
-    block.appendChild(head);
-    board.lines.forEach(l=>{
-      const tno=lineTurnoForDate(l,d);
-      const lineClosed=tno===0;
-      const zone=document.createElement('div');zone.className='line-zone'+((l==='4'||l==='5')?' line-hl':'')+(l==='EM'?' line-em':'')+(lineClosed?' lz-closed':'');zone.dataset.linha=l;zone.dataset.date=dateKey(d);
-      const lbl=lineLabel(l);
-      const rows=sched[l];
-      let inner=`<div class="lz-head">${lbl} `;
-      if(!closed){
-        inner+= lineClosed
-          ? `<span class="cap" style="color:#b91c1c;font-weight:600">fechada</span>`
-          : `<select class="turno-sel" data-date="${dk}" data-linha="${l}"><option value="1" ${tno===1?'selected':''}>1 turno</option><option value="2" ${tno===2?'selected':''}>2 turnos</option></select>`;
-      }
+  board.lines.forEach(l=>{
+    const lblock=document.createElement('div');
+    lblock.className='line-block'+((l==='4'||l==='5')?' line-hl':'')+(l==='EM'?' line-em':'');
+    const lhead=document.createElement('div');lhead.className='line-block-head';lhead.textContent=lineLabel(l);
+    lblock.appendChild(lhead);
+    let anyDay=false;
+    for(let day=1;day<=nDays;day++){
+      const d=new Date(year,month,day);
+      const dia=diaIdxOf(d);const dk=dateKey(d);
+      const dayClosed=isDayClosed(d);
+      const tno=lineTurnoForDate(l,d);const lineClosed=tno===0;
+      const rows=lineSegs[l][dk]||[];
+      if((dayClosed||lineClosed)&&!rows.length)continue;  // esconder dias fechados/sem ordens
+      anyDay=true;
+      const zone=document.createElement('div');zone.className='line-zone'+(lineClosed?' lz-closed':'')+(dia>=5?' fds-zone':'');zone.dataset.linha=l;zone.dataset.date=dk;
+      const lbl=`${DIAS_PT[dia]} ${pad(d.getDate())}/${pad(d.getMonth()+1)}`;
+      let inner=`<div class="lz-head"><span class="d-date">${lbl}</span> `;
+      if(dayClosed){inner+=`<span class="cap" style="color:#9aa39a">(dia fechado)</span>`;}
+      else if(lineClosed){inner+=`<span class="cap" style="color:#b91c1c;font-weight:600">fechada</span>`;}
+      else{inner+=`<select class="turno-sel" data-date="${dk}" data-linha="${l}"><option value="1" ${tno===1?'selected':''}>1 turno</option><option value="2" ${tno===2?'selected':''}>2 turnos</option></select>`;}
       inner+=`<span class="lz-right">`;
-      if(!closed){inner+=`<button class="lz-btn planner-only" data-date="${dk}" data-linha="${l}" data-act="${lineClosed?'open':'close'}">${lineClosed?'Reabrir':'Fechar'}</button>`;}
+      if(!dayClosed){inner+=`<button class="lz-btn planner-only" data-date="${dk}" data-linha="${l}" data-act="${lineClosed?'open':'close'}">${lineClosed?'Reabrir':'Fechar'}</button>`;}
       inner+=`</span></div>`;
       if(lineClosed){
         inner+=`<div class="empty">Linha fechada neste dia — ordens transitam para o dia útil seguinte.</div>`;
@@ -529,10 +530,11 @@ function renderBoard(){
         if(bt)bt.addEventListener('change',()=>changeBancaTapete(+bt.dataset.id,bt.value));
         bindRowReorder(tr);
       });
-      block.appendChild(zone);
-    });
-    el.appendChild(block);
-  }
+      lblock.appendChild(zone);
+    }
+    if(!anyDay){const e=document.createElement('div');e.className='empty';e.style.padding='6px 10px';e.textContent='Sem ordens este mês.';lblock.appendChild(e);}
+    el.appendChild(lblock);
+  });
 }
 
 /* ---------------- drag & drop ---------------- */
