@@ -52,6 +52,19 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .pool .pool-sub{font-size:10.5px;color:var(--c-muted);margin:10px 6px 4px;border-top:1px dashed var(--c-line);padding-top:6px}
 .board{overflow:auto;padding:10px 12px}
 .cols{display:flex;gap:10px;align-items:flex-start}
+/* grelha dias × máquinas (dias alinhados em todas as colunas) */
+.mgrid{display:grid;gap:6px;align-items:stretch}
+.mg-corner{position:sticky;top:0;z-index:3;background:var(--c-bg)}
+.mg-head{position:sticky;top:0;z-index:3;background:var(--c-primary);color:#fff;font-weight:700;font-size:12px;padding:6px 8px;border-radius:6px;text-align:center}
+.mg-head.line-hl{background:#2f5d86}
+.mg-head.line-em{background:#5b2a86}
+.mg-date{font-size:10.5px;font-weight:700;color:#1f3a5f;background:#dbe6f2;border:1px solid #b9cde4;border-radius:6px;padding:4px;text-align:center;display:flex;flex-direction:column;justify-content:center;align-items:center;line-height:1.3}
+.mg-date.fds{background:#efe7d6;color:#6b5836;border-color:#ddccae}
+.mg-cell{border:1px solid var(--c-line);border-radius:6px;background:#fafdf8;padding:5px;display:flex;flex-direction:column;gap:5px;min-width:0}
+.mg-cell.drag-target{outline:2px dashed var(--c-accent);outline-offset:-2px;background:#fbf6ee}
+.mg-cap{font-size:9.5px;font-weight:600;color:#3a5a82;text-align:right}
+.mg-cap.low{color:#b91c1c}
+.mgrid .ocard{cursor:grab}
 .mcol{flex:0 0 250px;width:250px;min-width:250px;max-width:250px;background:#fff;border:1px solid var(--c-line);border-radius:var(--r);box-shadow:var(--sh);display:flex;flex-direction:column;max-height:calc(100vh - 210px)}
 .mcol *{min-width:0}
 .mcol-head{padding:7px 10px;background:var(--c-primary);color:#fff;font-weight:700;font-size:12.5px;border-radius:var(--r) var(--r) 0 0;display:flex;justify-content:space-between;align-items:center}
@@ -489,66 +502,64 @@ function renderSearchBar(el){
   });
   el.appendChild(bar);
 }
+function ocardHTML(l,r,searching){
+  const o=r.op;const isLast=r.partIdx===r.total;const ot=isLast?onTimeInfo(o,r.endMin):null;
+  const lateCls=ot==null?'':(ot>10?' oc-late':' oc-ontime');
+  const hit=searching&&matchesSearch(o)?' search-hit':'';
+  const desd=o.desdobrar?'<span class="badge desd">DESD</span>':'';
+  const urg=o.urgente?'<span class="badge urg">URG</span>':'';
+  const cont=r.multiDay?`<span class="badge" style="background:#ffe3c2;color:#7a3b00">parte ${r.partIdx}/${r.total}${r.partIdx<r.total?` → ${Math.round((+r.carriedNext||0)*1000)}`:''}</span>`:'';
+  return `<div class="ocard${lateCls}${hit}${o.urgente?' oc-urgent':''}" draggable="true" data-id="${o.id}" data-est="${o.estado}">
+    <div class="oc-top"><b>${o.dsl||o.lote||'—'}</b><span class="oc-q">${Math.round((+r.qtdSeg||0)*1000)} un</span></div>
+    <div class="oc-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div>
+    <div class="oc-meta">${o.cliente||''}${o.calibre?' · '+o.calibre:''}${o.qualidades?' · '+o.qualidades:''} ${urg}${desd}${cont}</div>
+    <div class="oc-time">⏱ ${min2hm(r.startMin%1440)} → ${min2hm(r.endMin%1440)}${o.hFimR?` · real ${o.hFimR}`:''}</div>
+    ${l==='EM'?`<select class="bt-sel" data-id="${o.id}"><option value="">— B/T? —</option><option value="B" ${o.bancaTapete==='B'?'selected':''}>Banca</option><option value="T" ${o.bancaTapete==='T'?'selected':''}>Tapete</option></select>`:''}
+  </div>`;
+}
+function bindCards(root){
+  root.querySelectorAll('.ocard').forEach(c=>{
+    c.addEventListener('dragstart',e=>{dragOp=DATA.find(x=>x.id==c.dataset.id);c.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
+    c.addEventListener('dragend',()=>c.classList.remove('dragging'));
+    c.addEventListener('click',e=>{if(e.target.classList.contains('bt-sel'))return;openModal(+c.dataset.id);});
+    const bt=c.querySelector('.bt-sel');if(bt)bt.addEventListener('change',ev=>{ev.stopPropagation();changeBancaTapete(+bt.dataset.id,bt.value);});
+    bindCardReorder(c);
+  });
+}
 function renderBoard(){
   const el=document.getElementById('board');el.innerHTML='';
   renderSearchBar(el);
   const board=BOARDS[ACTIVE_TAB];if(!board)return;
   const searching=!!SEARCH.v.trim();
   const year=ANCHOR.getFullYear(),month=ANCHOR.getMonth();
-  const today=new Date();
-  const defDate=(today.getFullYear()===year&&today.getMonth()===month)?today:new Date(year,month,1);
-  const cols=document.createElement('div');cols.className='cols';
-  board.lines.forEach(l=>{try{
-    let segs={};try{segs=scheduleLine(l);}catch(e){console.error('scheduleLine',l,e);}
-    const allSegs=[];Object.keys(segs).forEach(dk=>segs[dk].forEach(s=>allSegs.push(s)));
-    const monthSegs=allSegs.filter(s=>s.date.getFullYear()===year&&s.date.getMonth()===month)
-                           .sort((a,b)=>a.date-b.date||a.startMin-b.startMin);
-    const col=document.createElement('div');col.className='mcol'+((l==='4'||l==='5')?' line-hl':'')+(l==='EM'?' line-em':'');
-    col.dataset.linha=l;col.dataset.date=dateKey(defDate);
-    let html=`<div class="mcol-head">${lineLabel(l)} <span class="mcol-n">${monthSegs.length}</span></div><div class="mcol-body">`;
-    if(monthSegs.length){
-      // capacidade usada por dia (em milhares) para mostrar disponível
-      const usedByDay={};monthSegs.forEach(s=>{const k=dateKey(s.date);usedByDay[k]=(usedByDay[k]||0)+(+s.qtdSeg||0);});
-      let lastDk=null;
-      monthSegs.forEach(r=>{
-        const o=r.op;const isLast=r.partIdx===r.total;const ot=isLast?onTimeInfo(o,r.endMin):null;
-        const lateCls=ot==null?'':(ot>10?' oc-late':' oc-ontime');
-        const hit=searching&&matchesSearch(o)?' search-hit':'';
-        const dk=dateKey(r.date);const dia=diaIdxOf(r.date);const newDay=dk!==lastDk;lastDk=dk;
-        const desd=o.desdobrar?'<span class="badge desd">DESD</span>':'';
-        const urg=o.urgente?'<span class="badge urg">URG</span>':'';
-        const cont=r.multiDay?`<span class="badge" style="background:#ffe3c2;color:#7a3b00">parte ${r.partIdx}/${r.total}${r.partIdx<r.total?` → ${Math.round((+r.carriedNext||0)*1000)}`:''}</span>`:'';
-        if(newDay){
-          const win=dayWindowFor(l,r.date);
-          const usableMin=win?workCapacity(win.ini,win.breaks,win.fim):0;
-          const capU=Math.round(usableMin/60*capOf(l));
-          const freeU=Math.max(0,capU-Math.round((usedByDay[dk]||0)*1000));
-          const low=capU>0&&freeU<=capU*0.1;
-          html+=`<div class="day-sep">${DIAS_PT[dia]} ${pad(r.date.getDate())}/${pad(r.date.getMonth()+1)}<span class="cap-info${low?' low':''}">livre ${freeU} / ${capU} un</span></div>`;
-        }
-        html+=`<div class="ocard${lateCls}${hit}${o.urgente?' oc-urgent':''}" draggable="true" data-id="${o.id}" data-est="${o.estado}">
-          <div class="oc-top"><b>${o.dsl||o.lote||'—'}</b><span class="oc-q">${Math.round((+r.qtdSeg||0)*1000)} un</span></div>
-          <div class="oc-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div>
-          <div class="oc-meta">${o.cliente||''}${o.calibre?' · '+o.calibre:''}${o.qualidades?' · '+o.qualidades:''} ${urg}${desd}${cont}</div>
-          <div class="oc-time">⏱ ${min2hm(r.startMin%1440)} → ${min2hm(r.endMin%1440)}${o.hFimR?` · real ${o.hFimR}`:''}</div>
-          ${l==='EM'?`<select class="bt-sel" data-id="${o.id}"><option value="">— B/T? —</option><option value="B" ${o.bancaTapete==='B'?'selected':''}>Banca</option><option value="T" ${o.bancaTapete==='T'?'selected':''}>Tapete</option></select>`:''}
-        </div>`;
-      });
-    }else{html+=`<div class="empty">— arrastar ordem para aqui —</div>`;}
-    html+=`</div>`;
-    col.innerHTML=html;
-    bindColZone(col);
-    col.querySelectorAll('.ocard').forEach(c=>{
-      c.addEventListener('dragstart',e=>{dragOp=DATA.find(x=>x.id==c.dataset.id);c.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
-      c.addEventListener('dragend',()=>c.classList.remove('dragging'));
-      c.addEventListener('click',e=>{if(e.target.classList.contains('bt-sel'))return;openModal(+c.dataset.id);});
-      const bt=c.querySelector('.bt-sel');if(bt)bt.addEventListener('change',ev=>{ev.stopPropagation();changeBancaTapete(+bt.dataset.id,bt.value);});
-      bindCardReorder(c);
-    });
-    cols.appendChild(col);
-  }catch(e){console.error('renderBoard coluna',l,e);}
+  // segmentos por linha e dia (só deste mês) + conjunto de dias
+  const segLD={};const daySet=new Set();
+  board.lines.forEach(l=>{let segs={};try{segs=scheduleLine(l);}catch(e){console.error('scheduleLine',l,e);}
+    segLD[l]={};
+    Object.keys(segs).forEach(dk=>{const d=new Date(dk+'T00:00:00');if(d.getFullYear()!==year||d.getMonth()!==month)return;
+      segLD[l][dk]=segs[dk].slice().sort((a,b)=>a.startMin-b.startMin);daySet.add(dk);});
   });
-  el.appendChild(cols);
+  const days=[...daySet].sort();
+  const n=board.lines.length;
+  const grid=document.createElement('div');grid.className='mgrid';grid.style.gridTemplateColumns=`64px repeat(${n}, 250px)`;
+  const corner=document.createElement('div');corner.className='mg-corner';grid.appendChild(corner);
+  board.lines.forEach(l=>{const h=document.createElement('div');h.className='mg-head'+((l==='4'||l==='5')?' line-hl':'')+(l==='EM'?' line-em':'');h.textContent=lineLabel(l);grid.appendChild(h);});
+  if(!days.length){const e=document.createElement('div');e.className='empty';e.style.gridColumn='1 / -1';e.style.padding='12px';e.textContent='Sem ordens neste mês — arrasta ordens do Kanban para as máquinas.';grid.appendChild(e);el.appendChild(grid);return;}
+  days.forEach(dk=>{
+    const d=new Date(dk+'T00:00:00');const dia=diaIdxOf(d);
+    const dlab=document.createElement('div');dlab.className='mg-date'+(dia>=5?' fds':'');dlab.innerHTML=`${DIAS_PT[dia]}<br>${pad(d.getDate())}/${pad(d.getMonth()+1)}`;grid.appendChild(dlab);
+    board.lines.forEach(l=>{try{
+      const segs=segLD[l][dk]||[];
+      const cell=document.createElement('div');cell.className='mg-cell';cell.dataset.linha=l;cell.dataset.date=dk;
+      const win=dayWindowFor(l,d);const usableMin=win?workCapacity(win.ini,win.breaks,win.fim):0;const capU=Math.round(usableMin/60*capOf(l));
+      const usedU=Math.round(segs.reduce((a,s)=>a+(+s.qtdSeg||0),0)*1000);const freeU=Math.max(0,capU-usedU);const low=capU>0&&freeU<=capU*0.1;
+      let html=`<div class="mg-cap${low?' low':''}">livre ${freeU} / ${capU} un</div>`;
+      segs.forEach(r=>html+=ocardHTML(l,r,searching));
+      cell.innerHTML=html;
+      grid.appendChild(cell);bindColZone(cell);bindCards(cell);
+    }catch(e){console.error('renderBoard célula',l,dk,e);}});
+  });
+  el.appendChild(grid);
 }
 
 /* ---------------- drag & drop ---------------- */
