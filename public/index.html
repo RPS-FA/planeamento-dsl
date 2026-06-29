@@ -761,6 +761,10 @@ function fld(label,id,val,opts){val=val==null?'':val;opts=opts||{};const dis=opt
   if(opts.type==='check'){return `<div class="fld"><label>${label}</label><select id="${id}" ${dis}><option value="false" ${!val?'selected':''}>Não</option><option value="true" ${val?'selected':''}>Sim</option></select></div>`;}
   if(opts.type==='time'){const v=/^\d{1,2}:\d{2}/.test(String(val))?String(val).slice(0,5):'';return `<div class="fld"><label>${label}</label><input type="time" id="${id}" value="${v}" ${dis}></div>`;}
   return `<div class="fld"><label>${label}</label><input id="${id}" value="${String(val).replace(/"/g,'&quot;')}" ${dis}></div>`;}
+function selList(label,id,val,list,opts){opts=opts||{};const dis=opts.prodLock&&isProd()?'disabled':'';val=val||'';
+  const arr=(list||[]).slice();if(val&&!arr.includes(val))arr.unshift(val);
+  const html=`<option value=""${val?'':' selected'}>—</option>`+arr.map(o=>`<option ${o===val?'selected':''}>${String(o).replace(/"/g,'&quot;')}</option>`).join('');
+  return `<div class="fld"><label>${label}</label><select id="${id}" ${dis}>${html}</select></div>`;}
 
 function openModal(id){
   editingId=id;const o=id?DATA.find(x=>x.id===id):blankOp();
@@ -798,8 +802,8 @@ function openModal(id){
      ${fld('Desdobra?','f_desd',o.desdobrar,{type:'check'})}
      <div class="fld"><label>Qtd desdobramento (unidades)</label><input id="f_qdesd" type="number" step="1" value="${Math.round((+o.qtdDesdobramento||0)*1000)}"></div>
      ${fld('Qtd prevista desd.','f_qpdesd',o.qtdPrevistaDesd)}
-     ${fld('Motivo 2ª passagem','f_mot',o.motivo2aPassagem)}
-     ${fld('Causa raiz','f_causa',o.causaRaiz2a)}
+     ${selList('Motivo Desdobramento','f_motdesd',o.motivoDesdobramento,SETTINGS.motivosDesdobramento)}
+     ${selList('Motivo 2ª passagem','f_mot',o.motivo2aPassagem,SETTINGS.motivos2aPassagem)}
    </div>
    <div class="sec-title">Execução (Produção)</div>
    <div class="grid3">
@@ -819,7 +823,7 @@ function openModal(id){
   if(fm&&!isProd())fm.addEventListener('change',syncModo);syncModo();
   document.getElementById('modalBg').classList.add('show');
 }
-function blankOp(){return{dsl:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Aberto',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',obsProd:'',bancaTapete:'',urgente:false,weekKey:'',diaIdx:0,sortIdx:0};}
+function blankOp(){return{dsl:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Aberto',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',obsProd:'',motivoDesdobramento:'',bancaTapete:'',urgente:false,weekKey:'',diaIdx:0,sortIdx:0};}
 function gv(id){const e=document.getElementById(id);return e?e.value:'';}
 async function saveModal(){
   // Desdobramento obrigatório quando Desdobra = Sim
@@ -843,7 +847,7 @@ async function saveModal(){
   if(has('f_estado'))set('estado',gv('f_estado'));
   if(has('f_obs'))set('obs',gv('f_obs'));
   set('desdobrar',gv('f_desd')==='true');set('qtdPrevistaDesd',+gv('f_qpdesd')||0);
-  set('qtdDesdobramento',(+gv('f_qdesd')||0)/1000);set('motivo2aPassagem',gv('f_mot'));set('causaRaiz2a',gv('f_causa'));
+  set('qtdDesdobramento',(+gv('f_qdesd')||0)/1000);set('motivoDesdobramento',gv('f_motdesd'));set('motivo2aPassagem',gv('f_mot'));
   if(has('f_qvupd'))set('qvUpDsl',gv('f_qvupd'));if(has('f_qvd'))set('qvDsl',gv('f_qvd'));
   set('hInicioR',gv('f_hir'));set('hFimR',gv('f_hfr'));set('tempoAtraso',gv('f_atr'));
   set('qtdReal',+gv('f_qreal')||0);set('colaborador',gv('f_colab'));set('obsProd',gv('f_obsprod'));
@@ -917,6 +921,11 @@ function renderCfg(){
     </table>
     <h2>Geral</h2>
     <table><tr><th>Setup entre ordens (min)</th><td><input id="setupMin" type="number" value="${SETTINGS.setupMin||10}" ${cfgDis}></td></tr></table>
+    <h2>Motivos (um por linha)</h2>
+    <div style="display:flex;gap:18px;flex-wrap:wrap">
+      <div><div class="mini" style="margin-bottom:3px">Motivo Desdobramento</div><textarea id="motDesd" rows="10" style="width:280px" ${cfgDis}>${(SETTINGS.motivosDesdobramento||[]).join('\n')}</textarea></div>
+      <div><div class="mini" style="margin-bottom:3px">Motivo 2ª Passagem</div><textarea id="mot2a" rows="10" style="width:280px" ${cfgDis}>${(SETTINGS.motivos2aPassagem||[]).join('\n')}</textarea></div>
+    </div>
     <div style="margin-top:14px"><button class="primary cfg-save" id="btnSaveCfg" style="${canCfg()?'':'display:none'}">Guardar configurações</button></div>
   </div>`;
   const b=document.getElementById('btnSaveCfg');if(b)b.onclick=saveCfg;
@@ -926,7 +935,8 @@ async function saveCfg(){
   const caps={};ALL_LINES.forEach(l=>{if(l==='EM'){caps.EM_B={krH:+gv('cap_EM_B')||2000};caps.EM_T={krH:+gv('cap_EM_T')||2000};const iv=ivRead('EM');caps.EM=iv?{int:iv}:{};}else{caps[l]={krH:+gv('cap_'+l)||17000};const iv=ivRead(l);if(iv)caps[l].int=iv;}});
   const turnos={1:{ini:gv('t1ini'),fim:gv('t1fim'),almocoIni:gv('t1ai'),almocoFim:gv('t1af')},
                 2:{ini:gv('t2ini'),fim:gv('t2fim'),jantarIni:gv('t2ji'),jantarFim:gv('t2jf')}}; // T2 só jantar
-  const payload={capacidades:caps,turnos:turnos,setupMin:+gv('setupMin')||10};
+  const parseList=id=>{const e=document.getElementById(id);return e?e.value.split('\n').map(s=>s.trim()).filter(Boolean):[];};
+  const payload={capacidades:caps,turnos:turnos,setupMin:+gv('setupMin')||10,motivosDesdobramento:parseList('motDesd'),motivos2aPassagem:parseList('mot2a')};
   try{const s=await Api.putSettings(payload);Object.assign(SETTINGS,s);toast('Configurações guardadas.');render();}
   catch(e){toast('Falha: '+e.message,'err');}
 }
@@ -943,7 +953,7 @@ function exportExcel(){
           'Qtd seg':Math.round((+r.qtdSeg||0)*1000),'Qtd total':Math.round((+o.qtd||0)*1000),'Qtd objetivo':Math.round((+o.qtdNecessaria||0)*1000),
           Parte:r.multiDay?`${r.partIdx}/${r.total}`:'',Estado:o.estado,'Inicio':min2hm(r.startMin%1440),'Fim':min2hm(r.endMin%1440),'Dur (h)':+((r.endMin-r.startMin)/60).toFixed(2),
           'Atraso':o.tempoAtraso||'','Inicio real':isLast?(o.hInicioR||''):'','Fim real':isLast?(o.hFimR||''):'',Desdobra:o.desdobrar?'Sim':'',
-          'Qtd desd':+o.qtdDesdobramento||0,'Motivo 2a':o.motivo2aPassagem||'',QV:o.qvDsl||o.qvPlan||'',OBS:o.obs||''});});});});
+          'Qtd desd':+o.qtdDesdobramento||0,'Motivo Desd':o.motivoDesdobramento||'','Motivo 2a':o.motivo2aPassagem||'',QV:o.qvDsl||o.qvPlan||'',OBS:o.obs||''});});});});
   rows.sort((a,b)=>a.Data<b.Data?-1:a.Data>b.Data?1:(a.Linha<b.Linha?-1:1));
   if(!rows.length){toast('Sem ordens neste mês.','err');return;}
   const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();

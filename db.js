@@ -64,6 +64,14 @@ const DEFAULT_CAPACIDADES = {};
 DEFAULT_CAPACIDADES['EM_B'] = { krH: 2000 }; // Escolha Manual · Banca
 DEFAULT_CAPACIDADES['EM_T'] = { krH: 2000 }; // Escolha Manual · Tapete
 
+const DEFAULT_MOTIVOS = [
+  '4 Canos', 'Canos de trás', 'ACERTO DA QUALIDADE', 'APROVEITAMENTO FRACO EE',
+  'APROVEITAMENTO REFUGO', 'BICHO', 'CÁCERES', 'CORREÇÃO DE PROGAMA', 'DEFEITOS',
+  'DEFORMADAS', 'FALHA DE ROLHA', 'FENDAS', 'JARDADAS', 'MAL PONÇADAS', 'MAL TOPEJADAS',
+  'MANCHA', 'MANCHA VERDURA', 'MARCADAS', 'PAPUDAS', 'PREGO', 'REFUGO TR',
+  'SACOS REJEITADOS', 'SUBIR QV', 'TORTAS', 'TRINCADAS', 'TRINCHEIRO', 'VERDURA',
+];
+
 const DEFAULT_SETTINGS = {
   // janelas de turno (HH:MM). Turno 1 = 1 turno (dia). Turno 2 = 2 turnos (até noite).
   turnos: {
@@ -79,6 +87,9 @@ const DEFAULT_SETTINGS = {
   // sábado/domingo: por defeito sábado manhã, domingo fechado
   sabadoIni: '07:00', sabadoFim: '11:00',
   domingoFechado: true,
+  // listas validadas de motivos (editáveis nas Configurações)
+  motivosDesdobramento: DEFAULT_MOTIVOS,
+  motivos2aPassagem: DEFAULT_MOTIVOS,
 };
 
 // ============================================================
