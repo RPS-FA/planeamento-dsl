@@ -76,6 +76,8 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .mg-cap .mg-mark.ok{color:#15803d}
 .mg-cap .mg-mark.full{color:#b91c1c}
 .mg-cell.mg-full{background:#f0f0f0}
+.mg-cell.mg-closed{background:#e3e3e3;opacity:.85}
+.mg-cap.closed,.mg-mark.closed{color:#777}
 .mgrid .ocard{cursor:grab}
 .mcol{flex:0 0 250px;width:250px;min-width:250px;max-width:250px;background:#fff;border:1px solid var(--c-line);border-radius:var(--r);box-shadow:var(--sh);display:flex;flex-direction:column;max-height:calc(100vh - 210px)}
 .mcol *{min-width:0}
@@ -605,19 +607,21 @@ function renderBoard(){
       const segs=segLD[l][dk]||[];
       const cell=document.createElement('div');cell.className='mg-cell';cell.dataset.linha=l;cell.dataset.date=dk;
       const tno=lineTurnoForDate(l,d);
-      const win=dayWindowFor(l,d);const usableMin=win?workCapacity(win.ini,win.breaks,win.fim):0;const capU=Math.round(usableMin/60*capOf(l));
+      const win=dayWindowFor(l,d);const cellClosed=!win;const usableMin=win?workCapacity(win.ini,win.breaks,win.fim):0;const capU=Math.round(usableMin/60*capOf(l));
       const usedU=Math.round(segs.reduce((a,s)=>a+(+s.qtdSeg||0),0)*1000);
       const lastEnd=segs.length?Math.max(...segs.map(s=>s.endMin)):(win?win.ini:0);
       const overflow=segs.some(s=>s.partIdx<s.total);   // alguma ordem transita p/ dia seguinte
       const full=capU>0&&(overflow||(win&&lastEnd>=win.fim-1));
       const freeU=full?0:Math.max(0,capU-usedU);const low=!full&&capU>0&&freeU<=capU*0.1;
       if(full)cell.className+=' mg-full';
-      const mark=full?'<span class="mg-mark full">▦ cheio</span>':`<span class="mg-mark ok">livre</span>`;
+      if(cellClosed)cell.className+=' mg-closed';
       const passedU=Math.round(segs.reduce((a,s)=>a+(s.partIdx<s.total?(+s.carriedNext||0):0),0)*1000);
       const passTxt=passedU>0?` · passou ${passedU} un →`:'';
-      let html=`<div class="mg-cellhead"><select class="turno-sel" data-date="${dk}" data-linha="${l}"><option value="1" ${tno===1?'selected':''}>1 turno</option><option value="2" ${tno===2?'selected':''}>2 turnos</option></select><span class="mg-cap${full?' full':low?' low':''}">${mark} ${freeU}/${capU}${passTxt}</span></div>`;
+      const mark=cellClosed?'<span class="mg-mark closed">fechado</span>':(full?'<span class="mg-mark full">▦ cheio</span>':`<span class="mg-mark ok">livre</span>`);
+      const capTxt=cellClosed?'':` ${freeU}/${capU}${passTxt}`;
+      let html=`<div class="mg-cellhead"><select class="turno-sel" data-date="${dk}" data-linha="${l}" ${cellClosed?'disabled':''}><option value="1" ${tno===1?'selected':''}>1 turno</option><option value="2" ${tno===2?'selected':''}>2 turnos</option></select><span class="mg-cap${cellClosed?' closed':full?' full':low?' low':''}">${mark}${capTxt}</span></div>`;
       segs.forEach(r=>html+=ocardHTML(l,r,searching));
-      if(!full)html+=`<div class="mg-plan">PLANEAR AQUI<span class="mg-plan-q">livre ${freeU} un</span></div>`;
+      if(!full&&!cellClosed)html+=`<div class="mg-plan">PLANEAR AQUI<span class="mg-plan-q">livre ${freeU} un</span></div>`;
       cell.innerHTML=html;
       grid.appendChild(cell);bindColZone(cell);bindCards(cell);
       const ts=cell.querySelector('.turno-sel');if(ts)ts.addEventListener('change',()=>changeTurnoDia(ts.dataset.date,ts.dataset.linha,+ts.value));
