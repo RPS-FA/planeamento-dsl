@@ -625,8 +625,13 @@ function renderBoard(){
       const usedU=Math.round(segs.reduce((a,s)=>a+(+s.qtdSeg||0),0)*1000);
       const lastEnd=segs.length?Math.max(...segs.map(s=>s.endMin)):(win?win.ini:0);
       const overflow=segs.some(s=>s.partIdx<s.total);   // alguma ordem transita p/ dia seguinte
-      const full=capU>0&&(overflow||(win&&lastEnd>=win.fim-1));
-      const freeU=full?0:Math.max(0,capU-usedU);const low=!full&&capU>0&&freeU<=capU*0.1;
+      // "livre" = tempo de relógio realmente disponível (após setup), convertido em unidades.
+      // Coerente com o escalonador (que conta setup + tempo de atraso), evita "livre fantasma".
+      const _setup=+SETTINGS.setupMin||0;
+      const nextStart=segs.length?(lastEnd+_setup):(win?win.ini:0);
+      const freeMin=win?workCapacity(nextStart,win.breaks,win.fim):0;
+      const full=capU>0&&(overflow||(win&&lastEnd>=win.fim-1)||freeMin<=0);
+      const freeU=full?0:Math.max(0,Math.round(freeMin/60*capOf(l,cellBt)));const low=!full&&capU>0&&freeU<=capU*0.1;
       if(full)cell.className+=' mg-full';
       if(cellClosed)cell.className+=' mg-closed';
       const passedU=Math.round(segs.reduce((a,s)=>a+(s.partIdx<s.total?(+s.carriedNext||0):0),0)*1000);
