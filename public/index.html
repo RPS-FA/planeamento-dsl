@@ -215,7 +215,7 @@ table.plan td.dnew{font-weight:700;color:var(--c-primary-dark)}
 .fld input,.fld select,.fld textarea{width:100%}
 .sec-title{font-size:11px;font-weight:700;color:var(--c-primary-dark);margin:12px 0 4px;border-bottom:1px solid var(--c-line);padding-bottom:3px}
 .modal .foot{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--c-line);justify-content:flex-end}
-.legend{display:flex;gap:12px;flex-wrap:wrap;padding:6px 16px;font-size:10.5px;color:var(--c-muted);background:#eef3ea;border-bottom:1px solid var(--c-line)}
+.legend{display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-end;padding:6px 16px;font-size:10.5px;color:var(--c-muted);background:#eef3ea;border-bottom:1px solid var(--c-line)}
 .toast{position:fixed;bottom:18px;right:18px;padding:10px 16px;border-radius:8px;color:#fff;font-size:13px;z-index:80;box-shadow:0 6px 20px rgba(0,0,0,.25);display:none}
 .toast.err{background:var(--c-warn)} .toast.ok{background:var(--c-ok)}
 body.producao .planner-only{display:none!important}
@@ -478,8 +478,7 @@ function renderTabs(){
 function estColor(e){return{'Aberto':'#FFFFFF','Liberada':'#00B050','Em Processo':'#FFA500','Terminado':'#E0218A','Concluído Planeamento':'#92D050'}[e]||'#ccc';}
 function renderLegend(){
   const el=document.getElementById('legend');
-  el.innerHTML=ESTADOS.map(e=>`<span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;border:1px solid #bbb;margin-right:4px;vertical-align:-1px;background:${estColor(e)}"></i>${e}</span>`).join('')
-    +`<span style="margin-left:auto">🟧 borda = desdobramento / 2ª passagem</span>`;
+  el.innerHTML=ESTADOS.map(e=>`<span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;border:1px solid #bbb;margin-right:4px;vertical-align:-1px;background:${estColor(e)}"></i>${e}</span>`).join('');
 }
 
 /* ---------------- POOL ---------------- */
