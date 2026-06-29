@@ -245,6 +245,7 @@ body.producao .planner-only{display:none!important}
     <div class="body" id="modalBody"></div>
     <div class="foot">
       <button class="danger planner-only" id="btnDelete">Apagar</button>
+      <button class="planner-only" id="btnSplit">Dividir</button>
       <div style="flex:1"></div>
       <button id="btnCancel">Cancelar</button>
       <button class="primary" id="btnSave">Guardar</button>
@@ -676,6 +677,7 @@ function openModal(id){
   editingId=id;const o=id?DATA.find(x=>x.id===id):blankOp();
   document.getElementById('modalTitle').textContent=id?`Editar ordem ${o.dsl||o.lote||''}`:'Nova ordem';
   document.getElementById('btnDelete').style.display=id?'':'none';
+  document.getElementById('btnSplit').style.display=id?'':'none';
   const allLines=['',...LINHAS_1_5,...LINHAS_6_10,...ESPECIAIS];
   const body=`
    <div class="sec-title">Identificação</div>
@@ -757,6 +759,32 @@ async function saveModal(){
   }catch(e){setConn('error','erro');toast('Falha: '+e.message,'err');}
 }
 function closeModal(){document.getElementById('modalBg').classList.remove('show');editingId=null;}
+async function splitCurrent(){
+  if(!editingId)return;
+  const o=DATA.find(x=>x.id===editingId);if(!o)return;
+  const totalU=Math.round((+o.qtd||0)*1000);
+  if(totalU<=1){toast('Ordem sem quantidade suficiente para dividir.','err');return;}
+  const ans=prompt('Quantidade (unidades) a separar para o Kanban:',String(Math.round(totalU/2)));
+  if(ans===null)return;
+  const splitU=Math.round(+ans);
+  if(!(splitU>0&&splitU<totalU)){toast('Indique uma quantidade entre 1 e '+(totalU-1)+'.','err');return;}
+  snapshot();
+  const baseDsl=String(o.dsl||o.lote||'').replace(/\s*-\d+$/,'');   // tira sufixo prévio
+  // parte que vai para o Kanban
+  const novo=Object.assign({},o);delete novo.id;
+  novo.qtd=splitU/1000;novo.dsl=baseDsl+' -2';novo.op=novo.dsl;
+  novo.linha='';novo.weekKey='';novo.diaIdx=0;novo.sortIdx=0;novo.estado=ESTADO_POOL;
+  novo.hInicioR='';novo.hFimR='';novo.qtdReal=0;novo.tempoAtraso='';novo.inicioMode='auto';novo.hInicioP='';
+  // parte que fica no mesmo sítio
+  const fica=Object.assign({},o);fica.qtd=(totalU-splitU)/1000;fica.dsl=baseDsl+' -1';fica.op=fica.dsl;
+  const id=editingId;closeModal();
+  try{
+    setConn('loading','a dividir…');
+    const u=await Api.putOp(id,fica);Object.assign(DATA.find(x=>x.id===id),u);
+    const c=await Api.postOp(novo);DATA.push(c);
+    setConn('ok','ligado');toast('Ordem dividida — parte separada no Kanban.');render();
+  }catch(e){setConn('error','erro');toast('Falha ao dividir: '+e.message,'err');}
+}
 async function deleteCurrent(){if(!editingId)return;if(!confirm('Apagar esta ordem?'))return;snapshot();const id=editingId;closeModal();try{await Api.delOp(id);DATA=DATA.filter(o=>o.id!==id);toast('Apagada.');render();}catch(e){toast('Falha: '+e.message,'err');}}
 
 /* ---------------- Configurações ---------------- */
@@ -842,6 +870,7 @@ document.getElementById('btnReset').addEventListener('click',async()=>{if(!confi
 document.getElementById('btnSave').addEventListener('click',saveModal);
 document.getElementById('btnCancel').addEventListener('click',closeModal);
 document.getElementById('btnDelete').addEventListener('click',deleteCurrent);
+document.getElementById('btnSplit').addEventListener('click',splitCurrent);
 // (a janela só fecha com Cancelar ou Guardar — clicar fora não fecha)
 document.getElementById('wkPrev').addEventListener('click',()=>{ANCHOR=new Date(ANCHOR.getFullYear(),ANCHOR.getMonth()-1,1);render();});
 document.getElementById('wkNext').addEventListener('click',()=>{ANCHOR=new Date(ANCHOR.getFullYear(),ANCHOR.getMonth()+1,1);render();});
