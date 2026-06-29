@@ -613,7 +613,9 @@ function renderBoard(){
       const freeU=full?0:Math.max(0,capU-usedU);const low=!full&&capU>0&&freeU<=capU*0.1;
       if(full)cell.className+=' mg-full';
       const mark=full?'<span class="mg-mark full">▦ cheio</span>':`<span class="mg-mark ok">livre</span>`;
-      let html=`<div class="mg-cellhead"><select class="turno-sel" data-date="${dk}" data-linha="${l}"><option value="1" ${tno===1?'selected':''}>1 turno</option><option value="2" ${tno===2?'selected':''}>2 turnos</option></select><span class="mg-cap${full?' full':low?' low':''}">${mark} ${freeU}/${capU}</span></div>`;
+      const passedU=Math.round(segs.reduce((a,s)=>a+(s.partIdx<s.total?(+s.carriedNext||0):0),0)*1000);
+      const passTxt=passedU>0?` · passou ${passedU} un →`:'';
+      let html=`<div class="mg-cellhead"><select class="turno-sel" data-date="${dk}" data-linha="${l}"><option value="1" ${tno===1?'selected':''}>1 turno</option><option value="2" ${tno===2?'selected':''}>2 turnos</option></select><span class="mg-cap${full?' full':low?' low':''}">${mark} ${freeU}/${capU}${passTxt}</span></div>`;
       segs.forEach(r=>html+=ocardHTML(l,r,searching));
       if(!full)html+=`<div class="mg-plan">PLANEAR AQUI<span class="mg-plan-q">livre ${freeU} un</span></div>`;
       cell.innerHTML=html;
