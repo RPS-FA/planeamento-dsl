@@ -75,7 +75,7 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .mg-cap .mg-mark{font-weight:800}
 .mg-cap .mg-mark.ok{color:#15803d}
 .mg-cap .mg-mark.full{color:#b91c1c}
-.mg-cell.mg-full{background:repeating-linear-gradient(45deg,#fafafa,#fafafa 8px,#ececec 8px,#ececec 16px)}
+.mg-cell.mg-full{background:repeating-linear-gradient(45deg,#fdfdfd,#fdfdfd 9px,#f4f4f4 9px,#f4f4f4 18px)}
 .mgrid .ocard{cursor:grab}
 .mcol{flex:0 0 250px;width:250px;min-width:250px;max-width:250px;background:#fff;border:1px solid var(--c-line);border-radius:var(--r);box-shadow:var(--sh);display:flex;flex-direction:column;max-height:calc(100vh - 210px)}
 .mcol *{min-width:0}
@@ -217,6 +217,7 @@ table.plan td.dnew{font-weight:700;color:var(--c-primary-dark)}
 .toast{position:fixed;bottom:18px;right:18px;padding:10px 16px;border-radius:8px;color:#fff;font-size:13px;z-index:80;box-shadow:0 6px 20px rgba(0,0,0,.25);display:none}
 .toast.err{background:var(--c-warn)} .toast.ok{background:var(--c-ok)}
 body.producao .planner-only{display:none!important}
+body.prof-prod #btnExport{display:none!important}
 </style>
 </head>
 <body>
@@ -761,8 +762,8 @@ function openModal(id){
    </div>
    <div class="sec-title">QV</div>
    <div class="grid3">
-     ${fld('QV up','f_qvupd',o.qvUpDsl)}
-     ${fld('QV','f_qvd',o.qvDsl)}
+     ${fld('QV up','f_qvupd',o.qvUpDsl,{prodLock:true})}
+     ${fld('QV','f_qvd',o.qvDsl,{prodLock:true})}
    </div>
    <div class="sec-title">Execução (Produção)</div>
    <div class="grid3">
@@ -899,7 +900,7 @@ function exportExcel(){
 }
 
 /* ---------------- perfil / boot ---------------- */
-function applyProfile(){document.getElementById('profileSel').value=PROFILE;document.body.classList.toggle('producao',isProd());updateUndoBtn();}
+function applyProfile(){document.getElementById('profileSel').value=PROFILE;document.body.classList.toggle('producao',isProd());document.body.classList.toggle('prof-prod',PROFILE==='producao');updateUndoBtn();}
 function changeProfile(v){
   // Password desativada temporariamente — alternância direta de perfil.
   PROFILE=v;localStorage.setItem('dsl_profile',v);
