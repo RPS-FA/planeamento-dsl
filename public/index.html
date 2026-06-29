@@ -779,9 +779,9 @@ function openModal(id){
    </div>
    <div class="sec-title">Desdobramento / 2ª passagem</div>
    <div class="grid3">
-     ${fld('Desdobra?','f_desd',o.desdobrar,{type:'check',prodLock:true})}
+     ${fld('Desdobra?','f_desd',o.desdobrar,{type:'check'})}
      <div class="fld"><label>Qtd desdobramento (unidades)</label><input id="f_qdesd" type="number" step="1" value="${Math.round((+o.qtdDesdobramento||0)*1000)}"></div>
-     ${fld('Qtd prevista desd.','f_qpdesd',o.qtdPrevistaDesd,{prodLock:true})}
+     ${fld('Qtd prevista desd.','f_qpdesd',o.qtdPrevistaDesd)}
      ${fld('Motivo 2ª passagem','f_mot',o.motivo2aPassagem)}
      ${fld('Causa raiz','f_causa',o.causaRaiz2a)}
    </div>
@@ -812,7 +812,7 @@ function gv(id){const e=document.getElementById(id);return e?e.value:'';}
 async function saveModal(){
   // Desdobramento obrigatório quando Desdobra = Sim
   const _curDesd=editingId?((DATA.find(x=>x.id===editingId)||{}).desdobrar):false;
-  const _willDesd=isProd()?_curDesd:(gv('f_desd')==='true');
+  const _willDesd=(gv('f_desd')==='true');
   if(_willDesd && !((+gv('f_qdesd')||0)>0)){toast('Qtd desdobramento é obrigatória quando Desdobra = Sim.','err');return;}
   snapshot();
   const o=editingId?Object.assign({},DATA.find(x=>x.id===editingId)):blankOp();
@@ -823,10 +823,10 @@ async function saveModal(){
     set('calibre',calibreFrom(prod)||gv('f_cal'));set('qualidades',gv('f_qual')||qualidadeFrom(prod));
     set('qtd',(+gv('f_qtd')||0)/1000);set('qtdNecessaria',(+gv('f_qtdnec')||0)/1000); // input em unidades -> guardado em milhares
     const _modo=gv('f_modo')==='Manual'?'manual':'auto';set('inicioMode',_modo);set('hInicioP',_modo==='manual'?gv('f_hini'):'');
-    set('desdobrar',gv('f_desd')==='true');set('qtdPrevistaDesd',+gv('f_qpdesd')||0);
     // Linha/Turno/Estado/Início geridos no quadro (drag-drop) — não tocados aqui.
   }
   set('lote',gv('f_lote'));set('urgente',gv('f_urg')==='true');set('estado',gv('f_estado'));
+  set('desdobrar',gv('f_desd')==='true');set('qtdPrevistaDesd',+gv('f_qpdesd')||0);
   set('qtdDesdobramento',(+gv('f_qdesd')||0)/1000);set('motivo2aPassagem',gv('f_mot'));set('causaRaiz2a',gv('f_causa'));
   set('qvUpDsl',gv('f_qvupd'));set('qvDsl',gv('f_qvd'));
   set('hInicioR',gv('f_hir'));set('hFimR',gv('f_hfr'));set('tempoAtraso',gv('f_atr'));
