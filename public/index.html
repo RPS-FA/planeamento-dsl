@@ -67,7 +67,8 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .mg-plan .mg-plan-q{font-size:11px;font-weight:700;color:#15803d;letter-spacing:0}
 .mg-cell.mg-full .mg-plan{display:none}
 .mg-cell.drag-target{outline:2px dashed var(--c-accent);outline-offset:-2px;background:#fbf6ee}
-.mg-cellhead{display:flex;justify-content:space-between;align-items:center;gap:4px}
+.mg-cellhead{display:flex;justify-content:space-between;align-items:center;gap:4px;flex-wrap:wrap}
+.mg-pass{font-size:10px;font-weight:700;color:#7a3b00;text-align:right;background:#fff3e6;border-radius:4px;padding:1px 5px}
 .mg-cellhead .turno-sel{font-size:9.5px;border:1px solid var(--c-line);border-radius:4px;padding:0 2px;background:#fff}
 .mg-cap{font-size:12px;font-weight:700;color:#3a5a82;white-space:nowrap}
 .mg-cap.low{color:#c2410c}
@@ -617,9 +618,10 @@ function renderBoard(){
       if(cellClosed)cell.className+=' mg-closed';
       const passedU=Math.round(segs.reduce((a,s)=>a+(s.partIdx<s.total?(+s.carriedNext||0):0),0)*1000);
       const passTxt=passedU>0?` · passou ${passedU} un →`:'';
-      const mark=cellClosed?'<span class="mg-mark closed">fechado</span>':(full?'<span class="mg-mark full">▦ cheio</span>':`<span class="mg-mark ok">livre</span>`);
-      const capTxt=cellClosed?'':` ${freeU}/${capU}${passTxt}`;
+      const mark=cellClosed?'<span class="mg-mark closed">fechado</span>':(full?'<span class="mg-mark full">cheio</span>':`<span class="mg-mark ok">livre</span>`);
+      const capTxt=cellClosed?'':` ${freeU}/${capU}`;
       let html=`<div class="mg-cellhead"><select class="turno-sel" data-date="${dk}" data-linha="${l}" ${cellClosed?'disabled':''}><option value="1" ${tno===1?'selected':''}>1 turno</option><option value="2" ${tno===2?'selected':''}>2 turnos</option></select><span class="mg-cap${cellClosed?' closed':full?' full':low?' low':''}">${mark}${capTxt}</span></div>`;
+      if(passedU>0&&!cellClosed)html+=`<div class="mg-pass">↪ passou ${passedU} un p/ dia seguinte</div>`;
       segs.forEach(r=>html+=ocardHTML(l,r,searching));
       if(!full&&!cellClosed)html+=`<div class="mg-plan">PLANEAR AQUI<span class="mg-plan-q">livre ${freeU} un</span></div>`;
       cell.innerHTML=html;
