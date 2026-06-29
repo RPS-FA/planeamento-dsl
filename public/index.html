@@ -190,13 +190,14 @@ table.plan td.dnew{font-weight:700;color:var(--c-primary-dark)}
 .drop-above{box-shadow:inset 0 2px 0 var(--c-accent)}
 .drop-below{box-shadow:inset 0 -2px 0 var(--c-accent)}
 .est-sel{font-size:10px;border-radius:4px;padding:2px 4px;border:1px solid var(--c-line)}
-.est-sel[data-est="Aberto"]{background:#fff;color:#21301f}
-.est-sel[data-est="Liberado"]{background:#00B050;color:#fff}
-.est-sel[data-est="Liberada"]{background:#00B050;color:#fff}
-.est-sel[data-est="Em Processo"]{background:#FFA500;color:#3a2c18}
-.est-sel[data-est="Em Processo - Desdobrar"]{background:#ED7D31;color:#fff}
-.est-sel[data-est="Terminado"]{background:#E0218A;color:#fff}
-.est-sel[data-est="Concluído Planeamento"]{background:#92D050;color:#21301f}
+.oc-est{margin-top:4px;width:100%;font-size:10px;font-weight:600;text-align:center;border-radius:4px;padding:2px 2px;border:1px solid var(--c-line);cursor:pointer;text-overflow:ellipsis}
+.est-sel[data-est="Aberto"],.oc-est[data-est="Aberto"]{background:#fff;color:#21301f}
+.est-sel[data-est="Liberado"],.oc-est[data-est="Liberado"]{background:#00B050;color:#fff}
+.est-sel[data-est="Liberada"],.oc-est[data-est="Liberada"]{background:#00B050;color:#fff}
+.est-sel[data-est="Em Processo"],.oc-est[data-est="Em Processo"]{background:#FFA500;color:#3a2c18}
+.est-sel[data-est="Em Processo - Desdobrar"],.oc-est[data-est="Em Processo - Desdobrar"]{background:#ED7D31;color:#fff}
+.est-sel[data-est="Terminado"],.oc-est[data-est="Terminado"]{background:#E0218A;color:#fff}
+.est-sel[data-est="Concluído Planeamento"],.oc-est[data-est="Concluído Planeamento"]{background:#92D050;color:#21301f}
 .mini{font-size:10px;color:var(--c-muted)}
 .tnum{font-variant-numeric:tabular-nums}
 
@@ -562,14 +563,16 @@ function ocardHTML(l,r,searching){
     <div class="oc-time">⏱ Plan ${min2hm(r.startMin%1440)} → ${min2hm(r.endMin%1440)}</div>
     ${(isLast&&(o.hInicioR||o.hFimR))?`<div class="oc-real">▶ Real ${o.hInicioR||'--:--'} → ${o.hFimR||'--:--'}</div>`:''}
     ${l==='EM'?`<select class="bt-sel" data-id="${o.id}"><option value="">— B/T? —</option><option value="B" ${o.bancaTapete==='B'?'selected':''}>Banca</option><option value="T" ${o.bancaTapete==='T'?'selected':''}>Tapete</option></select>`:''}
+    <select class="oc-est" data-est="${o.estado||'Aberto'}" data-id="${o.id}">${ESTADOS.map(e=>`<option ${e===(o.estado||'Aberto')?'selected':''}>${e}</option>`).join('')}</select>
   </div>`;
 }
 function bindCards(root){
   root.querySelectorAll('.ocard').forEach(c=>{
     c.addEventListener('dragstart',e=>{dragOp=DATA.find(x=>x.id==c.dataset.id);c.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
     c.addEventListener('dragend',()=>c.classList.remove('dragging'));
-    c.addEventListener('click',e=>{if(e.target.classList.contains('bt-sel'))return;openModal(+c.dataset.id);});
+    c.addEventListener('click',e=>{if(e.target.classList.contains('bt-sel')||e.target.classList.contains('oc-est'))return;openModal(+c.dataset.id);});
     const bt=c.querySelector('.bt-sel');if(bt)bt.addEventListener('change',ev=>{ev.stopPropagation();changeBancaTapete(+bt.dataset.id,bt.value);});
+    const es=c.querySelector('.oc-est');if(es)es.addEventListener('change',ev=>{ev.stopPropagation();changeEstado(+es.dataset.id,es.value);});
     bindCardReorder(c);
   });
 }
@@ -720,6 +723,7 @@ async function moveRelative(op,target,pos){
 }
 async function changeEstado(id,val){const op=DATA.find(o=>o.id===id);if(!op)return;snapshot();op.estado=val;render();await persist(op);}
 async function changeBancaTapete(id,val){const op=DATA.find(o=>o.id===id);if(!op)return;snapshot();op.bancaTapete=val;render();await persist(op);}
+async function changeEstado(id,val){const op=DATA.find(o=>o.id===id);if(!op)return;snapshot();op.estado=val;render();await persist(op);}
 async function toggleDayClosed(dateStr,close){
   SETTINGS.turnosPorDia=SETTINGS.turnosPorDia||{};
   SETTINGS.turnosPorDia[dateStr]=Object.assign({},SETTINGS.turnosPorDia[dateStr],{fechado:!!close});
