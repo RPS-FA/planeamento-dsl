@@ -200,6 +200,7 @@ table.plan td.dnew{font-weight:700;color:var(--c-primary-dark)}
 .cfg th,.cfg td{border:1px solid var(--c-line);padding:5px 8px;text-align:left}
 .cfg th{background:#eef3ea}
 .cfg input{width:90px}
+.cfg td.ivc{white-space:nowrap}.cfg td.ivc input{width:58px;margin:0 1px}
 
 .modal-bg{position:fixed;inset:0;background:rgba(20,30,18,.45);display:none;align-items:flex-start;justify-content:center;z-index:50;overflow:auto;padding:30px 12px}
 .modal-bg.show{display:flex}
@@ -363,6 +364,13 @@ function dayOverride(d){return (SETTINGS.turnosPorDia||{})[dateKey(d)]||null;}
 function isDayClosed(d){const o=dayOverride(d);if(o&&o.fechado)return true;const dow=(d.getDay()+6)%7;if(dow===6&&SETTINGS.domingoFechado)return true;return false;}
 
 function breaksOf(turno){const t=turnoWindow(turno);const b=[];if(t.almocoIni&&t.almocoFim)b.push([hm2min(t.almocoIni),hm2min(t.almocoFim)]);if(t.jantarIni&&t.jantarFim)b.push([hm2min(t.jantarIni),hm2min(t.jantarFim)]);return b;}
+// Intervalos próprios da linha (tempo descontado). 2 do turno de dia + 2 do turno de noite.
+function lineBreaks(l,tno){const c=(SETTINGS.capacidades||{})[l];if(!c||!c.int)return [];const out=[];
+  const nIni=hm2min((turnoWindow(2).ini)||'17:00');
+  const add=(pair,night)=>{if(!pair||!pair[0]||!pair[1])return;let s=hm2min(pair[0]),e=hm2min(pair[1]);if(night){if(s<nIni)s+=1440;if(e<nIni)e+=1440;}if(e>s)out.push([s,e]);};
+  add(c.int.d1,false);add(c.int.d2,false);
+  if(tno>=2){add(c.int.n1,true);add(c.int.n2,true);}
+  return out;}
 
 // nº de turnos da linha NUM DIA (1 ou 2) — definido no quadro (settings.turnosDia)
 // 0 = linha fechada nesse dia; 1 ou 2 turnos
@@ -376,8 +384,8 @@ function dayWindowFor(l,d){
   const ov=dayOverride(d);const dow=(d.getDay()+6)%7;let ini,fim,breaks;
   if(dow===5){ini=hm2min(SETTINGS.sabadoIni||'07:00');fim=hm2min(SETTINGS.sabadoFim||'11:00');breaks=[];}
   else{const tno=lineTurnoForDate(l,d);const t1=turnoWindow(1);
-    if(tno>=2){const t2=turnoWindow(2);ini=hm2min(t1.ini);fim=hm2min(t2.fim);if(fim<=ini)fim+=1440;breaks=breaksOf(1).concat(breaksOf(2));}
-    else{ini=hm2min(t1.ini);fim=hm2min(t1.fim);if(fim<=ini)fim+=1440;breaks=breaksOf(1);}}
+    if(tno>=2){const t2=turnoWindow(2);ini=hm2min(t1.ini);fim=hm2min(t2.fim);if(fim<=ini)fim+=1440;breaks=breaksOf(1).concat(breaksOf(2)).concat(lineBreaks(l,2));}
+    else{ini=hm2min(t1.ini);fim=hm2min(t1.fim);if(fim<=ini)fim+=1440;breaks=breaksOf(1).concat(lineBreaks(l,1));}}
   if(ov&&ov.ini)ini=hm2min(ov.ini);
   if(ov&&ov.fim){fim=hm2min(ov.fim);if(fim<=ini)fim+=1440;}
   return {ini,fim,breaks};
@@ -759,7 +767,7 @@ function openModal(id){
    <div class="sec-title">Identificação</div>
    <div class="grid3">
      ${fld('OP DSL','f_dsl',o.dsl,{prodLock:true})}
-     ${fld('Lote','f_lote',o.lote)}
+     ${fld('Lote','f_lote',o.lote,{prodLock:true})}
      ${fld('Cliente','f_cliente',o.cliente,{prodLock:true})}
      ${fld('Estado','f_estado',o.estado,{type:'select',options:ESTADOS})}
      ${fld('Produto entrada','f_prod',o.produtoEntrada,{prodLock:true})}
@@ -877,20 +885,22 @@ function renderCfg(){
   const el=document.getElementById('board');
   const caps=SETTINGS.capacidades||{};
   const cfgDis=canCfg()?'':'disabled';
+  const ivc=(base,key)=>{const iv=(((caps[base]||{}).int)||{})[key]||['',''];return `<td class="ivc"><input id="iv_${base}_${key}_i" type="time" value="${iv[0]||''}" ${cfgDis}><input id="iv_${base}_${key}_f" type="time" value="${iv[1]||''}" ${cfgDis}></td>`;};
+  const ivCells=base=>ivc(base,'d1')+ivc(base,'d2')+ivc(base,'n1')+ivc(base,'n2');
   let capRows=ALL_LINES.map(l=>{
     if(l==='EM'){
       const b=(caps.EM_B&&caps.EM_B.krH)||(caps.EM&&caps.EM.krH)||2000;
       const t=(caps.EM_T&&caps.EM_T.krH)||(caps.EM&&caps.EM.krH)||2000;
-      return `<tr><td>Escolha Manual · Banca</td><td><input id="cap_EM_B" type="number" value="${b}" ${cfgDis}></td></tr>`+
-             `<tr><td>Escolha Manual · Tapete</td><td><input id="cap_EM_T" type="number" value="${t}" ${cfgDis}></td></tr>`;
+      return `<tr><td>Escolha Manual · Banca</td><td><input id="cap_EM_B" type="number" value="${b}" ${cfgDis}></td>${ivCells('EM')}</tr>`+
+             `<tr><td>Escolha Manual · Tapete</td><td><input id="cap_EM_T" type="number" value="${t}" ${cfgDis}></td><td colspan="4" class="mini">intervalos = linha Banca</td></tr>`;
     }
-    return `<tr><td>${lineLabel(l)}</td><td><input id="cap_${l}" type="number" value="${(caps[l]&&caps[l].krH)||17000}" ${cfgDis}></td></tr>`;
+    return `<tr><td>${lineLabel(l)}</td><td><input id="cap_${l}" type="number" value="${(caps[l]&&caps[l].krH)||17000}" ${cfgDis}></td>${ivCells(l)}</tr>`;
   }).join('');
   const t1=(SETTINGS.turnos||{})[1]||{},t2=(SETTINGS.turnos||{})[2]||{};
   el.innerHTML=`<div class="cfg">
-    <h2>Capacidade por linha (rolhas/h)</h2>
-    <table><tr><th>Linha</th><th>Rolhas/h</th></tr>${capRows}</table>
-    <p class="mini" style="margin:4px 0 0">Os turnos (1 ou 2) definem-se no quadro, em cada dia/linha.</p>
+    <h2>Capacidade por linha (rolhas/h) e intervalos</h2>
+    <table><tr><th>Linha</th><th>Rolhas/h</th><th>Int. 1 Dia</th><th>Int. 2 Dia</th><th>Int. 1 Noite</th><th>Int. 2 Noite</th></tr>${capRows}</table>
+    <p class="mini" style="margin:4px 0 0">Os turnos (1 ou 2) definem-se no quadro, em cada dia/linha. Os intervalos (início–fim) são descontados da produção; os de noite só contam quando a linha tem 2 turnos.</p>
     <h2>Turnos</h2>
     <table>
       <tr><th>Turno</th><th>Início</th><th>Fim</th><th>Almoço</th><th>Jantar</th></tr>
@@ -907,7 +917,8 @@ function renderCfg(){
   const b=document.getElementById('btnSaveCfg');if(b)b.onclick=saveCfg;
 }
 async function saveCfg(){
-  const caps={};ALL_LINES.forEach(l=>{if(l==='EM'){caps.EM_B={krH:+gv('cap_EM_B')||2000};caps.EM_T={krH:+gv('cap_EM_T')||2000};}else{caps[l]={krH:+gv('cap_'+l)||17000};}});
+  const ivRead=base=>{const r={};['d1','d2','n1','n2'].forEach(k=>{const i=gv('iv_'+base+'_'+k+'_i'),f=gv('iv_'+base+'_'+k+'_f');if(i&&f)r[k]=[i,f];});return Object.keys(r).length?r:null;};
+  const caps={};ALL_LINES.forEach(l=>{if(l==='EM'){caps.EM_B={krH:+gv('cap_EM_B')||2000};caps.EM_T={krH:+gv('cap_EM_T')||2000};const iv=ivRead('EM');caps.EM=iv?{int:iv}:{};}else{caps[l]={krH:+gv('cap_'+l)||17000};const iv=ivRead(l);if(iv)caps[l].int=iv;}});
   const turnos={1:{ini:gv('t1ini'),fim:gv('t1fim'),almocoIni:gv('t1ai'),almocoFim:gv('t1af')},
                 2:{ini:gv('t2ini'),fim:gv('t2fim'),jantarIni:gv('t2ji'),jantarFim:gv('t2jf')}}; // T2 só jantar
   const payload={capacidades:caps,turnos:turnos,setupMin:+gv('setupMin')||10};
