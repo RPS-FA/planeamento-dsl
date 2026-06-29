@@ -75,7 +75,7 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .mg-cap .mg-mark{font-weight:800}
 .mg-cap .mg-mark.ok{color:#15803d}
 .mg-cap .mg-mark.full{color:#b91c1c}
-.mg-cell.mg-full{background:repeating-linear-gradient(45deg,#fdfdfd,#fdfdfd 9px,#f4f4f4 9px,#f4f4f4 18px)}
+.mg-cell.mg-full{background:#f0f0f0}
 .mgrid .ocard{cursor:grab}
 .mcol{flex:0 0 250px;width:250px;min-width:250px;max-width:250px;background:#fff;border:1px solid var(--c-line);border-radius:var(--r);box-shadow:var(--sh);display:flex;flex-direction:column;max-height:calc(100vh - 210px)}
 .mcol *{min-width:0}
@@ -384,6 +384,12 @@ function spanEnd(start,work,breaks,winFim){let t=start,left=work,g=0;while(left>
 // fim do trabalho a partir de 'start' (min), absorvendo pausas, SEM limite de fim de turno
 function spanEndNoCap(start,work,breaks){let t=start,left=work,g=0;while(left>0.0001&&g++<300){const ib=breaks.find(b=>t>=b[0]&&t<b[1]);if(ib){t=ib[1];continue;}let nb=null;for(const b of breaks)if(t<b[0]&&(nb===null||b[0]<nb))nb=b[0];const stop=nb===null?Infinity:nb;const chunk=Math.min(left,stop-t);t+=chunk;left-=chunk;if(left>0.0001&&nb!==null){const bb=breaks.find(b=>b[0]===t);if(bb)t=bb[1];}}return t;}
 function openDayFor(l,d){let x=new Date(d);for(let i=0;i<500;i++){if(dayWindowFor(l,x))return x;x.setDate(x.getDate()+1);}return null;}
+// dia "relevante" p/ Produção: útil (alguma linha aberta) OU com ordens
+function isWorkDay(d){return ALL_LINES.some(l=>dayWindowFor(l,d));}
+function dayHasOrder(d){const k=dateKey(d);return DATA.some(o=>{if(!o.linha||!o.weekKey)return false;const dd=dDate(o);return dd&&dateKey(dd)===k;});}
+function prodVisible(d){return isWorkDay(d)||dayHasOrder(d);}
+function prevProdDay(d){let x=new Date(d);for(let i=0;i<120;i++){x.setDate(x.getDate()-1);if(prodVisible(x))return new Date(x);}return null;}
+function nextProdDay(d){let x=new Date(d);for(let i=0;i<120;i++){x.setDate(x.getDate()+1);if(prodVisible(x))return new Date(x);}return null;}
 // Escalonamento INDEPENDENTE por dia: cada dia encadeia as suas ordens a partir do
 // início do turno. Sem transição/encadeamento entre dias (remover uma ordem só
 // recalcula o próprio dia; os outros dias mantêm-se). Ordem que excede o turno
@@ -578,10 +584,9 @@ function renderBoard(){
     const sundayClosed=(dow===6&&SETTINGS.domingoFechado);
     if(hasOrders||!sundayClosed)daySet.add(dateKey(d));}
   let days=[...daySet].sort();
-  if(PROFILE==='producao'&&PROD_DATE){   // Produção: só o dia selecionado ±1
-    const dm=new Date(PROD_DATE);dm.setDate(dm.getDate()-1);
-    const dp=new Date(PROD_DATE);dp.setDate(dp.getDate()+1);
-    const keys=[dateKey(dm),dateKey(PROD_DATE),dateKey(dp)];
+  if(PROFILE==='producao'&&PROD_DATE){   // Produção: dia selecionado + dia útil anterior e seguinte
+    const pv=prevProdDay(PROD_DATE),nx=nextProdDay(PROD_DATE);const keys=[];
+    if(pv)keys.push(dateKey(pv));keys.push(dateKey(PROD_DATE));if(nx)keys.push(dateKey(nx));
     days=keys;
   }
   const n=board.lines.length;
@@ -941,7 +946,7 @@ document.getElementById('btnDelete').addEventListener('click',deleteCurrent);
 document.getElementById('btnSplit').addEventListener('click',splitCurrent);
 // (a janela só fecha com Cancelar ou Guardar — clicar fora não fecha)
 function shiftView(delta){
-  if(PROFILE==='producao'&&PROD_DATE){const d=new Date(PROD_DATE);d.setDate(d.getDate()+delta);PROD_DATE=d;ANCHOR=new Date(d.getFullYear(),d.getMonth(),1);}
+  if(PROFILE==='producao'&&PROD_DATE){const nd=delta<0?prevProdDay(PROD_DATE):nextProdDay(PROD_DATE);if(nd){PROD_DATE=nd;ANCHOR=new Date(nd.getFullYear(),nd.getMonth(),1);}}
   else{ANCHOR=new Date(ANCHOR.getFullYear(),ANCHOR.getMonth()+delta,1);}
   render();
 }
