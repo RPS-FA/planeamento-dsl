@@ -60,6 +60,8 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .mg-head.line-em{background:#5b2a86}
 .mg-date{font-size:10.5px;font-weight:700;color:#1f3a5f;background:#dbe6f2;border:1px solid #b9cde4;border-radius:6px;padding:4px;text-align:center;display:flex;flex-direction:column;justify-content:center;align-items:center;line-height:1.3}
 .mg-date.fds{background:#efe7d6;color:#6b5836;border-color:#ddccae}
+.mg-date.mg-dclosed{background:#e6dada;color:#7a2e2e;border-color:#d8b8b8}
+.mg-date .day-close{display:block;margin-top:4px;width:100%;font-size:9px;padding:1px 0;border:1px solid #cdb;border-radius:4px;background:#fff;cursor:pointer;color:#7a2e2e}
 .mg-cell{border:1px solid var(--c-line);border-radius:6px;background:#fafdf8;padding:5px;display:flex;flex-direction:column;gap:5px;min-width:0;min-height:52px}
 .mg-cell.drag-target{outline:2px dashed var(--c-accent);outline-offset:-2px;background:#fbf6ee}
 .mg-cellhead{display:flex;justify-content:space-between;align-items:center;gap:4px}
@@ -535,9 +537,12 @@ function renderBoard(){
     Object.keys(segs).forEach(dk=>{const d=new Date(dk+'T00:00:00');if(d.getFullYear()!==year||d.getMonth()!==month)return;
       segLD[l][dk]=segs[dk].slice().sort((a,b)=>a.startMin-b.startMin);daySet.add(dk);});
   });
-  // incluir todos os dias úteis do mês (alguma máquina aberta) como destinos de drop
+  // mostrar todos os dias (exceto domingos fechados sem ordens) — incl. dias fechados pelo botão
   const nDays=new Date(year,month+1,0).getDate();
-  for(let day=1;day<=nDays;day++){const d=new Date(year,month,day);if(board.lines.some(l=>dayWindowFor(l,d)))daySet.add(dateKey(d));}
+  for(let day=1;day<=nDays;day++){const d=new Date(year,month,day);const dow=(d.getDay()+6)%7;
+    const hasOrders=board.lines.some(l=>(segLD[l][dateKey(d)]||[]).length);
+    const sundayClosed=(dow===6&&SETTINGS.domingoFechado);
+    if(hasOrders||!sundayClosed)daySet.add(dateKey(d));}
   const days=[...daySet].sort();
   const n=board.lines.length;
   const colW=n<=2?500:250;   // poucas máquinas → colunas o dobro da largura
@@ -546,8 +551,11 @@ function renderBoard(){
   board.lines.forEach(l=>{const h=document.createElement('div');h.className='mg-head'+((l==='4'||l==='5')?' line-hl':'')+(l==='EM'?' line-em':'');h.textContent=lineLabel(l);grid.appendChild(h);});
   if(!days.length){const e=document.createElement('div');e.className='empty';e.style.gridColumn='1 / -1';e.style.padding='12px';e.textContent='Sem ordens neste mês — arrasta ordens do Kanban para as máquinas.';grid.appendChild(e);el.appendChild(grid);return;}
   days.forEach(dk=>{
-    const d=new Date(dk+'T00:00:00');const dia=diaIdxOf(d);
-    const dlab=document.createElement('div');dlab.className='mg-date'+(dia>=5?' fds':'');dlab.innerHTML=`${DIAS_PT[dia]}<br>${pad(d.getDate())}/${pad(d.getMonth()+1)}`;grid.appendChild(dlab);
+    const d=new Date(dk+'T00:00:00');const dia=diaIdxOf(d);const dClosed=isDayClosed(d);
+    const dlab=document.createElement('div');dlab.className='mg-date'+(dia>=5?' fds':'')+(dClosed?' mg-dclosed':'');
+    dlab.innerHTML=`${DIAS_PT[dia]}<br>${pad(d.getDate())}/${pad(d.getMonth()+1)}<button class="day-close planner-only" data-date="${dk}" data-act="${dClosed?'open':'close'}">${dClosed?'Reabrir':'Fechar'}</button>`;
+    const dcb=dlab.querySelector('.day-close');if(dcb)dcb.addEventListener('click',()=>toggleDayClosed(dcb.dataset.date,dcb.dataset.act==='close'));
+    grid.appendChild(dlab);
     board.lines.forEach(l=>{try{
       const segs=segLD[l][dk]||[];
       const cell=document.createElement('div');cell.className='mg-cell';cell.dataset.linha=l;cell.dataset.date=dk;
@@ -644,6 +652,13 @@ async function moveRelative(op,target,pos){
 }
 async function changeEstado(id,val){const op=DATA.find(o=>o.id===id);if(!op)return;snapshot();op.estado=val;render();await persist(op);}
 async function changeBancaTapete(id,val){const op=DATA.find(o=>o.id===id);if(!op)return;snapshot();op.bancaTapete=val;render();await persist(op);}
+async function toggleDayClosed(dateStr,close){
+  SETTINGS.turnosPorDia=SETTINGS.turnosPorDia||{};
+  SETTINGS.turnosPorDia[dateStr]=Object.assign({},SETTINGS.turnosPorDia[dateStr],{fechado:!!close});
+  render();
+  try{setConn('loading','a guardar…');await Api.putSettings({turnosPorDia:SETTINGS.turnosPorDia});setConn('ok','ligado');}
+  catch(e){setConn('error','erro');toast('Falha ao guardar dia: '+e.message,'err');}
+}
 async function changeTurnoDia(dateStr,linha,turno){
   SETTINGS.turnosDia=SETTINGS.turnosDia||{};
   SETTINGS.turnosDia[dateStr]=Object.assign({},SETTINGS.turnosDia[dateStr]);
