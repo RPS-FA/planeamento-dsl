@@ -367,47 +367,37 @@ function dayWindowFor(l,d){
 function workCapacity(start,breaks,winFim){let cap=winFim-start;for(const b of breaks){const s=Math.max(b[0],start),e=Math.min(b[1],winFim);if(e>s)cap-=(e-s);}return Math.max(0,cap);}
 // relógio de fim após 'work' minutos de trabalho a partir de 'start', absorvendo as pausas
 function spanEnd(start,work,breaks,winFim){let t=start,left=work,g=0;while(left>0.0001&&t<winFim&&g++<60){const ib=breaks.find(b=>t>=b[0]&&t<b[1]);if(ib){t=ib[1];continue;}let nb=null;for(const b of breaks)if(t<b[0]&&(nb===null||b[0]<nb))nb=b[0];const stop=Math.min(winFim,nb===null?winFim:nb);const chunk=Math.min(left,stop-t);t+=chunk;left-=chunk;if(left>0.0001){const bb=breaks.find(b=>b[0]===t);if(bb)t=bb[1];else break;}}return t;}
-// Escalona TODA a linha cronologicamente, 1 segmento por dia, transitando para o
-// dia seguinte quando o turno esgota. { 'YYYY-MM-DD': [ {op,startMin,endMin,qtdSeg,partIdx,total,multiDay} ] }
+// fim do trabalho a partir de 'start' (min), absorvendo pausas, SEM limite de fim de turno
+function spanEndNoCap(start,work,breaks){let t=start,left=work,g=0;while(left>0.0001&&g++<300){const ib=breaks.find(b=>t>=b[0]&&t<b[1]);if(ib){t=ib[1];continue;}let nb=null;for(const b of breaks)if(t<b[0]&&(nb===null||b[0]<nb))nb=b[0];const stop=nb===null?Infinity:nb;const chunk=Math.min(left,stop-t);t+=chunk;left-=chunk;if(left>0.0001&&nb!==null){const bb=breaks.find(b=>b[0]===t);if(bb)t=bb[1];}}return t;}
+function openDayFor(l,d){let x=new Date(d);for(let i=0;i<500;i++){if(dayWindowFor(l,x))return x;x.setDate(x.getDate()+1);}return null;}
+// Escalonamento INDEPENDENTE por dia: cada dia encadeia as suas ordens a partir do
+// início do turno. Sem transição/encadeamento entre dias (remover uma ordem só
+// recalcula o próprio dia; os outros dias mantêm-se). Ordem que excede o turno
+// termina depois do fim (capacidade fica a 0/over). 1 segmento por ordem.
 const _schedCache={};
 function scheduleLine(l){
   if(_schedCache[l])return _schedCache[l];
-  const orders=DATA.filter(o=>o.linha===l&&o.weekKey&&dDate(o))
-    .sort((a,b)=>cmpDay(dDate(a),dDate(b))||((+a.sortIdx||0)-(+b.sortIdx||0)));
-  const segs={};const setup=+SETTINGS.setupMin||0;
-  const push=(date,op,s,e,q)=>{const k=dateKey(date);(segs[k]=segs[k]||[]).push({op,startMin:s,endMin:e,qtdSeg:q,date:new Date(date)});};
-  const nextOpen=(date)=>{let d=new Date(date);for(let i=0;i<500;i++){d.setDate(d.getDate()+1);if(dayWindowFor(l,d))return d;}return null;};
-  let curDate=null,curMin=0;
-  for(const op of orders){
-    let startDay=dDate(op),w=dayWindowFor(l,startDay);
-    while(!w){startDay=nextOpen(startDay);if(!startDay)break;w=dayWindowFor(l,startDay);}
-    if(!startDay)continue;
-    if(curDate===null||cmpDay(curDate,startDay)<0){curDate=startDay;curMin=dayWindowFor(l,curDate).ini;}
-    else curMin+=setup;
-    const _manual=(op.inicioMode==='manual')?hm2min(op.hInicioP):null;   // só força quando modo Manual
-    if(_manual!=null){const win0=dayWindowFor(l,startDay);if(win0){curDate=startDay;curMin=Math.min(Math.max(_manual,win0.ini),win0.fim-1);}}
-    let remMin=durHoras(op)*60;const totalDur=remMin||1;const totalQtd=(+op.qtd||0);let guard=0;
-    while(remMin>0.01&&guard++<800){
-      let win=dayWindowFor(l,curDate);
-      if(!win){const nd=nextOpen(curDate);if(!nd)break;curDate=nd;curMin=dayWindowFor(l,curDate).ini;continue;}
-      if(curMin<win.ini)curMin=win.ini;
-      for(const br of win.breaks)if(curMin>=br[0]&&curMin<br[1])curMin=br[1];
-      if(curMin>=win.fim){const nd=nextOpen(curDate);if(!nd)break;curDate=nd;curMin=dayWindowFor(l,curDate).ini;continue;}
-      const cap=workCapacity(curMin,win.breaks,win.fim);
-      if(cap<=0){const nd=nextOpen(curDate);if(!nd)break;curDate=nd;curMin=dayWindowFor(l,curDate).ini;continue;}
-      const work=Math.min(remMin,cap);const segEnd=spanEnd(curMin,work,win.breaks,win.fim);
-      push(curDate,op,curMin,segEnd,totalQtd*(work/totalDur));
-      remMin-=work;
-      if(remMin>0.01){const nd=nextOpen(curDate);if(!nd)break;curDate=nd;curMin=dayWindowFor(l,curDate).ini;}
-      else curMin=segEnd;
-    }
-  }
-  const byOp={};Object.values(segs).flat().forEach(s=>{(byOp[s.op.id]=byOp[s.op.id]||[]).push(s);});
-  Object.values(byOp).forEach(list=>{
-    list.sort((a,b)=>a.date-b.date||a.startMin-b.startMin);
-    const days=new Set(list.map(s=>dateKey(s.date)));
-    list.forEach((s,i)=>{s.partIdx=i+1;s.total=list.length;s.multiDay=days.size>1;
-      s.carriedNext=list.slice(i+1).reduce((a,x)=>a+(+x.qtdSeg||0),0);}); // qtd que transita p/ dias seguintes
+  const setup=+SETTINGS.setupMin||0;
+  const byDay={};
+  DATA.filter(o=>o.linha===l&&o.weekKey&&dDate(o)).forEach(o=>{
+    const od=openDayFor(l,dDate(o));if(!od)return;
+    const k=dateKey(od);(byDay[k]=byDay[k]||{date:od,ops:[]}).ops.push(o);
+  });
+  const segs={};
+  Object.keys(byDay).forEach(k=>{
+    const grp=byDay[k];const win=dayWindowFor(l,grp.date);if(!win)return;
+    grp.ops.sort((a,b)=>(+a.sortIdx||0)-(+b.sortIdx||0));
+    let cur=win.ini;
+    grp.ops.forEach(op=>{
+      for(const br of win.breaks)if(cur>=br[0]&&cur<br[1])cur=br[1];
+      const manual=(op.inicioMode==='manual')?hm2min(op.hInicioP):null;
+      let start=(manual!=null)?Math.max(manual,win.ini):cur;
+      for(const br of win.breaks)if(start>=br[0]&&start<br[1])start=br[1];
+      const end=spanEndNoCap(start,durHoras(op)*60,win.breaks);
+      (segs[k]=segs[k]||[]).push({op,startMin:start,endMin:end,qtdSeg:(+op.qtd||0),date:new Date(grp.date),partIdx:1,total:1,multiDay:false,carriedNext:0});
+      cur=end+setup;
+    });
+    segs[k].sort((a,b)=>a.startMin-b.startMin);
   });
   _schedCache[l]=segs;return segs;
 }
