@@ -353,9 +353,11 @@ function setConn(s,msg){const c=document.getElementById('conn');c.className='con
 let _tt;function toast(msg,kind){const t=document.getElementById('toast');t.textContent=msg;t.className='toast '+(kind==='err'?'err':'ok');t.style.display='block';clearTimeout(_tt);_tt=setTimeout(()=>t.style.display='none',kind==='err'?4500:2500);}
 
 /* ---------------- capacidade / turno ---------------- */
-function capOf(linha){const c=(SETTINGS.capacidades||{})[linha];return c&&c.krH?c.krH:17000;}
+function capOf(linha,bt){const caps=(SETTINGS.capacidades||{});
+  if(linha==='EM'){const k=(bt==='T')?'EM_T':'EM_B';const c=caps[k]||caps['EM'];return c&&c.krH?c.krH:8500;}
+  const c=caps[linha];return c&&c.krH?c.krH:17000;}
 function tipoOf(linha){const c=(SETTINGS.capacidades||{})[linha];return c&&c.tipo?c.tipo:'DSL';}
-function durHoras(op){const kr=capOf(op.linha);let q=(+op.qtd||0);if(op.desdobrar)q+=(+op.qtdDesdobramento||0);let h=kr>0?q*1000/kr:0;const atr=hm2min(op.tempoAtraso);if(atr)h+=atr/60;return h;}
+function durHoras(op){const kr=capOf(op.linha,op.bancaTapete);let q=(+op.qtd||0);if(op.desdobrar)q+=(+op.qtdDesdobramento||0);let h=kr>0?q*1000/kr:0;const atr=hm2min(op.tempoAtraso);if(atr)h+=atr/60;return h;}
 function turnoWindow(turno){const t=(SETTINGS.turnos||{})[turno]||(SETTINGS.turnos||{})[1]||{ini:'08:00',fim:'17:00',almocoIni:'12:00',almocoFim:'13:00'};return t;}
 function dayOverride(d){return (SETTINGS.turnosPorDia||{})[dateKey(d)]||null;}
 function isDayClosed(d){const o=dayOverride(d);if(o&&o.fechado)return true;const dow=(d.getDay()+6)%7;if(dow===6&&SETTINGS.domingoFechado)return true;return false;}
@@ -608,7 +610,8 @@ function renderBoard(){
       const segs=segLD[l][dk]||[];
       const cell=document.createElement('div');cell.className='mg-cell';cell.dataset.linha=l;cell.dataset.date=dk;
       const tno=lineTurnoForDate(l,d);
-      const win=dayWindowFor(l,d);const cellClosed=!win;const usableMin=win?workCapacity(win.ini,win.breaks,win.fim):0;const capU=Math.round(usableMin/60*capOf(l));
+      const win=dayWindowFor(l,d);const cellClosed=!win;const usableMin=win?workCapacity(win.ini,win.breaks,win.fim):0;
+      const cellBt=(l==='EM')?((segs[0]&&segs[0].op.bancaTapete)||'B'):null;const capU=Math.round(usableMin/60*capOf(l,cellBt));
       const usedU=Math.round(segs.reduce((a,s)=>a+(+s.qtdSeg||0),0)*1000);
       const lastEnd=segs.length?Math.max(...segs.map(s=>s.endMin)):(win?win.ini:0);
       const overflow=segs.some(s=>s.partIdx<s.total);   // alguma ordem transita p/ dia seguinte
