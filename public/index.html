@@ -495,7 +495,7 @@ function render(){
   const wrap=document.getElementById('wrap');
   const wb=document.getElementById('weekbar');
   if(ACTIVE_TAB==='cfg'){wrap.classList.add('full');document.getElementById('pool').style.display='none';wb.style.display='none';renderCfg();document.body.classList.toggle('producao',isProd());return;}
-  wb.style.display='flex';wrap.classList.remove('full');document.getElementById('pool').style.display='block';
+  wb.style.display='flex';const prod=isProd();wrap.classList.toggle('full',prod);document.getElementById('pool').style.display=prod?'none':'block';
   document.getElementById('wkLabel').textContent=monthLabel();
   const n=opCountForMonth();const oc=document.getElementById('opcount');if(oc)oc.textContent=n+(n===1?' OP':' OPs');
   renderPool();renderBoard();
@@ -590,8 +590,11 @@ function renderBoard(){
       const cell=document.createElement('div');cell.className='mg-cell';cell.dataset.linha=l;cell.dataset.date=dk;
       const tno=lineTurnoForDate(l,d);
       const win=dayWindowFor(l,d);const usableMin=win?workCapacity(win.ini,win.breaks,win.fim):0;const capU=Math.round(usableMin/60*capOf(l));
-      const usedU=Math.round(segs.reduce((a,s)=>a+(+s.qtdSeg||0),0)*1000);const freeU=Math.max(0,capU-usedU);
-      const full=capU>0&&freeU<=0;const low=!full&&capU>0&&freeU<=capU*0.1;
+      const usedU=Math.round(segs.reduce((a,s)=>a+(+s.qtdSeg||0),0)*1000);
+      const lastEnd=segs.length?Math.max(...segs.map(s=>s.endMin)):(win?win.ini:0);
+      const overflow=segs.some(s=>s.partIdx<s.total);   // alguma ordem transita p/ dia seguinte
+      const full=capU>0&&(overflow||(win&&lastEnd>=win.fim-1));
+      const freeU=full?0:Math.max(0,capU-usedU);const low=!full&&capU>0&&freeU<=capU*0.1;
       if(full)cell.className+=' mg-full';
       const mark=full?'<span class="mg-mark full">▦ cheio</span>':`<span class="mg-mark ok">+ livre</span>`;
       let html=`<div class="mg-cellhead"><select class="turno-sel" data-date="${dk}" data-linha="${l}"><option value="1" ${tno===1?'selected':''}>1 turno</option><option value="2" ${tno===2?'selected':''}>2 turnos</option></select><span class="mg-cap${full?' full':low?' low':''}">${mark} ${freeU}/${capU}</span></div>`;
