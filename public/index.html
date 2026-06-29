@@ -498,7 +498,7 @@ function render(){
   const wrap=document.getElementById('wrap');
   const wb=document.getElementById('weekbar');
   if(ACTIVE_TAB==='cfg'){wrap.classList.add('full');document.getElementById('pool').style.display='none';wb.style.display='none';renderCfg();document.body.classList.toggle('producao',isProd());return;}
-  wb.style.display='flex';const prod=isProd();wrap.classList.toggle('full',prod);document.getElementById('pool').style.display=prod?'none':'block';
+  wb.style.display='flex';const hideKanban=(PROFILE==='producao');wrap.classList.toggle('full',hideKanban);document.getElementById('pool').style.display=hideKanban?'none':'block';
   const wkl=document.getElementById('wkLabel');
   if(PROFILE==='producao'&&PROD_DATE){wkl.textContent=`📅 ${DIAS_PT[diaIdxOf(PROD_DATE)]} ${pad(PROD_DATE.getDate())}/${pad(PROD_DATE.getMonth()+1)} (±1 dia)`;wkl.style.cursor='pointer';wkl.onclick=pickProdDate;}
   else{wkl.textContent=monthLabel();wkl.style.cursor='';wkl.onclick=null;}
