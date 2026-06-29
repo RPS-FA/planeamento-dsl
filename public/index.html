@@ -705,10 +705,8 @@ function openModal(id){
    <div class="grid3">
      ${fld('QV up (Plan)','f_qvup',o.qvUpPlan,{prodLock:true})}
      ${fld('QV (Plan)','f_qv',o.qvPlan,{prodLock:true})}
-     ${fld('QV down (Plan)','f_qvdn',o.qvDownPlan,{prodLock:true})}
      ${fld('QV up (DSL)','f_qvupd',o.qvUpDsl)}
      ${fld('QV (DSL)','f_qvd',o.qvDsl)}
-     ${fld('QV down (DSL)','f_qvdnd',o.qvDownDsl)}
      ${fld('Próximo passo','f_prox',o.proximoPasso,{prodLock:true})}
    </div>
    <div class="sec-title">Execução (Produção)</div>
@@ -745,12 +743,12 @@ async function saveModal(){
     set('qtd',(+gv('f_qtd')||0)/1000);set('qtdNecessaria',(+gv('f_qtdnec')||0)/1000); // input em unidades -> guardado em milhares
     const _modo=gv('f_modo')==='Manual'?'manual':'auto';set('inicioMode',_modo);set('hInicioP',_modo==='manual'?gv('f_hini'):'');
     set('desdobrar',gv('f_desd')==='true');set('qtdPrevistaDesd',+gv('f_qpdesd')||0);
-    set('qvUpPlan',gv('f_qvup'));set('qvPlan',gv('f_qv'));set('qvDownPlan',gv('f_qvdn'));set('proximoPasso',gv('f_prox'));
+    set('qvUpPlan',gv('f_qvup'));set('qvPlan',gv('f_qv'));set('proximoPasso',gv('f_prox'));
     // Linha/Turno/Estado/Início geridos no quadro (drag-drop) — não tocados aqui.
   }
   set('lote',gv('f_lote'));set('urgente',gv('f_urg')==='true');
   set('qtdDesdobramento',(+gv('f_qdesd')||0)/1000);set('motivo2aPassagem',gv('f_mot'));set('causaRaiz2a',gv('f_causa'));
-  set('qvUpDsl',gv('f_qvupd'));set('qvDsl',gv('f_qvd'));set('qvDownDsl',gv('f_qvdnd'));
+  set('qvUpDsl',gv('f_qvupd'));set('qvDsl',gv('f_qvd'));
   set('hInicioR',gv('f_hir'));set('hFimR',gv('f_hfr'));set('tempoAtraso',gv('f_atr'));
   set('qtdReal',+gv('f_qreal')||0);set('colaborador',gv('f_colab'));set('obs',gv('f_obs'));
   const savingId=editingId;            // guardar ANTES de closeModal (que põe editingId=null)
