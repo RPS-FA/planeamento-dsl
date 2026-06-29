@@ -200,7 +200,8 @@ table.plan td.dnew{font-weight:700;color:var(--c-primary-dark)}
 .cfg th,.cfg td{border:1px solid var(--c-line);padding:5px 8px;text-align:left}
 .cfg th{background:#eef3ea}
 .cfg input{width:90px}
-.cfg td.ivc{white-space:nowrap}.cfg td.ivc input{width:58px;margin:0 1px}
+.cfg td.ivc{white-space:nowrap}.cfg td.ivc input{width:82px}
+.cfg td.ivc input::-webkit-calendar-picker-indicator{display:none}.cfg td.ivc input::-webkit-inner-spin-button{display:none}
 
 .modal-bg{position:fixed;inset:0;background:rgba(20,30,18,.45);display:none;align-items:flex-start;justify-content:center;z-index:50;overflow:auto;padding:30px 12px}
 .modal-bg.show{display:flex}
@@ -885,21 +886,21 @@ function renderCfg(){
   const el=document.getElementById('board');
   const caps=SETTINGS.capacidades||{};
   const cfgDis=canCfg()?'':'disabled';
-  const ivc=(base,key)=>{const iv=(((caps[base]||{}).int)||{})[key]||['',''];return `<td class="ivc"><input id="iv_${base}_${key}_i" type="time" value="${iv[0]||''}" ${cfgDis}><input id="iv_${base}_${key}_f" type="time" value="${iv[1]||''}" ${cfgDis}></td>`;};
+  const ivc=(base,key)=>{const iv=(((caps[base]||{}).int)||{})[key]||['',''];return `<td class="ivc"><input id="iv_${base}_${key}_i" type="time" value="${iv[0]||''}" ${cfgDis}></td><td class="ivc"><input id="iv_${base}_${key}_f" type="time" value="${iv[1]||''}" ${cfgDis}></td>`;};
   const ivCells=base=>ivc(base,'d1')+ivc(base,'d2')+ivc(base,'n1')+ivc(base,'n2');
   let capRows=ALL_LINES.map(l=>{
     if(l==='EM'){
       const b=(caps.EM_B&&caps.EM_B.krH)||(caps.EM&&caps.EM.krH)||2000;
       const t=(caps.EM_T&&caps.EM_T.krH)||(caps.EM&&caps.EM.krH)||2000;
       return `<tr><td>Escolha Manual · Banca</td><td><input id="cap_EM_B" type="number" value="${b}" ${cfgDis}></td>${ivCells('EM')}</tr>`+
-             `<tr><td>Escolha Manual · Tapete</td><td><input id="cap_EM_T" type="number" value="${t}" ${cfgDis}></td><td colspan="4" class="mini">intervalos = linha Banca</td></tr>`;
+             `<tr><td>Escolha Manual · Tapete</td><td><input id="cap_EM_T" type="number" value="${t}" ${cfgDis}></td><td colspan="8" class="mini">intervalos = linha Banca</td></tr>`;
     }
     return `<tr><td>${lineLabel(l)}</td><td><input id="cap_${l}" type="number" value="${(caps[l]&&caps[l].krH)||17000}" ${cfgDis}></td>${ivCells(l)}</tr>`;
   }).join('');
   const t1=(SETTINGS.turnos||{})[1]||{},t2=(SETTINGS.turnos||{})[2]||{};
   el.innerHTML=`<div class="cfg">
     <h2>Capacidade por linha (rolhas/h) e intervalos</h2>
-    <table><tr><th>Linha</th><th>Rolhas/h</th><th>Int. 1 Dia</th><th>Int. 2 Dia</th><th>Int. 1 Noite</th><th>Int. 2 Noite</th></tr>${capRows}</table>
+    <table><tr><th rowspan="2">Linha</th><th rowspan="2">Rolhas/h</th><th colspan="2">Int. 1 Dia</th><th colspan="2">Int. 2 Dia</th><th colspan="2">Int. 1 Noite</th><th colspan="2">Int. 2 Noite</th></tr><tr><th>Início</th><th>Fim</th><th>Início</th><th>Fim</th><th>Início</th><th>Fim</th><th>Início</th><th>Fim</th></tr>${capRows}</table>
     <p class="mini" style="margin:4px 0 0">Os turnos (1 ou 2) definem-se no quadro, em cada dia/linha. Os intervalos (início–fim) são descontados da produção; os de noite só contam quando a linha tem 2 turnos.</p>
     <h2>Turnos</h2>
     <table>
