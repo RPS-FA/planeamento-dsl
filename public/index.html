@@ -537,7 +537,8 @@ function renderBoard(){
   });
   const days=[...daySet].sort();
   const n=board.lines.length;
-  const grid=document.createElement('div');grid.className='mgrid';grid.style.gridTemplateColumns=`64px repeat(${n}, 250px)`;
+  const colW=n<=2?500:250;   // poucas máquinas → colunas o dobro da largura
+  const grid=document.createElement('div');grid.className='mgrid';grid.style.gridTemplateColumns=`64px repeat(${n}, ${colW}px)`;
   const corner=document.createElement('div');corner.className='mg-corner';grid.appendChild(corner);
   board.lines.forEach(l=>{const h=document.createElement('div');h.className='mg-head'+((l==='4'||l==='5')?' line-hl':'')+(l==='EM'?' line-em':'');h.textContent=lineLabel(l);grid.appendChild(h);});
   if(!days.length){const e=document.createElement('div');e.className='empty';e.style.gridColumn='1 / -1';e.style.padding='12px';e.textContent='Sem ordens neste mês — arrasta ordens do Kanban para as máquinas.';grid.appendChild(e);el.appendChild(grid);return;}
