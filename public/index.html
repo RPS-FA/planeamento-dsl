@@ -66,8 +66,13 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .mg-cell.drag-target{outline:2px dashed var(--c-accent);outline-offset:-2px;background:#fbf6ee}
 .mg-cellhead{display:flex;justify-content:space-between;align-items:center;gap:4px}
 .mg-cellhead .turno-sel{font-size:9.5px;border:1px solid var(--c-line);border-radius:4px;padding:0 2px;background:#fff}
-.mg-cap{font-size:9.5px;font-weight:600;color:#3a5a82;white-space:nowrap}
-.mg-cap.low{color:#b91c1c}
+.mg-cap{font-size:12px;font-weight:700;color:#3a5a82;white-space:nowrap}
+.mg-cap.low{color:#c2410c}
+.mg-cap.full{color:#b91c1c}
+.mg-cap .mg-mark{font-weight:800}
+.mg-cap .mg-mark.ok{color:#15803d}
+.mg-cap .mg-mark.full{color:#b91c1c}
+.mg-cell.mg-full{background:repeating-linear-gradient(45deg,#fafdf8,#fafdf8 6px,#f6dede 6px,#f6dede 12px)}
 .mgrid .ocard{cursor:grab}
 .mcol{flex:0 0 250px;width:250px;min-width:250px;max-width:250px;background:#fff;border:1px solid var(--c-line);border-radius:var(--r);box-shadow:var(--sh);display:flex;flex-direction:column;max-height:calc(100vh - 210px)}
 .mcol *{min-width:0}
@@ -561,8 +566,11 @@ function renderBoard(){
       const cell=document.createElement('div');cell.className='mg-cell';cell.dataset.linha=l;cell.dataset.date=dk;
       const tno=lineTurnoForDate(l,d);
       const win=dayWindowFor(l,d);const usableMin=win?workCapacity(win.ini,win.breaks,win.fim):0;const capU=Math.round(usableMin/60*capOf(l));
-      const usedU=Math.round(segs.reduce((a,s)=>a+(+s.qtdSeg||0),0)*1000);const freeU=Math.max(0,capU-usedU);const low=capU>0&&freeU<=capU*0.1;
-      let html=`<div class="mg-cellhead"><select class="turno-sel" data-date="${dk}" data-linha="${l}"><option value="1" ${tno===1?'selected':''}>1 turno</option><option value="2" ${tno===2?'selected':''}>2 turnos</option></select><span class="mg-cap${low?' low':''}">livre ${freeU}/${capU}</span></div>`;
+      const usedU=Math.round(segs.reduce((a,s)=>a+(+s.qtdSeg||0),0)*1000);const freeU=Math.max(0,capU-usedU);
+      const full=capU>0&&freeU<=0;const low=!full&&capU>0&&freeU<=capU*0.1;
+      if(full)cell.className+=' mg-full';
+      const mark=full?'<span class="mg-mark full">▦ cheio</span>':`<span class="mg-mark ok">+ livre</span>`;
+      let html=`<div class="mg-cellhead"><select class="turno-sel" data-date="${dk}" data-linha="${l}"><option value="1" ${tno===1?'selected':''}>1 turno</option><option value="2" ${tno===2?'selected':''}>2 turnos</option></select><span class="mg-cap${full?' full':low?' low':''}">${mark} ${freeU}/${capU}</span></div>`;
       segs.forEach(r=>html+=ocardHTML(l,r,searching));
       cell.innerHTML=html;
       grid.appendChild(cell);bindColZone(cell);bindCards(cell);
