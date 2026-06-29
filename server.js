@@ -45,13 +45,15 @@ const PRODUCAO_FIELDS = [
   'qtdReal', 'qtdSeguinte', 'lote',
   'motivo2aPassagem', 'causaRaiz2a', 'qtdDesdobramento', 'desdobrar', 'qtdPrevistaDesd',
   'qvUpDsl', 'qvDsl', 'qvDownDsl', 'qv1Dsl',
-  'colaborador', 'obs',
+  'colaborador', 'obs', 'obsProd',
 ];
 
 function profileOf(req) {
   const h = (req.get('X-Profile') || '').toLowerCase();
-  // só 'planeador' tem permissões totais; tudo o resto (supervisao, producao) é limitado
-  return h === 'planeador' ? 'planeador' : 'producao';
+  // 'planeador' = total; 'supervisao' = configs+execução; resto = 'producao' (execução)
+  if (h === 'planeador') return 'planeador';
+  if (h === 'supervisao') return 'supervisao';
+  return 'producao';
 }
 function requireDb(res) {
   if (!db.isConnected()) {
@@ -103,7 +105,7 @@ app.put('/api/ops/:id', async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Body inválido.' });
 
     let merged;
-    if (profile === 'producao') {
+    if (profile !== 'planeador') {
       const current = await db.getOp(id);
       if (!current) return res.status(404).json({ ok: false, error: 'Ordem não encontrada.' });
       merged = Object.assign({}, current);
