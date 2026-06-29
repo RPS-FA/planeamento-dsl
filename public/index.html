@@ -383,7 +383,7 @@ function scheduleLine(l){
     if(!startDay)continue;
     if(curDate===null||cmpDay(curDate,startDay)<0){curDate=startDay;curMin=dayWindowFor(l,curDate).ini;}
     else curMin+=setup;
-    const _manual=hm2min(op.hInicioP);   // início manual força a hora nesse dia
+    const _manual=(op.inicioMode==='manual')?hm2min(op.hInicioP):null;   // só força quando modo Manual
     if(_manual!=null){const win0=dayWindowFor(l,startDay);if(win0){curDate=startDay;curMin=Math.min(Math.max(_manual,win0.ini),win0.fim-1);}}
     let remMin=durHoras(op)*60;const totalDur=remMin||1;const totalQtd=(+op.qtd||0);let guard=0;
     while(remMin>0.01&&guard++<800){
@@ -689,7 +689,8 @@ function openModal(id){
      <div class="fld"><label>Qtd (unidades)</label><input id="f_qtd" type="number" step="1" value="${Math.round((+o.qtd||0)*1000)}" ${isProd()?'disabled':''}></div>
      <div class="fld"><label>Qtd objetivo</label><input id="f_qtdnec" type="number" step="1" value="${Math.round((+o.qtdNecessaria||0)*1000)}" ${isProd()?'disabled':''}></div>
      ${fld('Urgente?','f_urg',o.urgente,{type:'check'})}
-     ${fld('Início manual (forçar)','f_hini',o.hInicioP,{type:'time',prodLock:true})}
+     ${fld('Início','f_modo',o.inicioMode==='manual'?'Manual':'Automático',{type:'select',options:['Automático','Manual'],prodLock:true})}
+     <div class="fld"><label>Hora de início (manual)</label><input type="time" id="f_hini" value="${/^\d{1,2}:\d{2}/.test(o.hInicioP||'')?String(o.hInicioP).slice(0,5):''}" ${(isProd()||o.inicioMode!=='manual')?'disabled':''}></div>
      ${fld('Observações','f_obs',o.obs,{type:'textarea'})}
    </div>
    <div class="sec-title">Desdobramento / 2ª passagem</div>
@@ -722,6 +723,9 @@ function openModal(id){
   // preenchimento automático de calibre + qualidade a partir do Produto
   const pe=document.getElementById('f_prod');
   if(pe&&!isProd()){pe.addEventListener('input',()=>{const v=pe.value;const c=document.getElementById('f_cal');const q=document.getElementById('f_qual');if(c)c.value=calibreFrom(v);if(q)q.value=qualidadeFrom(v);});}
+  const fm=document.getElementById('f_modo'),fh=document.getElementById('f_hini');
+  const syncModo=()=>{if(fh)fh.disabled=isProd()||!fm||fm.value!=='Manual';};
+  if(fm&&!isProd())fm.addEventListener('change',syncModo);syncModo();
   document.getElementById('modalBg').classList.add('show');
 }
 function blankOp(){return{dsl:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Aberto',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',bancaTapete:'',urgente:false,weekKey:'',diaIdx:0,sortIdx:0};}
@@ -739,7 +743,7 @@ async function saveModal(){
     set('dsl',gv('f_dsl'));set('cliente',gv('f_cliente'));set('produtoEntrada',prod);
     set('calibre',calibreFrom(prod)||gv('f_cal'));set('qualidades',gv('f_qual')||qualidadeFrom(prod));
     set('qtd',(+gv('f_qtd')||0)/1000);set('qtdNecessaria',(+gv('f_qtdnec')||0)/1000); // input em unidades -> guardado em milhares
-    set('hInicioP',gv('f_hini'));   // início manual (forçar); vazio = automático
+    const _modo=gv('f_modo')==='Manual'?'manual':'auto';set('inicioMode',_modo);set('hInicioP',_modo==='manual'?gv('f_hini'):'');
     set('desdobrar',gv('f_desd')==='true');set('qtdPrevistaDesd',+gv('f_qpdesd')||0);
     set('qvUpPlan',gv('f_qvup'));set('qvPlan',gv('f_qv'));set('qvDownPlan',gv('f_qvdn'));set('proximoPasso',gv('f_prox'));
     // Linha/Turno/Estado/Início geridos no quadro (drag-drop) — não tocados aqui.
