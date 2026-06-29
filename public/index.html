@@ -60,7 +60,7 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .mg-head.line-em{background:#5b2a86}
 .mg-date{font-size:10.5px;font-weight:700;color:#1f3a5f;background:#dbe6f2;border:1px solid #b9cde4;border-radius:6px;padding:4px;text-align:center;display:flex;flex-direction:column;justify-content:center;align-items:center;line-height:1.3}
 .mg-date.fds{background:#efe7d6;color:#6b5836;border-color:#ddccae}
-.mg-cell{border:1px solid var(--c-line);border-radius:6px;background:#fafdf8;padding:5px;display:flex;flex-direction:column;gap:5px;min-width:0}
+.mg-cell{border:1px solid var(--c-line);border-radius:6px;background:#fafdf8;padding:5px;display:flex;flex-direction:column;gap:5px;min-width:0;min-height:52px}
 .mg-cell.drag-target{outline:2px dashed var(--c-accent);outline-offset:-2px;background:#fbf6ee}
 .mg-cellhead{display:flex;justify-content:space-between;align-items:center;gap:4px}
 .mg-cellhead .turno-sel{font-size:9.5px;border:1px solid var(--c-line);border-radius:4px;padding:0 2px;background:#fff}
@@ -535,6 +535,9 @@ function renderBoard(){
     Object.keys(segs).forEach(dk=>{const d=new Date(dk+'T00:00:00');if(d.getFullYear()!==year||d.getMonth()!==month)return;
       segLD[l][dk]=segs[dk].slice().sort((a,b)=>a.startMin-b.startMin);daySet.add(dk);});
   });
+  // incluir todos os dias úteis do mês (alguma máquina aberta) como destinos de drop
+  const nDays=new Date(year,month+1,0).getDate();
+  for(let day=1;day<=nDays;day++){const d=new Date(year,month,day);if(board.lines.some(l=>dayWindowFor(l,d)))daySet.add(dateKey(d));}
   const days=[...daySet].sort();
   const n=board.lines.length;
   const colW=n<=2?500:250;   // poucas máquinas → colunas o dobro da largura
