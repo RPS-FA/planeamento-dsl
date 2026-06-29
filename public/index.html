@@ -225,7 +225,7 @@ body.producao .planner-only{display:none!important}
   <div class="spacer"></div>
   <div class="tools">
     <span id="conn" class="conn-chip loading">a ligar…</span>
-    <select id="profileSel" title="Perfil"><option value="producao">Produção</option><option value="planeador">Planeador</option></select>
+    <select id="profileSel" title="Perfil"><option value="producao">Produção</option><option value="supervisao">Supervisão</option><option value="planeador">Planeador</option></select>
     <button class="ghost planner-only" id="btnUndo" title="Anular última ação" disabled>↶ Anular</button>
     <button class="primary planner-only" id="btnNew">+ Nova ordem</button>
     <button class="ghost" id="btnExport">Exportar Excel</button>
@@ -296,7 +296,8 @@ let DATA=[];
 let SETTINGS={};
 let ACTIVE_TAB='eedsl';
 let ANCHOR=null;
-let PROFILE=localStorage.getItem('dsl_profile')||'producao';
+let PROFILE=localStorage.getItem('dsl_profile')||'supervisao';
+let PROD_DATE=null;   // dia visível no perfil Produção (vê esse dia ±1)
 let editingId=null;
 let dragOp=null;
 const SEARCH={v:''};
@@ -497,7 +498,9 @@ function render(){
   const wb=document.getElementById('weekbar');
   if(ACTIVE_TAB==='cfg'){wrap.classList.add('full');document.getElementById('pool').style.display='none';wb.style.display='none';renderCfg();document.body.classList.toggle('producao',isProd());return;}
   wb.style.display='flex';const prod=isProd();wrap.classList.toggle('full',prod);document.getElementById('pool').style.display=prod?'none':'block';
-  document.getElementById('wkLabel').textContent=monthLabel();
+  const wkl=document.getElementById('wkLabel');
+  if(PROFILE==='producao'&&PROD_DATE){wkl.textContent=`📅 ${DIAS_PT[diaIdxOf(PROD_DATE)]} ${pad(PROD_DATE.getDate())}/${pad(PROD_DATE.getMonth()+1)} (±1 dia)`;wkl.style.cursor='pointer';wkl.onclick=pickProdDate;}
+  else{wkl.textContent=monthLabel();wkl.style.cursor='';wkl.onclick=null;}
   const n=opCountForMonth();const oc=document.getElementById('opcount');if(oc)oc.textContent=n+(n===1?' OP':' OPs');
   renderPool();renderBoard();
   document.body.classList.toggle('producao',isProd());
@@ -573,7 +576,13 @@ function renderBoard(){
     const hasOrders=board.lines.some(l=>(segLD[l][dateKey(d)]||[]).length);
     const sundayClosed=(dow===6&&SETTINGS.domingoFechado);
     if(hasOrders||!sundayClosed)daySet.add(dateKey(d));}
-  const days=[...daySet].sort();
+  let days=[...daySet].sort();
+  if(PROFILE==='producao'&&PROD_DATE){   // Produção: só o dia selecionado ±1
+    const dm=new Date(PROD_DATE);dm.setDate(dm.getDate()-1);
+    const dp=new Date(PROD_DATE);dp.setDate(dp.getDate()+1);
+    const keys=[dateKey(dm),dateKey(PROD_DATE),dateKey(dp)];
+    days=keys;
+  }
   const n=board.lines.length;
   const colW=n<=2?500:250;   // poucas máquinas → colunas o dobro da largura
   const grid=document.createElement('div');grid.className='mgrid';grid.style.gridTemplateColumns=`64px repeat(${n}, ${colW}px)`;
@@ -893,7 +902,17 @@ function exportExcel(){
 function applyProfile(){document.getElementById('profileSel').value=PROFILE;document.body.classList.toggle('producao',isProd());updateUndoBtn();}
 function changeProfile(v){
   // Password desativada temporariamente — alternância direta de perfil.
-  PROFILE=v;localStorage.setItem('dsl_profile',v);applyProfile();render();
+  PROFILE=v;localStorage.setItem('dsl_profile',v);
+  if(v==='producao'){pickProdDate();return;}
+  applyProfile();render();
+}
+function pickProdDate(){
+  const def=dateKey(PROD_DATE||new Date());
+  const ans=prompt('Produção — data a visualizar (AAAA-MM-DD):',def);
+  let d=ans?new Date(ans+'T00:00:00'):null;
+  if(!d||isNaN(d))d=PROD_DATE||new Date();
+  PROD_DATE=d;ANCHOR=new Date(d.getFullYear(),d.getMonth(),1);
+  applyProfile();render();
 }
 async function loadState(){
   try{setConn('loading','a carregar…');const st=await Api.getState();DATA=st.ops||[];SETTINGS=st.settings||{};
@@ -904,6 +923,7 @@ async function loadState(){
         let best=null;DATA.forEach(o=>{if(!o.linha||!o.weekKey)return;const m=o.weekKey.match(/(\d+)-W(\d+)/);if(!m)return;const j=new Date(+m[1],0,4);const mon=mondayOf(j);mon.setDate(mon.getDate()+(+m[2]-1)*7+(+o.diaIdx||0));const key=mon.getFullYear()*12+mon.getMonth();if(best===null||key>best.key)best={key,d:new Date(mon.getFullYear(),mon.getMonth(),1)};});
         if(best)ANCHOR=best.d;
       }}
+    if(PROFILE==='producao'&&!PROD_DATE){PROD_DATE=new Date();ANCHOR=new Date(PROD_DATE.getFullYear(),PROD_DATE.getMonth(),1);}
     setConn('ok','ligado');render();
   }catch(e){setConn('error','sem ligação');toast('Falha ao carregar: '+e.message,'err');DATA=[];SETTINGS={};if(!ANCHOR){const t=new Date();ANCHOR=new Date(t.getFullYear(),t.getMonth(),1);}render();}
 }
@@ -919,8 +939,13 @@ document.getElementById('btnCancel').addEventListener('click',closeModal);
 document.getElementById('btnDelete').addEventListener('click',deleteCurrent);
 document.getElementById('btnSplit').addEventListener('click',splitCurrent);
 // (a janela só fecha com Cancelar ou Guardar — clicar fora não fecha)
-document.getElementById('wkPrev').addEventListener('click',()=>{ANCHOR=new Date(ANCHOR.getFullYear(),ANCHOR.getMonth()-1,1);render();});
-document.getElementById('wkNext').addEventListener('click',()=>{ANCHOR=new Date(ANCHOR.getFullYear(),ANCHOR.getMonth()+1,1);render();});
+function shiftView(delta){
+  if(PROFILE==='producao'&&PROD_DATE){const d=new Date(PROD_DATE);d.setDate(d.getDate()+delta);PROD_DATE=d;ANCHOR=new Date(d.getFullYear(),d.getMonth(),1);}
+  else{ANCHOR=new Date(ANCHOR.getFullYear(),ANCHOR.getMonth()+delta,1);}
+  render();
+}
+document.getElementById('wkPrev').addEventListener('click',()=>shiftView(-1));
+document.getElementById('wkNext').addEventListener('click',()=>shiftView(1));
 document.getElementById('search').addEventListener('input',e=>{SEARCH.v=e.target.value;render();});
 
 applyProfile();

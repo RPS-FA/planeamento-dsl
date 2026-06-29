@@ -50,7 +50,8 @@ const PRODUCAO_FIELDS = [
 
 function profileOf(req) {
   const h = (req.get('X-Profile') || '').toLowerCase();
-  return h === 'producao' ? 'producao' : 'planeador';
+  // só 'planeador' tem permissões totais; tudo o resto (supervisao, producao) é limitado
+  return h === 'planeador' ? 'planeador' : 'producao';
 }
 function requireDb(res) {
   if (!db.isConnected()) {
