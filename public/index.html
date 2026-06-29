@@ -200,6 +200,11 @@ table.plan td.dnew{font-weight:700;color:var(--c-primary-dark)}
 .cfg th,.cfg td{border:1px solid var(--c-line);padding:5px 8px;text-align:left}
 .cfg th{background:#eef3ea}
 .cfg input{width:90px}
+.cfg .mot-list{display:flex;flex-direction:column;gap:4px;max-height:300px;overflow:auto;border:1px solid var(--c-line);border-radius:6px;padding:6px;width:310px;background:#fff}
+.cfg .mot-row{display:flex;gap:5px}
+.cfg .mot-row input{flex:1;width:auto}
+.cfg .mot-del{border:1px solid #e0a8a8;background:#fff;color:#b00;border-radius:4px;cursor:pointer;padding:0 8px;line-height:1}
+.cfg .mot-add{margin-top:6px}
 .cfg td.ivc{white-space:nowrap}.cfg td.ivc input{width:82px}
 .cfg td.ivc input::-webkit-calendar-picker-indicator{display:none}.cfg td.ivc input::-webkit-inner-spin-button{display:none}
 
@@ -894,6 +899,8 @@ function renderCfg(){
   const el=document.getElementById('board');
   const caps=SETTINGS.capacidades||{};
   const cfgDis=canCfg()?'':'disabled';
+  const motRow=v=>`<div class="mot-row"><input type="text" value="${String(v||'').replace(/"/g,'&quot;')}" ${cfgDis}>${canCfg()?'<button type="button" class="mot-del" title="Remover">×</button>':''}</div>`;
+  const motRows=arr=>(arr||[]).map(motRow).join('');
   const ivc=(base,key)=>{const iv=(((caps[base]||{}).int)||{})[key]||['',''];return `<td class="ivc"><input id="iv_${base}_${key}_i" type="time" value="${iv[0]||''}" ${cfgDis}></td><td class="ivc"><input id="iv_${base}_${key}_f" type="time" value="${iv[1]||''}" ${cfgDis}></td>`;};
   const ivCells=base=>ivc(base,'d1')+ivc(base,'d2')+ivc(base,'n1')+ivc(base,'n2');
   let capRows=ALL_LINES.map(l=>{
@@ -921,22 +928,28 @@ function renderCfg(){
     </table>
     <h2>Geral</h2>
     <table><tr><th>Setup entre ordens (min)</th><td><input id="setupMin" type="number" value="${SETTINGS.setupMin||10}" ${cfgDis}></td></tr></table>
-    <h2>Motivos (um por linha)</h2>
-    <div style="display:flex;gap:18px;flex-wrap:wrap">
-      <div><div class="mini" style="margin-bottom:3px">Motivo Desdobramento</div><textarea id="motDesd" rows="10" style="width:280px" ${cfgDis}>${(SETTINGS.motivosDesdobramento||[]).join('\n')}</textarea></div>
-      <div><div class="mini" style="margin-bottom:3px">Motivo 2ª Passagem</div><textarea id="mot2a" rows="10" style="width:280px" ${cfgDis}>${(SETTINGS.motivos2aPassagem||[]).join('\n')}</textarea></div>
+    <h2>Motivos</h2>
+    <div style="display:flex;gap:24px;flex-wrap:wrap">
+      <div><div class="mini" style="margin-bottom:4px">Motivo Desdobramento</div>
+        <div id="motDesdList" class="mot-list">${motRows(SETTINGS.motivosDesdobramento)}</div>
+        ${canCfg()?`<button type="button" class="ghost mot-add" data-list="motDesdList">+ Adicionar</button>`:''}</div>
+      <div><div class="mini" style="margin-bottom:4px">Motivo 2ª Passagem</div>
+        <div id="mot2aList" class="mot-list">${motRows(SETTINGS.motivos2aPassagem)}</div>
+        ${canCfg()?`<button type="button" class="ghost mot-add" data-list="mot2aList">+ Adicionar</button>`:''}</div>
     </div>
     <div style="margin-top:14px"><button class="primary cfg-save" id="btnSaveCfg" style="${canCfg()?'':'display:none'}">Guardar configurações</button></div>
   </div>`;
   const b=document.getElementById('btnSaveCfg');if(b)b.onclick=saveCfg;
+  el.querySelectorAll('.mot-del').forEach(x=>x.onclick=()=>x.closest('.mot-row').remove());
+  el.querySelectorAll('.mot-add').forEach(x=>x.onclick=()=>{const list=document.getElementById(x.dataset.list);const d=document.createElement('div');d.className='mot-row';d.innerHTML='<input type="text" value=""><button type="button" class="mot-del" title="Remover">×</button>';list.appendChild(d);d.querySelector('.mot-del').onclick=()=>d.remove();d.querySelector('input').focus();});
 }
 async function saveCfg(){
   const ivRead=base=>{const r={};['d1','d2','n1','n2'].forEach(k=>{const i=gv('iv_'+base+'_'+k+'_i'),f=gv('iv_'+base+'_'+k+'_f');if(i&&f)r[k]=[i,f];});return Object.keys(r).length?r:null;};
   const caps={};ALL_LINES.forEach(l=>{if(l==='EM'){caps.EM_B={krH:+gv('cap_EM_B')||2000};caps.EM_T={krH:+gv('cap_EM_T')||2000};const iv=ivRead('EM');caps.EM=iv?{int:iv}:{};}else{caps[l]={krH:+gv('cap_'+l)||17000};const iv=ivRead(l);if(iv)caps[l].int=iv;}});
   const turnos={1:{ini:gv('t1ini'),fim:gv('t1fim'),almocoIni:gv('t1ai'),almocoFim:gv('t1af')},
                 2:{ini:gv('t2ini'),fim:gv('t2fim'),jantarIni:gv('t2ji'),jantarFim:gv('t2jf')}}; // T2 só jantar
-  const parseList=id=>{const e=document.getElementById(id);return e?e.value.split('\n').map(s=>s.trim()).filter(Boolean):[];};
-  const payload={capacidades:caps,turnos:turnos,setupMin:+gv('setupMin')||10,motivosDesdobramento:parseList('motDesd'),motivos2aPassagem:parseList('mot2a')};
+  const parseList=id=>{const c=document.getElementById(id);return c?[...c.querySelectorAll('input')].map(i=>i.value.trim()).filter(Boolean):[];};
+  const payload={capacidades:caps,turnos:turnos,setupMin:+gv('setupMin')||10,motivosDesdobramento:parseList('motDesdList'),motivos2aPassagem:parseList('mot2aList')};
   try{const s=await Api.putSettings(payload);Object.assign(SETTINGS,s);toast('Configurações guardadas.');render();}
   catch(e){toast('Falha: '+e.message,'err');}
 }
