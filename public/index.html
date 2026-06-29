@@ -230,7 +230,6 @@ body.producao .planner-only{display:none!important}
     <button id="wkPrev">◀</button>
     <span class="wk" id="wkLabel">—</span>
     <button id="wkNext">▶</button>
-    <button id="wkToday">Hoje</button>
     <span class="opcount" id="opcount"></span>
   </span>
 </div>
@@ -848,7 +847,6 @@ document.getElementById('btnDelete').addEventListener('click',deleteCurrent);
 // (a janela só fecha com Cancelar ou Guardar — clicar fora não fecha)
 document.getElementById('wkPrev').addEventListener('click',()=>{ANCHOR=new Date(ANCHOR.getFullYear(),ANCHOR.getMonth()-1,1);render();});
 document.getElementById('wkNext').addEventListener('click',()=>{ANCHOR=new Date(ANCHOR.getFullYear(),ANCHOR.getMonth()+1,1);render();});
-document.getElementById('wkToday').addEventListener('click',()=>{const t=new Date();ANCHOR=new Date(t.getFullYear(),t.getMonth(),1);render();});
 document.getElementById('search').addEventListener('input',e=>{SEARCH.v=e.target.value;render();});
 
 applyProfile();
