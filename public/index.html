@@ -62,7 +62,9 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .mg-date.fds{background:#efe7d6;color:#6b5836;border-color:#ddccae}
 .mg-date.mg-dclosed{background:#e6dada;color:#7a2e2e;border-color:#d8b8b8}
 .mg-date .day-close{display:block;margin-top:4px;width:100%;font-size:9px;padding:1px 0;border:1px solid #cdb;border-radius:4px;background:#fff;cursor:pointer;color:#7a2e2e}
-.mg-cell{border:1px solid var(--c-line);border-radius:6px;background:repeating-linear-gradient(45deg,#fbfdf9,#fbfdf9 8px,#f1f7ee 8px,#f1f7ee 16px);padding:5px;display:flex;flex-direction:column;gap:5px;min-width:0;min-height:52px}
+.mg-cell{border:1px solid var(--c-line);border-radius:6px;background:#fff;padding:5px;display:flex;flex-direction:column;gap:5px;min-width:0;min-height:52px}
+.mg-plan{border:1.5px dashed #b9c9b3;border-radius:6px;min-height:64px;display:flex;align-items:center;justify-content:center;color:#9aa893;font-size:11px;font-weight:700;letter-spacing:.5px;background:#fbfdf9}
+.mg-cell.mg-full .mg-plan{display:none}
 .mg-cell.drag-target{outline:2px dashed var(--c-accent);outline-offset:-2px;background:#fbf6ee}
 .mg-cellhead{display:flex;justify-content:space-between;align-items:center;gap:4px}
 .mg-cellhead .turno-sel{font-size:9.5px;border:1px solid var(--c-line);border-radius:4px;padding:0 2px;background:#fff}
@@ -106,6 +108,8 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .ocard[data-est="Terminado"]{border-left-color:#E0218A}
 .ocard[data-est="Concluído Planeamento"]{border-left-color:#92D050}
 .ocard .bt-sel{margin-top:4px;font-size:10px;width:100%}
+.ocard .badge.cont-next{background:#ffe3c2;color:#7a3b00}
+.ocard .badge.cont-prev{background:#dCEcfb;color:#1d4a78}
 .drop-above-c{box-shadow:inset 0 3px 0 var(--c-accent)}
 .drop-below-c{box-shadow:inset 0 -3px 0 var(--c-accent)}
 
@@ -384,27 +388,43 @@ function openDayFor(l,d){let x=new Date(d);for(let i=0;i<500;i++){if(dayWindowFo
 const _schedCache={};
 function scheduleLine(l){
   if(_schedCache[l])return _schedCache[l];
-  const setup=+SETTINGS.setupMin||0;
-  const byDay={};
-  DATA.filter(o=>o.linha===l&&o.weekKey&&dDate(o)).forEach(o=>{
-    const od=openDayFor(l,dDate(o));if(!od)return;
-    const k=dateKey(od);(byDay[k]=byDay[k]||{date:od,ops:[]}).ops.push(o);
-  });
-  const segs={};
-  Object.keys(byDay).forEach(k=>{
-    const grp=byDay[k];const win=dayWindowFor(l,grp.date);if(!win)return;
-    grp.ops.sort((a,b)=>(+a.sortIdx||0)-(+b.sortIdx||0));
-    let cur=win.ini;
-    grp.ops.forEach(op=>{
-      for(const br of win.breaks)if(cur>=br[0]&&cur<br[1])cur=br[1];
-      const manual=(op.inicioMode==='manual')?hm2min(op.hInicioP):null;
-      let start=(manual!=null)?Math.max(manual,win.ini):cur;
-      for(const br of win.breaks)if(start>=br[0]&&start<br[1])start=br[1];
-      const end=spanEndNoCap(start,durHoras(op)*60,win.breaks);
-      (segs[k]=segs[k]||[]).push({op,startMin:start,endMin:end,qtdSeg:(+op.qtd||0),date:new Date(grp.date),partIdx:1,total:1,multiDay:false,carriedNext:0});
-      cur=end+setup;
-    });
-    segs[k].sort((a,b)=>a.startMin-b.startMin);
+  const orders=DATA.filter(o=>o.linha===l&&o.weekKey&&dDate(o))
+    .sort((a,b)=>cmpDay(dDate(a),dDate(b))||((+a.sortIdx||0)-(+b.sortIdx||0)));
+  const segs={};const setup=+SETTINGS.setupMin||0;
+  const push=(date,op,s,e,q)=>{const k=dateKey(date);(segs[k]=segs[k]||[]).push({op,startMin:s,endMin:e,qtdSeg:q,date:new Date(date)});};
+  const nextOpen=(date)=>{let d=new Date(date);for(let i=0;i<500;i++){d.setDate(d.getDate()+1);if(dayWindowFor(l,d))return d;}return null;};
+  let curDate=null,curMin=0;
+  for(const op of orders){
+    let startDay=dDate(op),w=dayWindowFor(l,startDay);
+    while(!w){startDay=nextOpen(startDay);if(!startDay)break;w=dayWindowFor(l,startDay);}
+    if(!startDay)continue;
+    if(curDate===null||cmpDay(curDate,startDay)<0){curDate=startDay;curMin=dayWindowFor(l,curDate).ini;}
+    else curMin+=setup;
+    const _manual=(op.inicioMode==='manual')?hm2min(op.hInicioP):null;
+    if(_manual!=null){const win0=dayWindowFor(l,startDay);if(win0){curDate=startDay;curMin=Math.min(Math.max(_manual,win0.ini),win0.fim-1);}}
+    let remMin=durHoras(op)*60;const totalDur=remMin||1;const totalQtd=(+op.qtd||0);let guard=0;
+    while(remMin>0.01&&guard++<800){
+      let win=dayWindowFor(l,curDate);
+      if(!win){const nd=nextOpen(curDate);if(!nd)break;curDate=nd;curMin=dayWindowFor(l,curDate).ini;continue;}
+      if(curMin<win.ini)curMin=win.ini;
+      for(const br of win.breaks)if(curMin>=br[0]&&curMin<br[1])curMin=br[1];
+      if(curMin>=win.fim){const nd=nextOpen(curDate);if(!nd)break;curDate=nd;curMin=dayWindowFor(l,curDate).ini;continue;}
+      const cap=workCapacity(curMin,win.breaks,win.fim);
+      if(cap<=0){const nd=nextOpen(curDate);if(!nd)break;curDate=nd;curMin=dayWindowFor(l,curDate).ini;continue;}
+      const work=Math.min(remMin,cap);const segEnd=spanEnd(curMin,work,win.breaks,win.fim);
+      push(curDate,op,curMin,segEnd,totalQtd*(work/totalDur));
+      remMin-=work;
+      if(remMin>0.01){const nd=nextOpen(curDate);if(!nd)break;curDate=nd;curMin=dayWindowFor(l,curDate).ini;}
+      else curMin=segEnd;
+    }
+  }
+  const byOp={};Object.values(segs).flat().forEach(s=>{(byOp[s.op.id]=byOp[s.op.id]||[]).push(s);});
+  Object.values(byOp).forEach(list=>{
+    list.sort((a,b)=>a.date-b.date||a.startMin-b.startMin);
+    const days=new Set(list.map(s=>dateKey(s.date)));
+    list.forEach((s,i)=>{s.partIdx=i+1;s.total=list.length;s.multiDay=days.size>1;
+      s.carriedNext=list.slice(i+1).reduce((a,x)=>a+(+x.qtdSeg||0),0);
+      s.carriedPrev=list.slice(0,i).reduce((a,x)=>a+(+x.qtdSeg||0),0);});
   });
   _schedCache[l]=segs;return segs;
 }
@@ -510,7 +530,11 @@ function ocardHTML(l,r,searching){
   const hit=searching&&matchesSearch(o)?' search-hit':'';
   const desd=o.desdobrar?'<span class="badge desd">DESD</span>':'';
   const urg=o.urgente?'<span class="badge urg">URG</span>':'';
-  const cont=r.multiDay?`<span class="badge" style="background:#ffe3c2;color:#7a3b00">parte ${r.partIdx}/${r.total}${r.partIdx<r.total?` → ${Math.round((+r.carriedNext||0)*1000)}`:''}</span>`:'';
+  let cont='';
+  if(r.multiDay){
+    if(r.partIdx>1)cont+=`<span class="badge cont-prev">↳ ${Math.round((+r.qtdSeg||0)*1000)} rolhas do dia anterior</span>`;
+    if(r.partIdx<r.total)cont+=`<span class="badge cont-next">passa ${Math.round((+r.carriedNext||0)*1000)} rolhas →</span>`;
+  }
   return `<div class="ocard${lateCls}${hit}${o.urgente?' oc-urgent':''}" draggable="true" data-id="${o.id}" data-est="${o.estado}">
     <div class="oc-top"><b>${o.dsl||o.lote||'—'}</b><span class="oc-q">${Math.round((+r.qtdSeg||0)*1000)} un</span></div>
     <div class="oc-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div>
@@ -572,6 +596,7 @@ function renderBoard(){
       const mark=full?'<span class="mg-mark full">▦ cheio</span>':`<span class="mg-mark ok">+ livre</span>`;
       let html=`<div class="mg-cellhead"><select class="turno-sel" data-date="${dk}" data-linha="${l}"><option value="1" ${tno===1?'selected':''}>1 turno</option><option value="2" ${tno===2?'selected':''}>2 turnos</option></select><span class="mg-cap${full?' full':low?' low':''}">${mark} ${freeU}/${capU}</span></div>`;
       segs.forEach(r=>html+=ocardHTML(l,r,searching));
+      if(!full)html+=`<div class="mg-plan">PLANEAR AQUI</div>`;
       cell.innerHTML=html;
       grid.appendChild(cell);bindColZone(cell);bindCards(cell);
       const ts=cell.querySelector('.turno-sel');if(ts)ts.addEventListener('change',()=>changeTurnoDia(ts.dataset.date,ts.dataset.linha,+ts.value));
