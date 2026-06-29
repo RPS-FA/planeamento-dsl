@@ -91,7 +91,7 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .day-sep{font-size:10.5px;font-weight:700;color:#1f3a5f;background:#dbe6f2;border:1px solid #b9cde4;border-radius:4px;padding:3px 7px;margin-top:6px;display:flex;justify-content:space-between;align-items:center;gap:6px}
 .day-sep .cap-info{font-weight:600;color:#3a5a82;font-variant-numeric:tabular-nums}
 .day-sep .cap-info.low{color:#b91c1c}
-.ocard{background:#fff;border:1px solid var(--c-line);border-left:5px solid #ccc;border-radius:6px;padding:6px 8px;cursor:grab;box-shadow:var(--sh)}
+.ocard{background:#fff;border:1px solid var(--c-line);border-radius:6px;padding:6px 8px;cursor:grab;box-shadow:var(--sh)}
 .ocard.dragging{opacity:.4}
 .ocard .oc-top{display:flex;justify-content:space-between;gap:6px;align-items:baseline}
 .ocard .oc-top b{font-size:12px}
@@ -100,18 +100,11 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .ocard .oc-meta{font-size:10px;color:var(--c-muted);margin-top:2px;display:flex;gap:5px;flex-wrap:wrap;align-items:center}
 .ocard .oc-time{font-size:10.5px;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums;color:var(--c-ink)}
 .ocard .oc-real{font-size:10px;font-weight:600;font-variant-numeric:tabular-nums;color:#6b7a66;margin-top:1px}
-.ocard.oc-late{background:#fdecec}.ocard.oc-late .oc-real{color:#b91c1c}
-.ocard.oc-ontime{background:#eafaef}.ocard.oc-ontime .oc-real{color:#15803d}
+.ocard.oc-late .oc-real{color:#b91c1c}
+.ocard.oc-ontime .oc-real{color:#15803d}
 .ocard.search-hit{outline:2px solid #00e000;box-shadow:0 0 0 3px #b6ff7a}
 .ocard.oc-urgent{border:1px solid #e0218a;box-shadow:0 0 0 2px #fad1e6}
 .card .badge.urg,.ocard .badge.urg{background:#fde8e8;color:#b91c1c;font-weight:700}
-.ocard[data-est="Aberto"]{border-left-color:#cfcfcf}
-.ocard[data-est="Liberado"]{border-left-color:#00B050}
-.ocard[data-est="Liberada"]{border-left-color:#00B050}
-.ocard[data-est="Em Processo"]{border-left-color:#FFA500}
-.ocard[data-est="Em Processo - Desdobrar"]{border-left-color:#ED7D31}
-.ocard[data-est="Terminado"]{border-left-color:#E0218A}
-.ocard[data-est="Concluído Planeamento"]{border-left-color:#92D050}
 .ocard .bt-sel{margin-top:4px;font-size:10px;width:100%}
 .ocard .badge.cont-next{background:#ffe3c2;color:#7a3b00}
 .ocard .badge.cont-prev{background:#dCEcfb;color:#1d4a78}
@@ -774,7 +767,7 @@ function openModal(id){
      ${fld('QV','f_qual',o.qualidades,{prodLock:true})}
      <div class="fld"><label>Qtd (unidades)</label><input id="f_qtd" type="number" step="1" value="${Math.round((+o.qtd||0)*1000)}" ${isProd()?'disabled':''}></div>
      <div class="fld"><label>Qtd objetivo</label><input id="f_qtdnec" type="number" step="1" value="${Math.round((+o.qtdNecessaria||0)*1000)}" ${isProd()?'disabled':''}></div>
-     ${fld('Urgente?','f_urg',o.urgente,{type:'check'})}
+     ${fld('Urgente?','f_urg',o.urgente,{type:'check',prodLock:true})}
      ${fld('Início','f_modo',o.inicioMode==='manual'?'Manual':'Automático',{type:'select',options:['Automático','Manual'],prodLock:true})}
      <div class="fld"><label>Hora de início (manual)</label><input type="time" id="f_hini" value="${/^\d{1,2}:\d{2}/.test(o.hInicioP||'')?String(o.hInicioP).slice(0,5):''}" ${(isProd()||o.inicioMode!=='manual')?'disabled':''}></div>
    </div>
@@ -784,7 +777,7 @@ function openModal(id){
      ${fld('QV','f_qvd',o.qvDsl,{prodLock:true})}
    </div>
    <div class="grid3">
-     ${fld('Observações','f_obs',o.obs,{type:'textarea'})}
+     ${fld('Observações','f_obs',o.obs,{type:'textarea',prodLock:true})}
    </div>`;
   const body=`${ident}
    <div class="sec-title">Desdobramento / 2ª passagem</div>

@@ -45,7 +45,7 @@ const PRODUCAO_FIELDS = [
   'qtdReal', 'qtdSeguinte', 'lote',
   'motivo2aPassagem', 'causaRaiz2a', 'qtdDesdobramento', 'desdobrar', 'qtdPrevistaDesd',
   'qvUpDsl', 'qvDsl', 'qvDownDsl', 'qv1Dsl',
-  'colaborador', 'obs', 'obsProd',
+  'colaborador', 'obsProd',
 ];
 
 function profileOf(req) {
