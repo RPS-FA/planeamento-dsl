@@ -107,6 +107,7 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .card .badge.urg,.ocard .badge.urg{background:#fde8e8;color:#b91c1c;font-weight:700}
 .ocard[data-est="Aberto"]{border-left-color:#cfcfcf}
 .ocard[data-est="Liberado"]{border-left-color:#00B050}
+.ocard[data-est="Liberada"]{border-left-color:#00B050}
 .ocard[data-est="Em Processo"]{border-left-color:#FFA500}
 .ocard[data-est="Em Processo - Desdobrar"]{border-left-color:#ED7D31}
 .ocard[data-est="Terminado"]{border-left-color:#E0218A}
@@ -130,6 +131,7 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .card .badge.urg{background:#fde8e8;color:var(--c-warn)}
 .card[data-est="Aberto"]{border-left-color:#cfcfcf}
 .card[data-est="Liberado"]{border-left-color:#00B050}
+.card[data-est="Liberada"]{border-left-color:#00B050}
 .card[data-est="Em Processo"]{border-left-color:#FFA500}
 .card[data-est="Em Processo - Desdobrar"]{border-left-color:#ED7D31}
 .card[data-est="Terminado"]{border-left-color:#E0218A}
@@ -190,6 +192,7 @@ table.plan td.dnew{font-weight:700;color:var(--c-primary-dark)}
 .est-sel{font-size:10px;border-radius:4px;padding:2px 4px;border:1px solid var(--c-line)}
 .est-sel[data-est="Aberto"]{background:#fff;color:#21301f}
 .est-sel[data-est="Liberado"]{background:#00B050;color:#fff}
+.est-sel[data-est="Liberada"]{background:#00B050;color:#fff}
 .est-sel[data-est="Em Processo"]{background:#FFA500;color:#3a2c18}
 .est-sel[data-est="Em Processo - Desdobrar"]{background:#ED7D31;color:#fff}
 .est-sel[data-est="Terminado"]{background:#E0218A;color:#fff}
@@ -221,6 +224,7 @@ table.plan td.dnew{font-weight:700;color:var(--c-primary-dark)}
 .toast.err{background:var(--c-warn)} .toast.ok{background:var(--c-ok)}
 body.producao .planner-only{display:none!important}
 body.prof-prod #btnExport{display:none!important}
+body.prof-prod .day-close{display:none!important}
 </style>
 </head>
 <body>
@@ -285,7 +289,7 @@ const ESPECIAIS_LABEL={'B':'Banca','EE':'Escolha Eletrónica','T':'Tapete'};
 // Etiquetas de apresentação das linhas (a chave interna mantém-se 1..10/B/EE/T)
 const LINE_LABELS={'1':'EE - DSL 1','2':'EE - DSL 2','3':'EE - DSL 3','4':'DSL - 4','5':'DSL - 5','6':'EE - DSL 6','7':'EE - DSL 7','8':'EE - DSL 8','EM':'Escolha Manual'};
 function lineLabel(l){return LINE_LABELS[l]||(ESPECIAIS.includes(l)?`${l} · ${ESPECIAIS_LABEL[l]}`:`Linha ${l}`);}
-const ESTADOS=['Aberto','Em Processo','Terminado','Concluído Planeamento'];
+const ESTADOS=['Aberto','Liberada','Em Processo','Terminado','Concluído Planeamento'];
 const ESTADO_POOL='Aberto';
 const PLANEADOR_PW='Cork2026!';
 
@@ -466,7 +470,7 @@ function renderTabs(){
   const tc=document.createElement('div');tc.className='tab'+(ACTIVE_TAB==='cfg'?' active':'');
   tc.textContent='Configurações';tc.onclick=()=>{ACTIVE_TAB='cfg';render();};el.appendChild(tc);
 }
-function estColor(e){return{'Aberto':'#FFFFFF','Em Processo':'#FFA500','Terminado':'#E0218A','Concluído Planeamento':'#92D050'}[e]||'#ccc';}
+function estColor(e){return{'Aberto':'#FFFFFF','Liberada':'#00B050','Em Processo':'#FFA500','Terminado':'#E0218A','Concluído Planeamento':'#92D050'}[e]||'#ccc';}
 function renderLegend(){
   const el=document.getElementById('legend');
   el.innerHTML=ESTADOS.map(e=>`<span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;border:1px solid #bbb;margin-right:4px;vertical-align:-1px;background:${estColor(e)}"></i>${e}</span>`).join('')
@@ -603,7 +607,7 @@ function renderBoard(){
   days.forEach(dk=>{
     const d=new Date(dk+'T00:00:00');const dia=diaIdxOf(d);const dClosed=isDayClosed(d);
     const dlab=document.createElement('div');dlab.className='mg-date'+(dia>=5?' fds':'')+(dClosed?' mg-dclosed':'');
-    dlab.innerHTML=`${DIAS_PT[dia]}<br>${pad(d.getDate())}/${pad(d.getMonth()+1)}<button class="day-close planner-only" data-date="${dk}" data-act="${dClosed?'open':'close'}">${dClosed?'Reabrir':'Fechar'}</button>`;
+    dlab.innerHTML=`${DIAS_PT[dia]}<br>${pad(d.getDate())}/${pad(d.getMonth()+1)}<button class="day-close" data-date="${dk}" data-act="${dClosed?'open':'close'}">${dClosed?'Reabrir':'Fechar'}</button>`;
     const dcb=dlab.querySelector('.day-close');if(dcb)dcb.addEventListener('click',()=>toggleDayClosed(dcb.dataset.date,dcb.dataset.act==='close'));
     grid.appendChild(dlab);
     board.lines.forEach(l=>{try{
@@ -865,8 +869,15 @@ async function deleteCurrent(){if(!editingId)return;if(!confirm('Apagar esta ord
 function renderCfg(){
   const el=document.getElementById('board');
   const caps=SETTINGS.capacidades||{};
-  let capRows=ALL_LINES.map(l=>`<tr><td>${lineLabel(l)}</td>
-     <td><input id="cap_${l}" type="number" value="${(caps[l]&&caps[l].krH)||(l==='EM'?8500:17000)}" ${isProd()?'disabled':''}></td></tr>`).join('');
+  let capRows=ALL_LINES.map(l=>{
+    if(l==='EM'){
+      const b=(caps.EM_B&&caps.EM_B.krH)||(caps.EM&&caps.EM.krH)||2000;
+      const t=(caps.EM_T&&caps.EM_T.krH)||(caps.EM&&caps.EM.krH)||2000;
+      return `<tr><td>Escolha Manual · Banca</td><td><input id="cap_EM_B" type="number" value="${b}" ${isProd()?'disabled':''}></td></tr>`+
+             `<tr><td>Escolha Manual · Tapete</td><td><input id="cap_EM_T" type="number" value="${t}" ${isProd()?'disabled':''}></td></tr>`;
+    }
+    return `<tr><td>${lineLabel(l)}</td><td><input id="cap_${l}" type="number" value="${(caps[l]&&caps[l].krH)||17000}" ${isProd()?'disabled':''}></td></tr>`;
+  }).join('');
   const t1=(SETTINGS.turnos||{})[1]||{},t2=(SETTINGS.turnos||{})[2]||{};
   el.innerHTML=`<div class="cfg">
     <h2>Capacidade por linha (rolhas/h)</h2>
@@ -888,7 +899,7 @@ function renderCfg(){
   const b=document.getElementById('btnSaveCfg');if(b)b.onclick=saveCfg;
 }
 async function saveCfg(){
-  const caps={};ALL_LINES.forEach(l=>{caps[l]={krH:+gv('cap_'+l)||(l==='EM'?8500:17000)};});
+  const caps={};ALL_LINES.forEach(l=>{if(l==='EM'){caps.EM_B={krH:+gv('cap_EM_B')||2000};caps.EM_T={krH:+gv('cap_EM_T')||2000};}else{caps[l]={krH:+gv('cap_'+l)||17000};}});
   const turnos={1:{ini:gv('t1ini'),fim:gv('t1fim'),almocoIni:gv('t1ai'),almocoFim:gv('t1af')},
                 2:{ini:gv('t2ini'),fim:gv('t2fim'),jantarIni:gv('t2ji'),jantarFim:gv('t2jf')}}; // T2 só jantar
   const payload={capacidades:caps,turnos:turnos,setupMin:+gv('setupMin')||10};

@@ -61,7 +61,8 @@ const AREAS_ESPECIAIS = ['B', 'EE', 'T']; // Banca, Escolha Eletrónica, Tapete
 
 const DEFAULT_CAPACIDADES = {};
 ['1','2','3','4','5','6','7','8'].forEach((l) => { DEFAULT_CAPACIDADES[l] = { krH: 17000, turno: 1 }; });
-DEFAULT_CAPACIDADES['EM'] = { krH: 8500, turno: 1 }; // Escolha Manual (Banca/Tapete)
+DEFAULT_CAPACIDADES['EM_B'] = { krH: 2000 }; // Escolha Manual · Banca
+DEFAULT_CAPACIDADES['EM_T'] = { krH: 2000 }; // Escolha Manual · Tapete
 
 const DEFAULT_SETTINGS = {
   // janelas de turno (HH:MM). Turno 1 = 1 turno (dia). Turno 2 = 2 turnos (até noite).
@@ -157,10 +158,13 @@ async function migrateEscolhaManual() {
   const capR = await pool.query(`SELECT value FROM settings WHERE key='capacidades'`);
   if (capR.rows.length) {
     const caps = capR.rows[0].value || {};
-    if (!caps.EM) {
-      caps.EM = { krH: 8500, tipo: 'Manual' };
+    let chg = false;
+    const emBase = (caps.EM && caps.EM.krH) || 2000;
+    if (!caps.EM_B) { caps.EM_B = { krH: emBase }; chg = true; }
+    if (!caps.EM_T) { caps.EM_T = { krH: emBase }; chg = true; }
+    if (chg) {
       await pool.query(`UPDATE settings SET value=$1, updated_at=NOW() WHERE key='capacidades'`, [JSON.stringify(caps)]);
-      console.log('[db] migrateEscolhaManual: capacidade EM adicionada.');
+      console.log('[db] migrateEscolhaManual: capacidades EM_B/EM_T adicionadas.');
     }
   }
 }
