@@ -685,7 +685,7 @@ function openModal(id){
      ${fld('Cliente','f_cliente',o.cliente,{prodLock:true})}
      ${fld('Produto entrada','f_prod',o.produtoEntrada,{prodLock:true})}
      <div class="fld"><label>Calibre (auto)</label><input id="f_cal" value="${String(o.calibre||'').replace(/"/g,'&quot;')}" readonly title="Preenchido automaticamente pelo Produto"></div>
-     ${fld('Qualidades','f_qual',o.qualidades,{prodLock:true})}
+     ${fld('QV','f_qual',o.qualidades,{prodLock:true})}
      <div class="fld"><label>Qtd (unidades)</label><input id="f_qtd" type="number" step="1" value="${Math.round((+o.qtd||0)*1000)}" ${isProd()?'disabled':''}></div>
      <div class="fld"><label>Qtd objetivo</label><input id="f_qtdnec" type="number" step="1" value="${Math.round((+o.qtdNecessaria||0)*1000)}" ${isProd()?'disabled':''}></div>
      ${fld('Urgente?','f_urg',o.urgente,{type:'check'})}
