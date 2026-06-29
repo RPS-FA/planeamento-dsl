@@ -269,7 +269,7 @@ const ESPECIAIS_LABEL={'B':'Banca','EE':'Escolha Eletrónica','T':'Tapete'};
 // Etiquetas de apresentação das linhas (a chave interna mantém-se 1..10/B/EE/T)
 const LINE_LABELS={'1':'EE - DSL 1','2':'EE - DSL 2','3':'EE - DSL 3','4':'DSL - 4','5':'DSL - 5','6':'EE - DSL 6','7':'EE - DSL 7','8':'EE - DSL 8','EM':'Escolha Manual'};
 function lineLabel(l){return LINE_LABELS[l]||(ESPECIAIS.includes(l)?`${l} · ${ESPECIAIS_LABEL[l]}`:`Linha ${l}`);}
-const ESTADOS=['Aberto','Liberado','Em Processo','Em Processo - Desdobrar','Terminado','Concluído Planeamento'];
+const ESTADOS=['Aberto','Em Processo','Terminado','Concluído Planeamento'];
 const ESTADO_POOL='Aberto';
 const PLANEADOR_PW='Cork2026!';
 
@@ -425,7 +425,7 @@ function renderTabs(){
   const tc=document.createElement('div');tc.className='tab'+(ACTIVE_TAB==='cfg'?' active':'');
   tc.textContent='Configurações';tc.onclick=()=>{ACTIVE_TAB='cfg';render();};el.appendChild(tc);
 }
-function estColor(e){return{'Aberto':'#FFFFFF','Liberado':'#00B050','Em Processo':'#FFA500','Em Processo - Desdobrar':'#ED7D31','Terminado':'#E0218A','Concluído Planeamento':'#92D050'}[e]||'#ccc';}
+function estColor(e){return{'Aberto':'#FFFFFF','Em Processo':'#FFA500','Terminado':'#E0218A','Concluído Planeamento':'#92D050'}[e]||'#ccc';}
 function renderLegend(){
   const el=document.getElementById('legend');
   el.innerHTML=ESTADOS.map(e=>`<span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;border:1px solid #bbb;margin-right:4px;vertical-align:-1px;background:${estColor(e)}"></i>${e}</span>`).join('')
@@ -676,6 +676,7 @@ function openModal(id){
      ${fld('OP DSL','f_dsl',o.dsl,{prodLock:true})}
      ${fld('Lote','f_lote',o.lote)}
      ${fld('Cliente','f_cliente',o.cliente,{prodLock:true})}
+     ${fld('Estado','f_estado',o.estado,{type:'select',options:ESTADOS})}
      ${fld('Produto entrada','f_prod',o.produtoEntrada,{prodLock:true})}
      <div class="fld"><label>Calibre (auto)</label><input id="f_cal" value="${String(o.calibre||'').replace(/"/g,'&quot;')}" readonly title="Preenchido automaticamente pelo Produto"></div>
      ${fld('QV','f_qual',o.qualidades,{prodLock:true})}
@@ -735,7 +736,7 @@ async function saveModal(){
     set('desdobrar',gv('f_desd')==='true');set('qtdPrevistaDesd',+gv('f_qpdesd')||0);
     // Linha/Turno/Estado/Início geridos no quadro (drag-drop) — não tocados aqui.
   }
-  set('lote',gv('f_lote'));set('urgente',gv('f_urg')==='true');
+  set('lote',gv('f_lote'));set('urgente',gv('f_urg')==='true');set('estado',gv('f_estado'));
   set('qtdDesdobramento',(+gv('f_qdesd')||0)/1000);set('motivo2aPassagem',gv('f_mot'));set('causaRaiz2a',gv('f_causa'));
   set('qvUpDsl',gv('f_qvupd'));set('qvDsl',gv('f_qvd'));
   set('hInicioR',gv('f_hir'));set('hFimR',gv('f_hfr'));set('tempoAtraso',gv('f_atr'));

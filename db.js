@@ -184,8 +184,10 @@ async function migrateEstados() {
   if (!pool) return;
   const map = {
     'Por planear': 'Aberto',
-    'Planeada': 'Liberado',
+    'Planeada': 'Aberto',
+    'Liberado': 'Aberto',
     'Transita Dia anterior': 'Aberto',
+    'Em Processo - Desdobrar': 'Em Processo',
     'Terminada': 'Terminado',
     'Concluída': 'Concluído Planeamento',
   };
