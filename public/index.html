@@ -778,7 +778,7 @@ function openModal(id){
   document.getElementById('btnDelete').style.display=id?'':'none';
   document.getElementById('btnSplit').style.display=id?'':'none';
   const allLines=['',...LINHAS_1_5,...LINHAS_6_10,...ESPECIAIS];
-  const ident=isSup()?'':`
+  const ident=isProd()?'':`
    <div class="sec-title">Identificação</div>
    <div class="grid3">
      ${fld('OP DSL','f_dsl',o.dsl,{prodLock:true})}
