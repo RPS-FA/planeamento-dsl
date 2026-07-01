@@ -646,7 +646,7 @@ function renderBoard(){
       const mark=cellClosed?'<span class="mg-mark closed">fechado</span>':(full?'<span class="mg-mark full">cheio</span>':`<span class="mg-mark ok">livre</span>`);
       const capTxt=cellClosed?'':` ${freeU}/${capU}`;
       const turnoDis=(cellClosed||PROFILE==='producao')?'disabled':'';
-      let html=`<div class="mg-cellhead"><select class="turno-sel" data-date="${dk}" data-linha="${l}" ${turnoDis}><option value="1" ${tno===1?'selected':''}>1 turno</option><option value="2" ${tno===2?'selected':''}>2 turnos</option></select><span class="mg-cap${cellClosed?' closed':full?' full':low?' low':''}">${mark}${capTxt}</span></div>`;
+      let html=`<div class="mg-cellhead"><select class="turno-sel" data-date="${dk}" data-linha="${l}" ${turnoDis}><option value="1" ${tno===1?'selected':''}>1 turno</option><option value="2" ${tno===2?'selected':''}>2 turnos</option></select></div>`;
       if(passedU>0&&!cellClosed)html+=`<div class="mg-pass">↪ passou ${passedU} un p/ dia seguinte</div>`;
       segs.forEach(r=>html+=ocardHTML(l,r,searching));
       if(!full&&!cellClosed)html+=`<div class="mg-plan">PLANEAR AQUI<span class="mg-plan-q">livre ${freeU} un</span></div>`;
