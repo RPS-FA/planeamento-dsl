@@ -216,6 +216,8 @@ table.plan td.dnew{font-weight:700;color:var(--c-primary-dark)}
 .buffer-table tbody tr{cursor:pointer}
 .buffer-table tbody tr:hover{background:#f6faf2}
 .buffer-table tr.search-hit td{background:#fff3bf}
+.buffer-table tr.dragging{opacity:.4}
+#board.bf-dropzone{outline:2px dashed #b3801f;outline-offset:-6px;background:#fdf6e6}
 .buffer-table td.bf-acts{white-space:nowrap;text-align:center}
 .bf-promote{background:var(--c-primary);color:#fff;border:none;border-radius:5px;padding:5px 9px;cursor:pointer;font-size:12px;font-weight:600;margin-right:5px}
 .bf-promote:hover{background:var(--c-primary-dark)}
@@ -551,7 +553,7 @@ function renderBuffer(){
   else{
     html+=`<table class="buffer-table"><thead><tr><th>OP DSL</th><th>Tipo</th><th>Dia Plano</th><th>Produto entrada</th><th>Calibre</th><th>Lote</th><th>Qtd (un)</th><th>Cliente</th><th>QV-up</th><th>QV</th><th>Obs</th>${planner?'<th>Ações</th>':''}</tr></thead><tbody>`;
     html+=list.map(o=>{const hit=searching&&matchesSearch(o)?' search-hit':'';
-      return `<tr class="bf-row${hit}" data-id="${o.id}">
+      return `<tr class="bf-row${hit}" data-id="${o.id}" draggable="${planner?'true':'false'}">
         <td><b>${o.dsl||'—'}</b>${o.urgente?' <span class="badge urg">URG</span>':''}</td>
         <td>${o.dslTipo||''}</td>
         <td>${o.diaPlano||''}</td>
@@ -571,9 +573,16 @@ function renderBuffer(){
   el.innerHTML=html;
   el.querySelectorAll('.bf-row').forEach(r=>{
     r.addEventListener('click',e=>{if(e.target.closest('button'))return;openModal(+r.dataset.id);});
-    if(planner){const b=r.querySelector('.bf-promote');if(b)b.addEventListener('click',ev=>{ev.stopPropagation();bufferToKanban(+r.dataset.id);});
+    if(planner){
+      r.addEventListener('dragstart',e=>{dragOp=DATA.find(x=>x.id==r.dataset.id);r.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
+      r.addEventListener('dragend',()=>r.classList.remove('dragging'));
+      const b=r.querySelector('.bf-promote');if(b)b.addEventListener('click',ev=>{ev.stopPropagation();bufferToKanban(+r.dataset.id);});
       const d=r.querySelector('.bf-del');if(d)d.addEventListener('click',ev=>{ev.stopPropagation();bufferDelete(+r.dataset.id);});}
   });
+  // zona de drop: largar um cartão do Kanban (ou do quadro) aqui move para o Buffer
+  el.ondragover=e=>{if(!dragOp||isProd())return;e.preventDefault();el.classList.add('bf-dropzone');};
+  el.ondragleave=()=>el.classList.remove('bf-dropzone');
+  el.ondrop=e=>{e.preventDefault();el.classList.remove('bf-dropzone');if(dragOp&&!isProd())moveToBuffer(dragOp);};
   if(planner){
     const nb=document.getElementById('bfNew');if(nb)nb.onclick=()=>{_newBuffer=true;openModal(null);};
     const fi=document.getElementById('bfFile'),bi=document.getElementById('bfImport');
@@ -626,7 +635,7 @@ function render(){
   const wrap=document.getElementById('wrap');
   const wb=document.getElementById('weekbar');
   if(ACTIVE_TAB==='cfg'){wrap.classList.add('full');document.getElementById('pool').style.display='none';wb.style.display='none';renderCfg();document.body.classList.toggle('producao',isProd());return;}
-  if(ACTIVE_TAB==='buffer'){wrap.classList.add('full');document.getElementById('pool').style.display='none';wb.style.display='none';renderBuffer();document.body.classList.toggle('producao',isProd());return;}
+  if(ACTIVE_TAB==='buffer'){wrap.classList.remove('full');const hk=(PROFILE==='producao');document.getElementById('pool').style.display=hk?'none':'block';wb.style.display='none';if(!hk)renderPool();renderBuffer();document.body.classList.toggle('producao',isProd());return;}
   wb.style.display='flex';const hideKanban=(PROFILE==='producao');wrap.classList.toggle('full',hideKanban);document.getElementById('pool').style.display=hideKanban?'none':'block';
   const wkl=document.getElementById('wkLabel');
   if(PROFILE==='producao'&&PROD_DATE){wkl.textContent=`📅 ${DIAS_PT[diaIdxOf(PROD_DATE)]} ${pad(PROD_DATE.getDate())}/${pad(PROD_DATE.getMonth()+1)} (±1 dia)`;wkl.style.cursor='pointer';wkl.onclick=pickProdDate;}
@@ -691,6 +700,7 @@ function bindCards(root){
 }
 function renderBoard(){
   const el=document.getElementById('board');el.innerHTML='';
+  el.ondragover=el.ondrop=el.ondragleave=null;el.classList.remove('bf-dropzone');
   renderSearchBar(el);
   const board=BOARDS[ACTIVE_TAB];if(!board)return;
   const searching=!!SEARCH.v.trim();
@@ -824,7 +834,15 @@ async function moveToDate(op,linha,dateStr){
 async function moveToPool(op){
   snapshot();
   const oldL=op.linha,oldW=op.weekKey,oldD=+op.diaIdx||0;
-  op.linha='';op.weekKey='';op.diaIdx=0;op.sortIdx=0;op.estado=ESTADO_POOL;
+  op.linha='';op.weekKey='';op.diaIdx=0;op.sortIdx=0;op.estado=ESTADO_POOL;op.buffer=false;
+  if(oldL)reindex(oldL,oldW,oldD);
+  render();await persist(op);
+}
+async function moveToBuffer(op){
+  if(isProd())return;
+  snapshot();
+  const oldL=op.linha,oldW=op.weekKey,oldD=+op.diaIdx||0;
+  op.linha='';op.weekKey='';op.diaIdx=0;op.sortIdx=0;op.buffer=true;
   if(oldL)reindex(oldL,oldW,oldD);
   render();await persist(op);
 }
