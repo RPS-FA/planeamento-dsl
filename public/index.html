@@ -324,6 +324,7 @@ const BOARDS={
 };
 const UNIT_COLORS={eedsl:'#3d6b3f',dsl:'#2f5d86',em:'#5b2a86'};
 function unitOfLine(l){for(const k in BOARDS)if(BOARDS[k].lines.includes(l))return k;return '';}
+function unitLabel(k){return (BOARDS[k]&&BOARDS[k].label)||'';}
 function unitChip(k){if(!k||!BOARDS[k])return '';return `<span class="unit-chip" style="background:${UNIT_COLORS[k]||'#888'}">${BOARDS[k].label}</span>`;}
 // Dia de Plano (data indicativa): aceita ISO (yyyy-mm-dd) ou dd/mm/aa(aa)
 function dpToISO(s){s=String(s||'').trim();let m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return s.slice(0,10);m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);if(m){const y=m[3].length===2?'20'+m[3]:m[3];return `${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;}return '';}
