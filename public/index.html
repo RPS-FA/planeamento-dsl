@@ -206,6 +206,16 @@ table.plan td.dnew{font-weight:700;color:var(--c-primary-dark)}
 .cfg .mot-del{border:1px solid #e0a8a8;background:#fff;color:#b00;border-radius:4px;cursor:pointer;padding:0 8px;line-height:1}
 .cfg .mot-add{margin-top:8px;background:var(--c-primary);color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px}
 .cfg .mot-add:hover{background:var(--c-primary-dark)}
+.buffer-wrap{padding:14px 18px}
+.buffer-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+.buffer-head h2{margin:0;font-size:16px;color:var(--c-primary-dark)}
+.buffer-actions{display:flex;gap:8px;margin-left:auto}
+.buffer-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.bf-card{cursor:pointer;border-left:4px solid #b3801f}
+.bf-btns{display:flex;gap:6px;margin-top:7px}
+.bf-promote{flex:1;background:var(--c-primary);color:#fff;border:none;border-radius:5px;padding:5px 8px;cursor:pointer;font-size:11px;font-weight:600}
+.bf-promote:hover{background:var(--c-primary-dark)}
+.bf-del{background:#fff;border:1px solid #e0a8a8;color:#b00;border-radius:5px;padding:0 10px;cursor:pointer}
 .cfg td.ivc{white-space:nowrap}.cfg td.ivc input{width:82px}
 .cfg td.ivc input::-webkit-calendar-picker-indicator{display:none}.cfg td.ivc input::-webkit-inner-spin-button{display:none}
 
@@ -309,7 +319,7 @@ let ACTIVE_TAB='eedsl';
 let ANCHOR=null;
 let PROFILE=localStorage.getItem('dsl_profile')||'supervisao';
 let PROD_DATE=null;   // dia visível no perfil Produção (vê esse dia ±1)
-let editingId=null;
+let editingId=null;let _newBuffer=false;
 let dragOp=null;
 const SEARCH={v:''};
 
@@ -479,6 +489,13 @@ function renderTabs(){
     if(ACTIVE_TAB===k)t.style.borderBottomColor=col;
     t.onclick=()=>{ACTIVE_TAB=k;render();};el.appendChild(t);
   });
+  if(PROFILE!=='producao'){
+    const tb=document.createElement('div');tb.className='tab'+(ACTIVE_TAB==='buffer'?' active':'');
+    const nb=DATA.filter(o=>!o.linha&&o.buffer&&isRealOrder(o)).length;
+    tb.innerHTML=`<i class="tdot" style="background:#b3801f"></i>BUFFER <span class="cnt">${nb}</span>`;
+    if(ACTIVE_TAB==='buffer')tb.style.borderBottomColor='#b3801f';
+    tb.onclick=()=>{ACTIVE_TAB='buffer';render();};el.appendChild(tb);
+  }
   const tc=document.createElement('div');tc.className='tab'+(ACTIVE_TAB==='cfg'?' active':'');
   tc.textContent='Configurações';tc.onclick=()=>{ACTIVE_TAB='cfg';render();};el.appendChild(tc);
 }
@@ -506,7 +523,7 @@ function cardHTML(o,hit){
 function renderPool(){
   const el=document.getElementById('pool');
   const searching=!!SEARCH.v.trim();
-  const all=DATA.filter(o=>!o.linha&&isRealOrder(o));
+  const all=DATA.filter(o=>!o.linha&&!o.buffer&&isRealOrder(o));
   const pend=all.filter(matchesSearch);
   let html=`<h3>Kanban · novas ordens (${searching?pend.length+'/'+all.length:all.length})</h3>`;
   html+=pend.map(o=>cardHTML(o,searching)).join('')||'<div class="mini" style="padding:8px">'+(searching?'Sem matches no Kanban.':'Sem ordens por planear.')+'</div>';
@@ -517,6 +534,81 @@ function renderPool(){
   el.ondrop=e=>{e.preventDefault();el.style.background='';if(dragOp&&!isProd())moveToPool(dragOp);};
 }
 
+/* ---------------- BUFFER (nível anterior ao Kanban) ---------------- */
+function bufferCardHTML(o,hit){
+  const urg=o.urgente?'<span class="badge urg">URG</span>':'';
+  const tipo=o.dslTipo?`<span class="badge">${o.dslTipo}</span>`:'';
+  const dia=o.diaPlano?`<span class="badge">📅 ${o.diaPlano}</span>`:'';
+  const planner=!isProd();
+  return `<div class="card bf-card${hit?' search-hit':''}" data-id="${o.id}" data-est="${o.estado}">
+    <div class="c-top"><span class="c-dsl">${o.dsl||o.lote||'—'}</span><span class="c-qtd">${Math.round((+o.qtd||0)*1000)} un</span></div>
+    <div class="c-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div>
+    <div class="c-meta"><span>${o.cliente||''}</span><span class="badge">${o.calibre||''}</span>${tipo}${dia}${urg}</div>
+    ${planner?`<div class="bf-btns"><button class="bf-promote">→ Kanban</button><button class="bf-del" title="Apagar">×</button></div>`:''}
+  </div>`;
+}
+function renderBuffer(){
+  const el=document.getElementById('board');
+  const searching=!!SEARCH.v.trim();
+  const all=DATA.filter(o=>!o.linha&&o.buffer&&isRealOrder(o));
+  const list=all.filter(matchesSearch);
+  const planner=!isProd();
+  let html=`<div class="buffer-wrap"><div class="buffer-head"><h2>BUFFER · à espera de planeamento (${searching?list.length+'/'+all.length:all.length})</h2>`;
+  if(planner)html+=`<div class="buffer-actions"><button class="primary" id="bfNew">+ Nova ordem (Buffer)</button><button class="mot-add" id="bfImport">⭱ Importar Excel</button><input type="file" id="bfFile" accept=".xlsx,.xls" style="display:none"></div>`;
+  html+=`</div><div class="buffer-grid">`;
+  html+=list.map(o=>bufferCardHTML(o,searching&&matchesSearch(o))).join('')||`<div class="mini" style="padding:10px">${searching?'Sem matches no Buffer.':'Buffer vazio.'}</div>`;
+  html+=`</div></div>`;
+  el.innerHTML=html;
+  el.querySelectorAll('.bf-card').forEach(c=>{
+    c.addEventListener('click',e=>{if(e.target.closest('button'))return;openModal(+c.dataset.id);});
+    if(planner){const b=c.querySelector('.bf-promote');if(b)b.addEventListener('click',()=>bufferToKanban(+c.dataset.id));
+      const d=c.querySelector('.bf-del');if(d)d.addEventListener('click',()=>bufferDelete(+c.dataset.id));}
+  });
+  if(planner){
+    const nb=document.getElementById('bfNew');if(nb)nb.onclick=()=>{_newBuffer=true;openModal(null);};
+    const fi=document.getElementById('bfFile'),bi=document.getElementById('bfImport');
+    if(bi&&fi){bi.onclick=()=>fi.click();fi.onchange=()=>{if(fi.files[0]){importBufferExcel(fi.files[0]);fi.value='';}};}
+  }
+}
+async function bufferToKanban(id){const op=DATA.find(o=>o.id===id);if(!op||isProd())return;snapshot();op.buffer=false;render();await persist(op);toast('Enviada para o Kanban.');}
+async function bufferDelete(id){if(isProd())return;const op=DATA.find(o=>o.id===id);if(!op)return;if(!confirm('Apagar esta ordem do Buffer?'))return;snapshot();try{await Api.delOp(id);DATA=DATA.filter(o=>o.id!==id);toast('Apagada.');render();}catch(e){toast('Falha: '+e.message,'err');}}
+function importBufferExcel(file){
+  if(isProd())return;
+  const rd=new FileReader();
+  rd.onload=async e=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+      if(!rows.length){toast('Excel sem linhas.','err');return;}
+      const norm=s=>String(s||'').trim().toLowerCase().replace(/\s+/g,' ');
+      const pick=(r,names)=>{for(const k of Object.keys(r)){if(names.includes(norm(k)))return r[k];}return '';};
+      const orders=rows.map(r=>{
+        const prod=String(pick(r,['material'])||'').trim();
+        const qtd=parseFloat(String(pick(r,['qtd'])).replace(',','.'))||0;
+        const o=blankOp();o.buffer=true;o.estado='Aberto';
+        o.dsl=String(pick(r,['op'])||'').trim();
+        o.produtoEntrada=prod;o.calibre=calibreFrom(prod);o.qualidades=qualidadeFrom(prod);
+        o.lote=String(pick(r,['lote'])||'').trim();
+        o.qtd=qtd; // Excel já em milhares
+        o.cliente=String(pick(r,['cliente'])||'').trim();
+        o.obs=String(pick(r,['obs pi','obs'])||'').trim();
+        o.qvUpDsl=String(pick(r,['qv-up','qv up','qvup'])||'').trim();
+        o.qvDsl=String(pick(r,['qv'])||'').trim();
+        o.dslTipo=String(pick(r,['dsl / vdsl','dsl/vdsl'])||'').trim();
+        o.diaPlano=String(pick(r,['dia de plano','dia plano'])||'').trim();
+        return o;
+      }).filter(o=>o.dsl||o.lote||o.produtoEntrada||o.qtd>0);
+      if(!orders.length){toast('Nenhuma ordem válida no Excel.','err');return;}
+      if(!confirm(`Importar ${orders.length} ordem(ns) para o Buffer?`))return;
+      setConn('loading','a importar…');
+      for(const o of orders){const s=await Api.postOp(o);DATA.push(s);}
+      setConn('ok','ligado');toast(`${orders.length} ordem(ns) importada(s) para o Buffer.`);render();
+    }catch(err){setConn('error','erro');toast('Falha ao importar: '+err.message,'err');}
+  };
+  rd.readAsArrayBuffer(file);
+}
+
 /* ---------------- BOARD ---------------- */
 function render(){
   clearSchedCache();
@@ -524,6 +616,7 @@ function render(){
   const wrap=document.getElementById('wrap');
   const wb=document.getElementById('weekbar');
   if(ACTIVE_TAB==='cfg'){wrap.classList.add('full');document.getElementById('pool').style.display='none';wb.style.display='none';renderCfg();document.body.classList.toggle('producao',isProd());return;}
+  if(ACTIVE_TAB==='buffer'){wrap.classList.add('full');document.getElementById('pool').style.display='none';wb.style.display='none';renderBuffer();document.body.classList.toggle('producao',isProd());return;}
   wb.style.display='flex';const hideKanban=(PROFILE==='producao');wrap.classList.toggle('full',hideKanban);document.getElementById('pool').style.display=hideKanban?'none':'block';
   const wkl=document.getElementById('wkLabel');
   if(PROFILE==='producao'&&PROD_DATE){wkl.textContent=`📅 ${DIAS_PT[diaIdxOf(PROD_DATE)]} ${pad(PROD_DATE.getDate())}/${pad(PROD_DATE.getMonth()+1)} (±1 dia)`;wkl.style.cursor='pointer';wkl.onclick=pickProdDate;}
@@ -786,7 +879,7 @@ function selList(label,id,val,list,opts){opts=opts||{};const dis=opts.prodLock&&
   return `<div class="fld"><label>${label}</label><select id="${id}" ${dis}>${html}</select></div>`;}
 
 function openModal(id){
-  editingId=id;const o=id?DATA.find(x=>x.id===id):blankOp();
+  editingId=id;const o=id?DATA.find(x=>x.id===id):Object.assign(blankOp(),{buffer:_newBuffer});_newBuffer=false;
   document.getElementById('modalTitle').textContent=id?`Editar ordem ${o.dsl||o.lote||''}`:'Nova ordem';
   document.getElementById('btnDelete').style.display=id?'':'none';
   document.getElementById('btnSplit').style.display=id?'':'none';
@@ -798,6 +891,7 @@ function openModal(id){
      ${fld('Lote','f_lote',o.lote,{prodLock:true})}
      ${fld('Cliente','f_cliente',o.cliente,{prodLock:true})}
      ${fld('Estado','f_estado',o.estado,{type:'select',options:ESTADOS})}
+     ${(!o.linha)?fld('Destino','f_dest',o.buffer?'Buffer':'Kanban',{type:'select',options:['Kanban','Buffer'],prodLock:true}):''}
      ${fld('Produto entrada','f_prod',o.produtoEntrada,{prodLock:true})}
      <div class="fld"><label>Calibre (auto)</label><input id="f_cal" value="${String(o.calibre||'').replace(/"/g,'&quot;')}" readonly title="Preenchido automaticamente pelo Produto"></div>
      ${fld('QV','f_qual',o.qualidades,{prodLock:true})}
@@ -842,7 +936,7 @@ function openModal(id){
   if(fm&&!isProd())fm.addEventListener('change',syncModo);syncModo();
   document.getElementById('modalBg').classList.add('show');
 }
-function blankOp(){return{dsl:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Aberto',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',obsProd:'',motivoDesdobramento:'',bancaTapete:'',urgente:false,weekKey:'',diaIdx:0,sortIdx:0};}
+function blankOp(){return{dsl:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Aberto',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',obsProd:'',motivoDesdobramento:'',bancaTapete:'',urgente:false,buffer:false,diaPlano:'',dslTipo:'',weekKey:'',diaIdx:0,sortIdx:0};}
 function gv(id){const e=document.getElementById(id);return e?e.value:'';}
 async function saveModal(){
   // Desdobramento obrigatório quando Desdobra = Sim
@@ -858,6 +952,7 @@ async function saveModal(){
     set('calibre',calibreFrom(prod)||gv('f_cal'));set('qualidades',gv('f_qual')||qualidadeFrom(prod));
     set('qtd',(+gv('f_qtd')||0)/1000);set('qtdNecessaria',(+gv('f_qtdnec')||0)/1000); // input em unidades -> guardado em milhares
     const _modo=gv('f_modo')==='Manual'?'manual':'auto';set('inicioMode',_modo);set('hInicioP',_modo==='manual'?gv('f_hini'):'');
+    if(document.getElementById('f_dest'))set('buffer',gv('f_dest')==='Buffer');
     // Linha/Turno/Estado/Início geridos no quadro (drag-drop) — não tocados aqui.
   }
   const has=id=>!!document.getElementById(id);
