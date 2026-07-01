@@ -210,12 +210,16 @@ table.plan td.dnew{font-weight:700;color:var(--c-primary-dark)}
 .buffer-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px}
 .buffer-head h2{margin:0;font-size:16px;color:var(--c-primary-dark)}
 .buffer-actions{display:flex;gap:8px;margin-left:auto}
-.buffer-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
-.bf-card{cursor:pointer;border-left:4px solid #b3801f}
-.bf-btns{display:flex;gap:6px;margin-top:7px}
-.bf-promote{flex:1;background:var(--c-primary);color:#fff;border:none;border-radius:5px;padding:5px 8px;cursor:pointer;font-size:11px;font-weight:600}
+.buffer-table{width:100%;border-collapse:collapse;font-size:13px}
+.buffer-table th,.buffer-table td{border:1px solid var(--c-line);padding:7px 9px;text-align:left;vertical-align:top}
+.buffer-table th{background:#eef3ea;font-size:12px;color:var(--c-primary-dark);position:sticky;top:0}
+.buffer-table tbody tr{cursor:pointer}
+.buffer-table tbody tr:hover{background:#f6faf2}
+.buffer-table tr.search-hit td{background:#fff3bf}
+.buffer-table td.bf-acts{white-space:nowrap;text-align:center}
+.bf-promote{background:var(--c-primary);color:#fff;border:none;border-radius:5px;padding:5px 9px;cursor:pointer;font-size:12px;font-weight:600;margin-right:5px}
 .bf-promote:hover{background:var(--c-primary-dark)}
-.bf-del{background:#fff;border:1px solid #e0a8a8;color:#b00;border-radius:5px;padding:0 10px;cursor:pointer}
+.bf-del{background:#fff;border:1px solid #e0a8a8;color:#b00;border-radius:5px;padding:2px 9px;cursor:pointer}
 .cfg td.ivc{white-space:nowrap}.cfg td.ivc input{width:82px}
 .cfg td.ivc input::-webkit-calendar-picker-indicator{display:none}.cfg td.ivc input::-webkit-inner-spin-button{display:none}
 
@@ -534,18 +538,6 @@ function renderPool(){
 }
 
 /* ---------------- BUFFER (nível anterior ao Kanban) ---------------- */
-function bufferCardHTML(o,hit){
-  const urg=o.urgente?'<span class="badge urg">URG</span>':'';
-  const tipo=o.dslTipo?`<span class="badge">${o.dslTipo}</span>`:'';
-  const dia=o.diaPlano?`<span class="badge">📅 ${o.diaPlano}</span>`:'';
-  const planner=!isProd();
-  return `<div class="card bf-card${hit?' search-hit':''}" data-id="${o.id}" data-est="${o.estado}">
-    <div class="c-top"><span class="c-dsl">${o.dsl||o.lote||'—'}</span><span class="c-qtd">${Math.round((+o.qtd||0)*1000)} un</span></div>
-    <div class="c-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div>
-    <div class="c-meta"><span>${o.cliente||''}</span><span class="badge">${o.calibre||''}</span>${tipo}${dia}${urg}</div>
-    ${planner?`<div class="bf-btns"><button class="bf-promote">→ Kanban</button><button class="bf-del" title="Apagar">×</button></div>`:''}
-  </div>`;
-}
 function renderBuffer(){
   const el=document.getElementById('board');
   const searching=!!SEARCH.v.trim();
@@ -553,15 +545,34 @@ function renderBuffer(){
   const list=all.filter(matchesSearch);
   const planner=!isProd();
   let html=`<div class="buffer-wrap"><div class="buffer-head"><h2>BUFFER · à espera de planeamento (${searching?list.length+'/'+all.length:all.length})</h2>`;
-  if(planner)html+=`<div class="buffer-actions"><button class="primary" id="bfNew">+ Nova ordem (Buffer)</button><button class="mot-add" id="bfImport">⭱ Importar Excel</button><input type="file" id="bfFile" accept=".xlsx,.xls" style="display:none"></div>`;
-  html+=`</div><div class="buffer-grid">`;
-  html+=list.map(o=>bufferCardHTML(o,searching&&matchesSearch(o))).join('')||`<div class="mini" style="padding:10px">${searching?'Sem matches no Buffer.':'Buffer vazio.'}</div>`;
-  html+=`</div></div>`;
+  if(planner)html+=`<div class="buffer-actions"><button class="primary" id="bfNew">+ Nova ordem</button><button class="mot-add" id="bfImport">⭱ Importar Excel</button><input type="file" id="bfFile" accept=".xlsx,.xls" style="display:none"></div>`;
+  html+=`</div>`;
+  if(!list.length){html+=`<div class="mini" style="padding:10px">${searching?'Sem matches no Buffer.':'Buffer vazio — importa um Excel ou cria uma ordem.'}</div>`;}
+  else{
+    html+=`<table class="buffer-table"><thead><tr><th>OP DSL</th><th>Tipo</th><th>Dia Plano</th><th>Produto entrada</th><th>Calibre</th><th>Lote</th><th>Qtd (un)</th><th>Cliente</th><th>QV-up</th><th>QV</th><th>Obs</th>${planner?'<th>Ações</th>':''}</tr></thead><tbody>`;
+    html+=list.map(o=>{const hit=searching&&matchesSearch(o)?' search-hit':'';
+      return `<tr class="bf-row${hit}" data-id="${o.id}">
+        <td><b>${o.dsl||'—'}</b>${o.urgente?' <span class="badge urg">URG</span>':''}</td>
+        <td>${o.dslTipo||''}</td>
+        <td>${o.diaPlano||''}</td>
+        <td title="${(o.produtoEntrada||'').replace(/"/g,'&quot;')}">${o.produtoEntrada||''}</td>
+        <td>${o.calibre||''}</td>
+        <td>${o.lote||''}</td>
+        <td style="text-align:right">${Math.round((+o.qtd||0)*1000).toLocaleString('pt-PT')}</td>
+        <td>${o.cliente||''}</td>
+        <td>${o.qvUpDsl||''}</td>
+        <td>${o.qvDsl||''}</td>
+        <td>${o.obs||''}</td>
+        ${planner?`<td class="bf-acts"><button class="bf-promote">→ Kanban</button><button class="bf-del" title="Apagar">×</button></td>`:''}
+      </tr>`;}).join('');
+    html+=`</tbody></table>`;
+  }
+  html+=`</div>`;
   el.innerHTML=html;
-  el.querySelectorAll('.bf-card').forEach(c=>{
-    c.addEventListener('click',e=>{if(e.target.closest('button'))return;openModal(+c.dataset.id);});
-    if(planner){const b=c.querySelector('.bf-promote');if(b)b.addEventListener('click',()=>bufferToKanban(+c.dataset.id));
-      const d=c.querySelector('.bf-del');if(d)d.addEventListener('click',()=>bufferDelete(+c.dataset.id));}
+  el.querySelectorAll('.bf-row').forEach(r=>{
+    r.addEventListener('click',e=>{if(e.target.closest('button'))return;openModal(+r.dataset.id);});
+    if(planner){const b=r.querySelector('.bf-promote');if(b)b.addEventListener('click',ev=>{ev.stopPropagation();bufferToKanban(+r.dataset.id);});
+      const d=r.querySelector('.bf-del');if(d)d.addEventListener('click',ev=>{ev.stopPropagation();bufferDelete(+r.dataset.id);});}
   });
   if(planner){
     const nb=document.getElementById('bfNew');if(nb)nb.onclick=()=>{_newBuffer=true;openModal(null);};
