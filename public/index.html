@@ -249,7 +249,6 @@ body.prof-prod .day-close{display:none!important}
     <button class="ghost planner-only" id="btnUndo" title="Anular última ação" disabled>↶ Anular</button>
     <button class="primary planner-only" id="btnNew">+ Nova ordem</button>
     <button class="ghost" id="btnExport">Exportar Excel</button>
-    <button class="ghost planner-only" id="btnClearMonth" title="Devolver ao Kanban todas as ordens do mês visível">⇤ Limpar mês</button>
     <button class="ghost planner-only" id="btnReset" title="Repor seed">↺</button>
   </div>
 </header>
@@ -1119,7 +1118,6 @@ document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLower
 document.getElementById('btnNew').addEventListener('click',()=>openModal(null));
 document.getElementById('btnExport').addEventListener('click',exportExcel);
 document.getElementById('btnReset').addEventListener('click',async()=>{if(!confirm('Repor todas as ordens do seed inicial? Isto apaga alterações.'))return;try{DATA=await Api.reset();toast('Reposto.');render();}catch(e){toast('Falha: '+e.message,'err');}});
-document.getElementById('btnClearMonth').addEventListener('click',clearMonthToKanban);
 document.getElementById('btnSave').addEventListener('click',saveModal);
 document.getElementById('btnCancel').addEventListener('click',closeModal);
 document.getElementById('btnDelete').addEventListener('click',deleteCurrent);
