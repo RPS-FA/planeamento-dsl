@@ -221,6 +221,8 @@ table.plan td.dnew{font-weight:700;color:var(--c-primary-dark)}
 .buffer-table tr.dragging{opacity:.4}
 #board.bf-dropzone{outline:2px dashed #b3801f;outline-offset:-6px;background:#fdf6e6}
 .unit-chip{display:inline-block;color:#fff;font-size:10px;font-weight:600;padding:1px 8px;border-radius:10px;white-space:nowrap}
+.buffer-table th.bf-sort{cursor:pointer;user-select:none;white-space:nowrap}
+.buffer-table th.bf-sort:hover{text-decoration:underline}
 .buffer-table td.bf-acts{white-space:nowrap;text-align:center}
 .bf-promote{background:var(--c-primary);color:#fff;border:none;border-radius:5px;padding:5px 9px;cursor:pointer;font-size:12px;font-weight:600;margin-right:5px}
 .bf-promote:hover{background:var(--c-primary-dark)}
@@ -323,6 +325,10 @@ const BOARDS={
 const UNIT_COLORS={eedsl:'#3d6b3f',dsl:'#2f5d86',em:'#5b2a86'};
 function unitOfLine(l){for(const k in BOARDS)if(BOARDS[k].lines.includes(l))return k;return '';}
 function unitChip(k){if(!k||!BOARDS[k])return '';return `<span class="unit-chip" style="background:${UNIT_COLORS[k]||'#888'}">${BOARDS[k].label}</span>`;}
+// Dia de Plano (data indicativa): aceita ISO (yyyy-mm-dd) ou dd/mm/aa(aa)
+function dpToISO(s){s=String(s||'').trim();let m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return s.slice(0,10);m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);if(m){const y=m[3].length===2?'20'+m[3]:m[3];return `${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;}return '';}
+function dpFmt(s){const iso=dpToISO(s);if(iso){const p=iso.split('-');return `${p[2]}/${p[1]}/${p[0]}`;}return String(s||'');}
+function dpKey(s){const iso=dpToISO(s);return iso?iso.replace(/-/g,''):'';}
 
 let DATA=[];
 let SETTINGS={};
@@ -330,7 +336,7 @@ let ACTIVE_TAB='eedsl';
 let ANCHOR=null;
 let PROFILE=localStorage.getItem('dsl_profile')||'supervisao';
 let PROD_DATE=null;   // dia visível no perfil Produção (vê esse dia ±1)
-let editingId=null;let _newBuffer=false;
+let editingId=null;let _newBuffer=false;let BUF_SORT={key:'dp',dir:1};
 let dragOp=null;
 const SEARCH={v:''};
 
@@ -557,13 +563,17 @@ function renderBuffer(){
   html+=`</div>`;
   if(!list.length){html+=`<div class="mini" style="padding:10px">${searching?'Sem matches no Buffer.':'Buffer vazio — importa um Excel ou cria uma ordem.'}</div>`;}
   else{
-    html+=`<table class="buffer-table"><thead><tr><th>OP DSL</th><th>Unidade</th><th>Tipo</th><th>Dia Plano</th><th>Produto entrada</th><th>Calibre</th><th>Lote</th><th>Qtd (un)</th><th>Cliente</th><th>QV-up</th><th>QV</th><th>Obs</th>${planner?'<th>Ações</th>':''}</tr></thead><tbody>`;
+    const sk=BUF_SORT.key,dir=BUF_SORT.dir;
+    const sval=o=>({op:(o.dsl||'').toLowerCase(),unit:unitLabel(o.unidade),dp:dpKey(o.diaPlano),qtd:+o.qtd||0,cliente:(o.cliente||'').toLowerCase(),urg:o.urgente?0:1}[sk]);
+    list.sort((a,b)=>{const x=sval(a),y=sval(b);if(x<y)return -dir;if(x>y)return dir;return 0;});
+    const th=(key,label,extra)=>`<th class="bf-sort" data-sk="${key}"${extra||''}>${label}${sk===key?(dir>0?' ▲':' ▼'):''}</th>`;
+    html+=`<table class="buffer-table"><thead><tr>${th('op','OP DSL')}${th('unit','Unidade')}<th>Tipo</th>${th('dp','Dia Plano')}<th>Produto entrada</th><th>Calibre</th><th>Lote</th>${th('qtd','Qtd (un)')}${th('cliente','Cliente')}<th>QV-up</th><th>QV</th>${th('urg','URG')}<th>Obs</th>${planner?'<th>Ações</th>':''}</tr></thead><tbody>`;
     html+=list.map(o=>{const hit=searching&&matchesSearch(o)?' search-hit':'';
       return `<tr class="bf-row${hit}" data-id="${o.id}" draggable="${planner?'true':'false'}">
-        <td><b>${o.dsl||'—'}</b>${o.urgente?' <span class="badge urg">URG</span>':''}</td>
+        <td><b>${o.dsl||'—'}</b></td>
         <td>${unitChip(o.unidade)}</td>
         <td>${o.dslTipo||''}</td>
-        <td>${o.diaPlano||''}</td>
+        <td>${dpFmt(o.diaPlano)}</td>
         <td title="${(o.produtoEntrada||'').replace(/"/g,'&quot;')}">${o.produtoEntrada||''}</td>
         <td>${o.calibre||''}</td>
         <td>${o.lote||''}</td>
@@ -571,6 +581,7 @@ function renderBuffer(){
         <td>${o.cliente||''}</td>
         <td>${o.qvUpDsl||''}</td>
         <td>${o.qvDsl||''}</td>
+        <td>${o.urgente?'<span class="badge urg">URG</span>':''}</td>
         <td>${o.obs||''}</td>
         ${planner?`<td class="bf-acts"><button class="bf-promote">→ Kanban</button><button class="bf-del" title="Apagar">×</button></td>`:''}
       </tr>`;}).join('');
@@ -578,6 +589,7 @@ function renderBuffer(){
   }
   html+=`</div>`;
   el.innerHTML=html;
+  el.querySelectorAll('.bf-sort').forEach(h=>h.addEventListener('click',()=>{const k=h.dataset.sk;if(BUF_SORT.key===k)BUF_SORT.dir*=-1;else{BUF_SORT.key=k;BUF_SORT.dir=1;}renderBuffer();}));
   el.querySelectorAll('.bf-row').forEach(r=>{
     r.addEventListener('click',e=>{if(e.target.closest('button'))return;openModal(+r.dataset.id);});
     if(planner){
@@ -622,7 +634,7 @@ function importBufferExcel(file){
         o.qvUpDsl=String(pick(r,['qv-up','qv up','qvup'])||'').trim();
         o.qvDsl=String(pick(r,['qv'])||'').trim();
         o.dslTipo=String(pick(r,['dsl / vdsl','dsl/vdsl'])||'').trim();
-        o.diaPlano=String(pick(r,['dia de plano','dia plano'])||'').trim();
+        const _dp=String(pick(r,['dia de plano','dia plano'])||'').trim();o.diaPlano=dpToISO(_dp)||_dp;
         return o;
       }).filter(o=>o.dsl||o.lote||o.produtoEntrada||o.qtd>0);
       if(!orders.length){toast('Nenhuma ordem válida no Excel.','err');return;}
@@ -927,6 +939,7 @@ function openModal(id){
      ${fld('Cliente','f_cliente',o.cliente,{prodLock:true})}
      ${fld('Estado','f_estado',o.estado,{type:'select',options:ESTADOS})}
      <div class="fld"><label>Unidade / Máquina</label><select id="f_unidade" ${isProd()?'disabled':''}><option value="" ${!o.unidade?'selected':''}>—</option>${Object.entries(BOARDS).map(([k,b])=>`<option value="${k}" ${o.unidade===k?'selected':''}>${b.label}</option>`).join('')}</select></div>
+     <div class="fld"><label>Dia de Plano (indicativo)</label><input type="date" id="f_diaplano" value="${dpToISO(o.diaPlano)}" ${isProd()?'disabled':''}></div>
      ${(!o.linha)?fld('Destino','f_dest',o.buffer?'Buffer':'Kanban',{type:'select',options:['Kanban','Buffer'],prodLock:true}):''}
      ${fld('Produto entrada','f_prod',o.produtoEntrada,{prodLock:true})}
      <div class="fld"><label>Calibre (auto)</label><input id="f_cal" value="${String(o.calibre||'').replace(/"/g,'&quot;')}" readonly title="Preenchido automaticamente pelo Produto"></div>
@@ -990,6 +1003,7 @@ async function saveModal(){
     const _modo=gv('f_modo')==='Manual'?'manual':'auto';set('inicioMode',_modo);set('hInicioP',_modo==='manual'?gv('f_hini'):'');
     if(document.getElementById('f_dest'))set('buffer',gv('f_dest')==='Buffer');
     if(document.getElementById('f_unidade'))set('unidade',gv('f_unidade'));
+    if(document.getElementById('f_diaplano'))set('diaPlano',gv('f_diaplano'));
     // Linha/Turno/Estado/Início geridos no quadro (drag-drop) — não tocados aqui.
   }
   const has=id=>!!document.getElementById(id);
