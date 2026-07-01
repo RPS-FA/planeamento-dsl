@@ -210,14 +210,17 @@ table.plan td.dnew{font-weight:700;color:var(--c-primary-dark)}
 .buffer-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px}
 .buffer-head h2{margin:0;font-size:16px;color:var(--c-primary-dark)}
 .buffer-actions{display:flex;gap:8px;margin-left:auto}
-.buffer-table{width:100%;border-collapse:collapse;font-size:13px}
-.buffer-table th,.buffer-table td{border:1px solid var(--c-line);padding:7px 9px;text-align:left;vertical-align:top}
-.buffer-table th{background:#eef3ea;font-size:12px;color:var(--c-primary-dark);position:sticky;top:0}
-.buffer-table tbody tr{cursor:pointer}
-.buffer-table tbody tr:hover{background:#f6faf2}
+.buffer-table{width:100%;border-collapse:separate;border-spacing:0 9px;font-size:13px}
+.buffer-table thead th{padding:4px 10px;text-align:left;font-size:12px;color:var(--c-primary-dark);background:transparent;border:none}
+.buffer-table tbody td{background:#fff;padding:10px;text-align:left;vertical-align:middle;border-top:1px solid var(--c-line);border-bottom:1px solid var(--c-line)}
+.buffer-table tbody td:first-child{border-left:4px solid #b3801f;border-radius:10px 0 0 10px}
+.buffer-table tbody td:last-child{border-right:1px solid var(--c-line);border-radius:0 10px 10px 0}
+.buffer-table tbody tr{cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.09)}
+.buffer-table tbody tr:hover td{background:#f6faf2}
 .buffer-table tr.search-hit td{background:#fff3bf}
 .buffer-table tr.dragging{opacity:.4}
 #board.bf-dropzone{outline:2px dashed #b3801f;outline-offset:-6px;background:#fdf6e6}
+.unit-chip{display:inline-block;color:#fff;font-size:10px;font-weight:600;padding:1px 8px;border-radius:10px;white-space:nowrap}
 .buffer-table td.bf-acts{white-space:nowrap;text-align:center}
 .bf-promote{background:var(--c-primary);color:#fff;border:none;border-radius:5px;padding:5px 9px;cursor:pointer;font-size:12px;font-weight:600;margin-right:5px}
 .bf-promote:hover{background:var(--c-primary-dark)}
@@ -317,6 +320,9 @@ const BOARDS={
   dsl:{label:'DSL', lines:['4','5']},
   em:{label:'Escolha Manual', lines:['EM']},
 };
+const UNIT_COLORS={eedsl:'#3d6b3f',dsl:'#2f5d86',em:'#5b2a86'};
+function unitOfLine(l){for(const k in BOARDS)if(BOARDS[k].lines.includes(l))return k;return '';}
+function unitChip(k){if(!k||!BOARDS[k])return '';return `<span class="unit-chip" style="background:${UNIT_COLORS[k]||'#888'}">${BOARDS[k].label}</span>`;}
 
 let DATA=[];
 let SETTINGS={};
@@ -522,7 +528,7 @@ function cardHTML(o,hit){
   return `<div class="card${hit?' search-hit':''}" draggable="true" data-id="${o.id}" data-est="${o.estado}">
     <div class="c-top"><span class="c-dsl">${o.dsl||o.lote||'—'}</span><span class="c-qtd">${Math.round((+o.qtd||0)*1000)} un</span></div>
     <div class="c-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div>
-    <div class="c-meta"><span>${o.cliente||''}</span><span class="badge">${o.calibre||''}</span>${o.qualidades?`<span class="badge">${o.qualidades}</span>`:''}${desd}${urg}</div>
+    <div class="c-meta"><span>${o.cliente||''}</span><span class="badge">${o.calibre||''}</span>${o.qualidades?`<span class="badge">${o.qualidades}</span>`:''}${unitChip(o.unidade)}${desd}${urg}</div>
   </div>`;
 }
 function renderPool(){
@@ -551,10 +557,11 @@ function renderBuffer(){
   html+=`</div>`;
   if(!list.length){html+=`<div class="mini" style="padding:10px">${searching?'Sem matches no Buffer.':'Buffer vazio — importa um Excel ou cria uma ordem.'}</div>`;}
   else{
-    html+=`<table class="buffer-table"><thead><tr><th>OP DSL</th><th>Tipo</th><th>Dia Plano</th><th>Produto entrada</th><th>Calibre</th><th>Lote</th><th>Qtd (un)</th><th>Cliente</th><th>QV-up</th><th>QV</th><th>Obs</th>${planner?'<th>Ações</th>':''}</tr></thead><tbody>`;
+    html+=`<table class="buffer-table"><thead><tr><th>OP DSL</th><th>Unidade</th><th>Tipo</th><th>Dia Plano</th><th>Produto entrada</th><th>Calibre</th><th>Lote</th><th>Qtd (un)</th><th>Cliente</th><th>QV-up</th><th>QV</th><th>Obs</th>${planner?'<th>Ações</th>':''}</tr></thead><tbody>`;
     html+=list.map(o=>{const hit=searching&&matchesSearch(o)?' search-hit':'';
       return `<tr class="bf-row${hit}" data-id="${o.id}" draggable="${planner?'true':'false'}">
         <td><b>${o.dsl||'—'}</b>${o.urgente?' <span class="badge urg">URG</span>':''}</td>
+        <td>${unitChip(o.unidade)}</td>
         <td>${o.dslTipo||''}</td>
         <td>${o.diaPlano||''}</td>
         <td title="${(o.produtoEntrada||'').replace(/"/g,'&quot;')}">${o.produtoEntrada||''}</td>
@@ -919,6 +926,7 @@ function openModal(id){
      ${fld('Lote','f_lote',o.lote,{prodLock:true})}
      ${fld('Cliente','f_cliente',o.cliente,{prodLock:true})}
      ${fld('Estado','f_estado',o.estado,{type:'select',options:ESTADOS})}
+     <div class="fld"><label>Unidade / Máquina</label><select id="f_unidade" ${isProd()?'disabled':''}><option value="" ${!o.unidade?'selected':''}>—</option>${Object.entries(BOARDS).map(([k,b])=>`<option value="${k}" ${o.unidade===k?'selected':''}>${b.label}</option>`).join('')}</select></div>
      ${(!o.linha)?fld('Destino','f_dest',o.buffer?'Buffer':'Kanban',{type:'select',options:['Kanban','Buffer'],prodLock:true}):''}
      ${fld('Produto entrada','f_prod',o.produtoEntrada,{prodLock:true})}
      <div class="fld"><label>Calibre (auto)</label><input id="f_cal" value="${String(o.calibre||'').replace(/"/g,'&quot;')}" readonly title="Preenchido automaticamente pelo Produto"></div>
@@ -964,7 +972,7 @@ function openModal(id){
   if(fm&&!isProd())fm.addEventListener('change',syncModo);syncModo();
   document.getElementById('modalBg').classList.add('show');
 }
-function blankOp(){return{dsl:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Aberto',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',obsProd:'',motivoDesdobramento:'',bancaTapete:'',urgente:false,buffer:false,diaPlano:'',dslTipo:'',weekKey:'',diaIdx:0,sortIdx:0};}
+function blankOp(){return{dsl:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Aberto',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',obsProd:'',motivoDesdobramento:'',bancaTapete:'',urgente:false,buffer:false,diaPlano:'',dslTipo:'',unidade:'',weekKey:'',diaIdx:0,sortIdx:0};}
 function gv(id){const e=document.getElementById(id);return e?e.value:'';}
 async function saveModal(){
   // Desdobramento obrigatório quando Desdobra = Sim
@@ -981,6 +989,7 @@ async function saveModal(){
     set('qtd',(+gv('f_qtd')||0)/1000);set('qtdNecessaria',(+gv('f_qtdnec')||0)/1000); // input em unidades -> guardado em milhares
     const _modo=gv('f_modo')==='Manual'?'manual':'auto';set('inicioMode',_modo);set('hInicioP',_modo==='manual'?gv('f_hini'):'');
     if(document.getElementById('f_dest'))set('buffer',gv('f_dest')==='Buffer');
+    if(document.getElementById('f_unidade'))set('unidade',gv('f_unidade'));
     // Linha/Turno/Estado/Início geridos no quadro (drag-drop) — não tocados aqui.
   }
   const has=id=>!!document.getElementById(id);
