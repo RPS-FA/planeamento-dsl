@@ -212,7 +212,8 @@ table.plan td.dnew{font-weight:700;color:var(--c-primary-dark)}
 .buffer-wrap{padding:14px 18px}
 .buffer-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px}
 .buffer-head h2{margin:0;font-size:16px;color:var(--c-primary-dark)}
-.buffer-actions{display:flex;gap:8px;margin-left:auto}
+.buffer-actions{display:flex;gap:8px}
+.bf-search{margin-left:auto;width:260px;padding:6px 10px;border:1px solid var(--c-line);border-radius:6px;font-size:12px}
 .buffer-table{width:100%;border-collapse:separate;border-spacing:0 9px;font-size:13px}
 .buffer-table thead th{padding:4px 10px;text-align:left;font-size:12px;color:var(--c-primary-dark);background:transparent;border:none}
 .buffer-table tbody td{background:#fff;padding:10px;text-align:left;vertical-align:middle;border-top:1px solid var(--c-line);border-bottom:1px solid var(--c-line)}
@@ -348,7 +349,7 @@ let ACTIVE_TAB='eedsl';
 let ANCHOR=null;
 let PROFILE=localStorage.getItem('dsl_profile')||'supervisao';
 let PROD_DATE=null;   // dia visível no perfil Produção (vê esse dia ±1)
-let editingId=null;let _newBuffer=false;let BUF_SORT={key:'dp',dir:1};
+let editingId=null;let _newBuffer=false;let BUF_SORT={key:'dp',dir:1};let BUF_SEARCH='';
 let dragOp=null;
 const SEARCH={v:''};
 
@@ -564,13 +565,15 @@ function renderPool(){
 }
 
 /* ---------------- BUFFER (nível anterior ao Kanban) ---------------- */
+function bufMatch(o,term){if(!term)return true;return [o.dsl,o.lote,o.cliente,o.produtoEntrada,o.obs,o.calibre].some(x=>(x||'').toLowerCase().includes(term));}
 function renderBuffer(){
   const el=document.getElementById('board');
-  const searching=!!SEARCH.v.trim();
+  const term=BUF_SEARCH.trim().toLowerCase();const searching=!!term;
   const all=DATA.filter(o=>!o.linha&&o.buffer&&isRealOrder(o));
-  const list=all.filter(matchesSearch);
+  const list=all.filter(o=>bufMatch(o,term));
   const planner=!isProd();
   let html=`<div class="buffer-wrap"><div class="buffer-head"><h2>BUFFER · à espera de planeamento (${searching?list.length+'/'+all.length:all.length})</h2>`;
+  html+=`<input id="bfSearch" class="bf-search" placeholder="Pesquisar no Buffer…" value="${String(BUF_SEARCH).replace(/"/g,'&quot;')}">`;
   if(planner)html+=`<div class="buffer-actions"><button class="primary" id="bfNew">+ Nova ordem</button><button class="mot-add" id="bfImport">⭱ Importar Excel</button><input type="file" id="bfFile" accept=".xlsx,.xls" style="display:none"></div>`;
   html+=`</div>`;
   if(!list.length){html+=`<div class="mini" style="padding:10px">${searching?'Sem matches no Buffer.':'Buffer vazio — importa um Excel ou cria uma ordem.'}</div>`;}
@@ -600,6 +603,8 @@ function renderBuffer(){
   }
   html+=`</div>`;
   el.innerHTML=html;
+  const si=document.getElementById('bfSearch');
+  if(si){si.addEventListener('input',()=>{BUF_SEARCH=si.value;renderBuffer();});if(BUF_SEARCH){si.focus();si.setSelectionRange(si.value.length,si.value.length);}}
   el.querySelectorAll('.bf-sort').forEach(h=>h.addEventListener('click',()=>{const k=h.dataset.sk;if(BUF_SORT.key===k)BUF_SORT.dir*=-1;else{BUF_SORT.key=k;BUF_SORT.dir=1;}renderBuffer();}));
   el.querySelectorAll('.bf-row').forEach(r=>{
     r.addEventListener('click',e=>{if(e.target.closest('button'))return;openModal(+r.dataset.id);});
