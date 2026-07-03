@@ -983,6 +983,7 @@ function openModal(id){
      ${fld('Tempo atraso (soma ao tempo da ordem)','f_atr',o.tempoAtraso,{type:'time'})}
      ${fld('Qtd real','f_qreal',o.qtdReal)}
      ${fld('Colaborador','f_colab',o.colaborador)}
+     ${fld('Analisado?','f_analisado',o.analisado,{type:'check'})}
      ${fld('Observações Produção / Supervisão','f_obsprod',o.obsProd,{type:'textarea'})}
    </div>`;
   document.getElementById('modalBody').innerHTML=body;
@@ -994,7 +995,7 @@ function openModal(id){
   if(fm&&!isProd())fm.addEventListener('change',syncModo);syncModo();
   document.getElementById('modalBg').classList.add('show');
 }
-function blankOp(){return{dsl:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Aberto',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',obsProd:'',motivoDesdobramento:'',bancaTapete:'',urgente:false,buffer:false,diaPlano:'',dslTipo:'',unidade:'',weekKey:'',diaIdx:0,sortIdx:0};}
+function blankOp(){return{dsl:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Aberto',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',obsProd:'',motivoDesdobramento:'',bancaTapete:'',urgente:false,analisado:false,buffer:false,diaPlano:'',dslTipo:'',unidade:'',weekKey:'',diaIdx:0,sortIdx:0};}
 function gv(id){const e=document.getElementById(id);return e?e.value:'';}
 async function saveModal(){
   // Desdobramento obrigatório quando Desdobra = Sim
@@ -1025,6 +1026,7 @@ async function saveModal(){
   if(has('f_qvupd'))set('qvUpDsl',gv('f_qvupd'));if(has('f_qvd'))set('qvDsl',gv('f_qvd'));
   set('hInicioR',gv('f_hir'));set('hFimR',gv('f_hfr'));set('tempoAtraso',gv('f_atr'));
   set('qtdReal',+gv('f_qreal')||0);set('colaborador',gv('f_colab'));set('obsProd',gv('f_obsprod'));
+  if(has('f_analisado'))set('analisado',gv('f_analisado')==='true');
   const savingId=editingId;            // guardar ANTES de closeModal (que põe editingId=null)
   closeModal();
   try{
