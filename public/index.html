@@ -585,7 +585,7 @@ function renderBuffer(){
     html+=`<table class="buffer-table"><thead><tr>${th('op','OP DSL')}${th('unit','Unidade')}${th('dp','Dia Plano')}<th>Produto entrada</th><th>Calibre</th><th>Lote</th>${th('qtd','Qtd (un)')}${th('cliente','Cliente')}<th>QV-up</th><th>QV</th>${th('urg','URG')}<th>Obs</th>${planner?'<th>Ações</th>':''}</tr></thead><tbody>`;
     html+=list.map(o=>{const hit=searching&&matchesSearch(o)?' search-hit':'';
       return `<tr class="bf-row${hit}" data-id="${o.id}" draggable="${planner?'true':'false'}">
-        <td><b>${o.dsl||'—'}</b>${o.dividido?' '+divBadge(o):''}</td>
+        <td><b>${o.dsl||'—'}</b>${o.dividido?' '+divBadge(o):''} ${analBadge(o)}</td>
         <td>${unitChip(o.unidade)}</td>
         <td>${dpFmt(o.diaPlano)}</td>
         <td title="${(o.produtoEntrada||'').replace(/"/g,'&quot;')}">${o.produtoEntrada||''}</td>
