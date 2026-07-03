@@ -572,7 +572,7 @@ function renderBuffer(){
   else{
     const sk=BUF_SORT.key,dir=BUF_SORT.dir;
     const sval=o=>({op:(o.dsl||'').toLowerCase(),unit:unitLabel(o.unidade),dp:dpKey(o.diaPlano),qtd:+o.qtd||0,cliente:(o.cliente||'').toLowerCase(),urg:o.urgente?0:1}[sk]);
-    list.sort((a,b)=>{const x=sval(a),y=sval(b);if(x<y)return -dir;if(x>y)return dir;return 0;});
+    list.sort((a,b)=>{const x=sval(a),y=sval(b);const ex=(x===''||x==null),ey=(y===''||y==null);if(ex&&ey)return 0;if(ex)return 1;if(ey)return -1;if(x<y)return -dir;if(x>y)return dir;return 0;});
     const th=(key,label,extra)=>`<th class="bf-sort" data-sk="${key}"${extra||''}>${label}${sk===key?(dir>0?' ▲':' ▼'):''}</th>`;
     html+=`<table class="buffer-table"><thead><tr>${th('op','OP DSL')}${th('unit','Unidade')}${th('dp','Dia Plano')}<th>Produto entrada</th><th>Calibre</th><th>Lote</th>${th('qtd','Qtd (un)')}${th('cliente','Cliente')}<th>QV-up</th><th>QV</th>${th('urg','URG')}<th>Obs</th>${planner?'<th>Ações</th>':''}</tr></thead><tbody>`;
     html+=list.map(o=>{const hit=searching&&matchesSearch(o)?' search-hit':'';
