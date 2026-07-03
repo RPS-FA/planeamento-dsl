@@ -621,12 +621,14 @@ function importBufferExcel(file){
   const rd=new FileReader();
   rd.onload=async e=>{
     try{
-      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
       const ws=wb.Sheets[wb.SheetNames[0]];
       const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
       if(!rows.length){toast('Excel sem linhas.','err');return;}
       const norm=s=>String(s||'').trim().toLowerCase().replace(/\s+/g,' ');
       const pick=(r,names)=>{for(const k of Object.keys(r)){if(names.includes(norm(k)))return r[k];}return '';};
+      const cellDate=v=>{if(v instanceof Date&&!isNaN(v))return `${v.getFullYear()}-${pad(v.getMonth()+1)}-${pad(v.getDate())}`;const s=String(v==null?'':v).trim();return dpToISO(s)||s;};
+      const cellUnit=v=>{const s=norm(v);if(s==='vdsl')return 'eedsl';if(s==='dsl')return 'dsl';if(s.includes('escolha')||s==='em')return 'em';return '';};
       const orders=rows.map(r=>{
         const prod=String(pick(r,['material'])||'').trim();
         const qtd=parseFloat(String(pick(r,['qtd'])).replace(',','.'))||0;
@@ -639,8 +641,9 @@ function importBufferExcel(file){
         o.obs=String(pick(r,['obs pi','obs'])||'').trim();
         o.qvUpDsl=String(pick(r,['qv-up','qv up','qvup'])||'').trim();
         o.qvDsl=String(pick(r,['qv'])||'').trim();
-        o.dslTipo=String(pick(r,['dsl / vdsl','dsl/vdsl'])||'').trim();
-        const _dp=String(pick(r,['dia de plano','dia plano'])||'').trim();o.diaPlano=dpToISO(_dp)||_dp;
+        o.dslTipo=String(pick(r,['dsl / vdsl','dsl/vdsl','unidade'])||'').trim();
+        o.unidade=cellUnit(pick(r,['unidade','dsl / vdsl','dsl/vdsl']));
+        o.diaPlano=cellDate(pick(r,['dia de plano','dia plano']));
         return o;
       }).filter(o=>o.dsl||o.lote||o.produtoEntrada||o.qtd>0);
       if(!orders.length){toast('Nenhuma ordem válida no Excel.','err');return;}
