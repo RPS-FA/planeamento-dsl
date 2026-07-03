@@ -225,6 +225,8 @@ table.plan td.dnew{font-weight:700;color:var(--c-primary-dark)}
 #board.bf-dropzone{outline:2px dashed #b3801f;outline-offset:-6px;background:#fdf6e6}
 .unit-chip{display:inline-block;color:#fff;font-size:10px;font-weight:600;padding:1px 8px;border-radius:10px;white-space:nowrap}
 .badge.div{background:#e7d9f5;color:#5b2a86;font-weight:700}
+.badge.anal-y{background:#d6f0dc;color:#166534;font-weight:700}
+.badge.anal-n{background:#ececec;color:#777}
 .buffer-table th.bf-sort{cursor:pointer;user-select:none;white-space:nowrap}
 .buffer-table th.bf-sort:hover{text-decoration:underline}
 .buffer-table .badge.urg{background:#dc2626;color:#fff;font-weight:700;padding:1px 8px;border-radius:10px}
@@ -331,6 +333,7 @@ const UNIT_COLORS={eedsl:'#3d6b3f',dsl:'#2f5d86',em:'#5b2a86'};
 function unitOfLine(l){for(const k in BOARDS)if(BOARDS[k].lines.includes(l))return k;return '';}
 function unitLabel(k){return (BOARDS[k]&&BOARDS[k].label)||'';}
 function divBadge(o){return o.dividido?`<span class="badge div" title="Total inicial ${Math.round((+o.qtdInicialTotal||0)*1000).toLocaleString('pt-PT')} un">÷ dividida</span>`:'';}
+function analBadge(o){return `<span class="badge anal-${o.analisado?'y':'n'}">${o.analisado?'✓ analisado':'✗ não analisado'}</span>`;}
 function unitChip(k){if(!k||!BOARDS[k])return '';return `<span class="unit-chip" style="background:${UNIT_COLORS[k]||'#888'}">${BOARDS[k].label}</span>`;}
 // Dia de Plano (data indicativa): aceita ISO (yyyy-mm-dd) ou dd/mm/aa(aa)
 function dpToISO(s){s=String(s||'').trim();let m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return s.slice(0,10);m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);if(m){const y=m[3].length===2?'20'+m[3]:m[3];return `${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;}return '';}
@@ -711,7 +714,7 @@ function ocardHTML(l,r,searching){
   return `<div class="ocard${lateCls}${hit}${o.urgente?' oc-urgent':''}" draggable="true" data-id="${o.id}" data-est="${o.estado}">
     <div class="oc-top"><b>${o.dsl||o.lote||'—'}</b><span class="oc-q">${Math.round((+r.qtdSeg||0)*1000)} un</span></div>
     <div class="oc-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div>
-    <div class="oc-meta">${o.cliente||''}${o.calibre?' · '+o.calibre:''}${o.qualidades?' · '+o.qualidades:''} ${urg}${desd}${divBadge(o)}${cont}</div>
+    <div class="oc-meta">${o.cliente||''}${o.calibre?' · '+o.calibre:''}${o.qualidades?' · '+o.qualidades:''} ${urg}${desd}${divBadge(o)}${analBadge(o)}${cont}</div>
     <div class="oc-time">⏱ Plan ${min2hm(r.startMin%1440)} → ${min2hm(r.endMin%1440)}</div>
     ${(isLast&&(o.hInicioR||o.hFimR))?`<div class="oc-real">▶ Real ${o.hInicioR||'--:--'} → ${o.hFimR||'--:--'}</div>`:''}
     ${l==='EM'?`<select class="bt-sel" data-id="${o.id}"><option value="">— B/T? —</option><option value="B" ${o.bancaTapete==='B'?'selected':''}>Banca</option><option value="T" ${o.bancaTapete==='T'?'selected':''}>Tapete</option></select>`:''}
