@@ -224,6 +224,7 @@ table.plan td.dnew{font-weight:700;color:var(--c-primary-dark)}
 .buffer-table tr.dragging{opacity:.4}
 #board.bf-dropzone{outline:2px dashed #b3801f;outline-offset:-6px;background:#fdf6e6}
 .unit-chip{display:inline-block;color:#fff;font-size:10px;font-weight:600;padding:1px 8px;border-radius:10px;white-space:nowrap}
+.badge.div{background:#e7d9f5;color:#5b2a86;font-weight:700}
 .buffer-table th.bf-sort{cursor:pointer;user-select:none;white-space:nowrap}
 .buffer-table th.bf-sort:hover{text-decoration:underline}
 .buffer-table .badge.urg{background:#dc2626;color:#fff;font-weight:700;padding:1px 8px;border-radius:10px}
@@ -329,6 +330,7 @@ const BOARDS={
 const UNIT_COLORS={eedsl:'#3d6b3f',dsl:'#2f5d86',em:'#5b2a86'};
 function unitOfLine(l){for(const k in BOARDS)if(BOARDS[k].lines.includes(l))return k;return '';}
 function unitLabel(k){return (BOARDS[k]&&BOARDS[k].label)||'';}
+function divBadge(o){return o.dividido?`<span class="badge div" title="Total inicial ${Math.round((+o.qtdInicialTotal||0)*1000).toLocaleString('pt-PT')} un">÷ dividida</span>`:'';}
 function unitChip(k){if(!k||!BOARDS[k])return '';return `<span class="unit-chip" style="background:${UNIT_COLORS[k]||'#888'}">${BOARDS[k].label}</span>`;}
 // Dia de Plano (data indicativa): aceita ISO (yyyy-mm-dd) ou dd/mm/aa(aa)
 function dpToISO(s){s=String(s||'').trim();let m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return s.slice(0,10);m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);if(m){const y=m[3].length===2?'20'+m[3]:m[3];return `${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;}return '';}
@@ -541,7 +543,7 @@ function cardHTML(o,hit){
   return `<div class="card${hit?' search-hit':''}" draggable="true" data-id="${o.id}" data-est="${o.estado}">
     <div class="c-top"><span class="c-dsl">${o.dsl||o.lote||'—'}</span><span class="c-qtd">${Math.round((+o.qtd||0)*1000)} un</span></div>
     <div class="c-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div>
-    <div class="c-meta"><span>${o.cliente||''}</span><span class="badge">${o.calibre||''}</span>${o.qualidades?`<span class="badge">${o.qualidades}</span>`:''}${unitChip(o.unidade)}${desd}${urg}</div>
+    <div class="c-meta"><span>${o.cliente||''}</span><span class="badge">${o.calibre||''}</span>${o.qualidades?`<span class="badge">${o.qualidades}</span>`:''}${unitChip(o.unidade)}${desd}${urg}${divBadge(o)}</div>
   </div>`;
 }
 function renderPool(){
@@ -577,7 +579,7 @@ function renderBuffer(){
     html+=`<table class="buffer-table"><thead><tr>${th('op','OP DSL')}${th('unit','Unidade')}${th('dp','Dia Plano')}<th>Produto entrada</th><th>Calibre</th><th>Lote</th>${th('qtd','Qtd (un)')}${th('cliente','Cliente')}<th>QV-up</th><th>QV</th>${th('urg','URG')}<th>Obs</th>${planner?'<th>Ações</th>':''}</tr></thead><tbody>`;
     html+=list.map(o=>{const hit=searching&&matchesSearch(o)?' search-hit':'';
       return `<tr class="bf-row${hit}" data-id="${o.id}" draggable="${planner?'true':'false'}">
-        <td><b>${o.dsl||'—'}</b></td>
+        <td><b>${o.dsl||'—'}</b>${o.dividido?' '+divBadge(o):''}</td>
         <td>${unitChip(o.unidade)}</td>
         <td>${dpFmt(o.diaPlano)}</td>
         <td title="${(o.produtoEntrada||'').replace(/"/g,'&quot;')}">${o.produtoEntrada||''}</td>
@@ -709,7 +711,7 @@ function ocardHTML(l,r,searching){
   return `<div class="ocard${lateCls}${hit}${o.urgente?' oc-urgent':''}" draggable="true" data-id="${o.id}" data-est="${o.estado}">
     <div class="oc-top"><b>${o.dsl||o.lote||'—'}</b><span class="oc-q">${Math.round((+r.qtdSeg||0)*1000)} un</span></div>
     <div class="oc-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div>
-    <div class="oc-meta">${o.cliente||''}${o.calibre?' · '+o.calibre:''}${o.qualidades?' · '+o.qualidades:''} ${urg}${desd}${cont}</div>
+    <div class="oc-meta">${o.cliente||''}${o.calibre?' · '+o.calibre:''}${o.qualidades?' · '+o.qualidades:''} ${urg}${desd}${divBadge(o)}${cont}</div>
     <div class="oc-time">⏱ Plan ${min2hm(r.startMin%1440)} → ${min2hm(r.endMin%1440)}</div>
     ${(isLast&&(o.hInicioR||o.hFimR))?`<div class="oc-real">▶ Real ${o.hInicioR||'--:--'} → ${o.hFimR||'--:--'}</div>`:''}
     ${l==='EM'?`<select class="bt-sel" data-id="${o.id}"><option value="">— B/T? —</option><option value="B" ${o.bancaTapete==='B'?'selected':''}>Banca</option><option value="T" ${o.bancaTapete==='T'?'selected':''}>Tapete</option></select>`:''}
@@ -955,6 +957,7 @@ function openModal(id){
      ${fld('QV','f_qual',o.qualidades,{prodLock:true})}
      <div class="fld"><label>Qtd (unidades)</label><input id="f_qtd" type="number" step="1" value="${Math.round((+o.qtd||0)*1000)}" ${isProd()?'disabled':''}></div>
      <div class="fld"><label>Qtd objetivo</label><input id="f_qtdnec" type="number" step="1" value="${Math.round((+o.qtdNecessaria||0)*1000)}" ${isProd()?'disabled':''}></div>
+     ${o.dividido?`<div class="fld"><label>Dividida</label><input value="Sim · total inicial ${Math.round((+o.qtdInicialTotal||0)*1000).toLocaleString('pt-PT')} un" readonly></div>`:''}
      ${fld('Urgente?','f_urg',o.urgente,{type:'check',prodLock:true})}
      ${fld('Início','f_modo',o.inicioMode==='manual'?'Manual':'Automático',{type:'select',options:['Automático','Manual'],prodLock:true})}
      <div class="fld"><label>Hora de início (manual)</label><input type="time" id="f_hini" value="${/^\d{1,2}:\d{2}/.test(o.hInicioP||'')?String(o.hInicioP).slice(0,5):''}" ${(isProd()||o.inicioMode!=='manual')?'disabled':''}></div>
@@ -995,7 +998,7 @@ function openModal(id){
   if(fm&&!isProd())fm.addEventListener('change',syncModo);syncModo();
   document.getElementById('modalBg').classList.add('show');
 }
-function blankOp(){return{dsl:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Aberto',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',obsProd:'',motivoDesdobramento:'',bancaTapete:'',urgente:false,analisado:false,buffer:false,diaPlano:'',dslTipo:'',unidade:'',weekKey:'',diaIdx:0,sortIdx:0};}
+function blankOp(){return{dsl:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Aberto',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',obsProd:'',motivoDesdobramento:'',bancaTapete:'',urgente:false,analisado:false,dividido:false,qtdInicialTotal:0,buffer:false,diaPlano:'',dslTipo:'',unidade:'',weekKey:'',diaIdx:0,sortIdx:0};}
 function gv(id){const e=document.getElementById(id);return e?e.value:'';}
 async function saveModal(){
   // Desdobramento obrigatório quando Desdobra = Sim
@@ -1048,13 +1051,16 @@ async function splitCurrent(){
   if(!(splitU>0&&splitU<totalU)){toast('Indique uma quantidade entre 1 e '+(totalU-1)+'.','err');return;}
   snapshot();
   const baseDsl=String(o.dsl||o.lote||'').replace(/\s*-\d+$/,'');   // tira sufixo prévio
+  const origTotal=(+o.qtdInicialTotal>0)?+o.qtdInicialTotal:(+o.qtd||0);   // milhares; mantém total original se já dividida antes
   // parte que vai para o Kanban
   const novo=Object.assign({},o);delete novo.id;
   novo.qtd=splitU/1000;novo.dsl=baseDsl+' -2';novo.op=novo.dsl;
   novo.linha='';novo.weekKey='';novo.diaIdx=0;novo.sortIdx=0;novo.estado=ESTADO_POOL;
   novo.hInicioR='';novo.hFimR='';novo.qtdReal=0;novo.tempoAtraso='';novo.inicioMode='auto';novo.hInicioP='';
+  novo.dividido=true;novo.qtdInicialTotal=origTotal;
   // parte que fica no mesmo sítio
   const fica=Object.assign({},o);fica.qtd=(totalU-splitU)/1000;fica.dsl=baseDsl+' -1';fica.op=fica.dsl;
+  fica.dividido=true;fica.qtdInicialTotal=origTotal;
   const id=editingId;closeModal();
   try{
     setConn('loading','a dividir…');
