@@ -209,6 +209,8 @@ table.plan td.dnew{font-weight:700;color:var(--c-primary-dark)}
 .cfg .mot-del{border:1px solid #e0a8a8;background:#fff;color:#b00;border-radius:4px;cursor:pointer;padding:0 8px;line-height:1}
 .cfg .mot-add{margin-top:8px;background:var(--c-primary);color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px}
 .cfg .mot-add:hover{background:var(--c-primary-dark)}
+.cfg .cal-block{background:#f6faf2;border:1px solid var(--c-line);border-radius:8px;padding:8px}
+.cfg .cal-block .mot-list{max-height:150px}
 .buffer-wrap{padding:14px 18px}
 .buffer-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px}
 .buffer-head h2{margin:0;font-size:16px;color:var(--c-primary-dark)}
@@ -333,6 +335,8 @@ const BOARDS={
 const UNIT_COLORS={eedsl:'#3d6b3f',dsl:'#2f5d86',em:'#5b2a86'};
 function unitOfLine(l){for(const k in BOARDS)if(BOARDS[k].lines.includes(l))return k;return '';}
 function unitLabel(k){return (BOARDS[k]&&BOARDS[k].label)||'';}
+// calibre autorizado na linha? lista vazia/ausente = sem restrição
+function calibreAllowed(linha,calibre){const arr=(SETTINGS.calibresPorLinha||{})[linha];if(!arr||!arr.length)return true;const c=String(calibre||'').trim().toLowerCase();return arr.some(x=>String(x).trim().toLowerCase()===c);}
 function divBadge(o){return o.dividido?`<span class="badge div" title="Total inicial ${Math.round((+o.qtdInicialTotal||0)*1000).toLocaleString('pt-PT')} un">÷ dividida</span>`:'';}
 function analBadge(o){return `<span class="badge anal-${o.analisado?'y':'n'}">${o.analisado?'✓ analisado':'✗ não analisado'}</span>`;}
 function unitChip(k){if(!k||!BOARDS[k])return '';return `<span class="unit-chip" style="background:${UNIT_COLORS[k]||'#888'}">${BOARDS[k].label}</span>`;}
@@ -860,6 +864,7 @@ function reindex(linha,wk,dia){
       .forEach((o,i)=>o.sortIdx=i);
 }
 async function moveToDate(op,linha,dateStr){
+  if(!calibreAllowed(linha,op.calibre)){toast(`Calibre ${op.calibre||'—'} não autorizado em ${lineLabel(linha)}.`,'err');return;}
   snapshot();
   const d=new Date(dateStr+'T00:00:00');const wk=weekKeyOf(mondayOf(d));const dia=diaIdxOf(d);
   const oldL=op.linha,oldW=op.weekKey,oldD=+op.diaIdx||0;
@@ -897,6 +902,7 @@ async function clearMonthToKanban(){
   catch(e){setConn('error','erro');toast('Falha: '+e.message,'err');}
 }
 async function moveRelative(op,target,pos){
+  if(target.linha&&!calibreAllowed(target.linha,op.calibre)){toast(`Calibre ${op.calibre||'—'} não autorizado em ${lineLabel(target.linha)}.`,'err');return;}
   snapshot();
   const wk=target.weekKey,linha=target.linha,dia=+target.diaIdx||0;
   op.linha=linha;op.weekKey=wk;op.diaIdx=dia;
@@ -1120,6 +1126,13 @@ function renderCfg(){
         <div id="mot2aList" class="mot-list">${motRows(SETTINGS.motivos2aPassagem)}</div>
         ${canCfg()?`<button type="button" class="mot-add" data-list="mot2aList">+ Adicionar</button>`:''}</div>
     </div>
+    <h2>Calibres autorizados por máquina</h2>
+    <p class="mini" style="margin:0 0 8px">Para cada máquina, lista de calibres autorizados. Usa [+ Adicionar] para incluir novo calibre (ex: 45x240) e × para remover. Lista vazia = sem restrição.</p>
+    <div style="display:flex;gap:16px;flex-wrap:wrap">
+      ${ALL_LINES.map(l=>`<div class="cal-block"><div class="mini" style="margin-bottom:4px;font-weight:600">${lineLabel(l)}</div>
+        <div id="cal_${l}" class="mot-list" style="width:170px">${motRows(((SETTINGS.calibresPorLinha||{})[l])||[])}</div>
+        ${canCfg()?`<button type="button" class="mot-add" data-list="cal_${l}">+ Adicionar</button>`:''}</div>`).join('')}
+    </div>
     <div style="margin-top:14px"><button class="primary cfg-save" id="btnSaveCfg" style="${canCfg()?'':'display:none'}">Guardar configurações</button></div>
   </div>`;
   const b=document.getElementById('btnSaveCfg');if(b)b.onclick=saveCfg;
@@ -1132,7 +1145,8 @@ async function saveCfg(){
   const turnos={1:{ini:gv('t1ini'),fim:gv('t1fim'),almocoIni:gv('t1ai'),almocoFim:gv('t1af')},
                 2:{ini:gv('t2ini'),fim:gv('t2fim'),jantarIni:gv('t2ji'),jantarFim:gv('t2jf')}}; // T2 só jantar
   const parseList=id=>{const c=document.getElementById(id);return c?[...c.querySelectorAll('input')].map(i=>i.value.trim()).filter(Boolean):[];};
-  const payload={capacidades:caps,turnos:turnos,setupMin:+gv('setupMin')||10,motivosDesdobramento:parseList('motDesdList'),motivos2aPassagem:parseList('mot2aList')};
+  const calibresPorLinha={};ALL_LINES.forEach(l=>{const arr=parseList('cal_'+l);if(arr.length)calibresPorLinha[l]=arr;});
+  const payload={capacidades:caps,turnos:turnos,setupMin:+gv('setupMin')||10,motivosDesdobramento:parseList('motDesdList'),motivos2aPassagem:parseList('mot2aList'),calibresPorLinha};
   try{const s=await Api.putSettings(payload);Object.assign(SETTINGS,s);toast('Configurações guardadas.');render();}
   catch(e){toast('Falha: '+e.message,'err');}
 }

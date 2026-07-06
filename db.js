@@ -90,6 +90,8 @@ const DEFAULT_SETTINGS = {
   // listas validadas de motivos (editáveis nas Configurações)
   motivosDesdobramento: DEFAULT_MOTIVOS,
   motivos2aPassagem: DEFAULT_MOTIVOS,
+  // calibres autorizados por linha: { "1":["45x240"], ... }. Vazio/ausente = sem restrição.
+  calibresPorLinha: {},
 };
 
 // ============================================================
