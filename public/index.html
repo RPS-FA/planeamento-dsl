@@ -406,7 +406,7 @@ function capOf(linha,bt){const caps=(SETTINGS.capacidades||{});
   if(linha==='EM'){const k=(bt==='T')?'EM_T':'EM_B';const c=caps[k]||caps['EM'];return c&&c.krH?c.krH:8500;}
   const c=caps[linha];return c&&c.krH?c.krH:17000;}
 function tipoOf(linha){const c=(SETTINGS.capacidades||{})[linha];return c&&c.tipo?c.tipo:'DSL';}
-function durHoras(op){const kr=capOf(op.linha,op.bancaTapete);let q=(+op.qtd||0);if(op.desdobrar)q+=(+op.qtdDesdobramento||0);let h=kr>0?q*1000/kr:0;const atr=hm2min(op.tempoAtraso);if(atr)h+=atr/60;return h;}
+function durHoras(op){const kr=capOf(op.linha,op.bancaTapete);let q=(+op.qtd||0);if(op.desdobrar){const real=+op.qtdDesdobramento||0;const prev=+op.qtdPrevistaDesd||0;q+=(real>0?real:prev);}let h=kr>0?q*1000/kr:0;const atr=hm2min(op.tempoAtraso);if(atr)h+=atr/60;return h;}
 function turnoWindow(turno){const t=(SETTINGS.turnos||{})[turno]||(SETTINGS.turnos||{})[1]||{ini:'08:00',fim:'17:00',almocoIni:'12:00',almocoFim:'13:00'};return t;}
 function dayOverride(d){return (SETTINGS.turnosPorDia||{})[dateKey(d)]||null;}
 function isDayClosed(d){const o=dayOverride(d);if(o&&o.fechado)return true;const dow=(d.getDay()+6)%7;if(dow===6&&SETTINGS.domingoFechado)return true;return false;}
@@ -983,8 +983,8 @@ function openModal(id){
    <div class="sec-title">Desdobramento / 2ª passagem</div>
    <div class="grid3">
      ${fld('Desdobra?','f_desd',o.desdobrar,{type:'check'})}
-     <div class="fld"><label>Qtd desdobramento (unidades)</label><input id="f_qdesd" type="number" step="1" value="${Math.round((+o.qtdDesdobramento||0)*1000)}"></div>
-     ${fld('Qtd prevista desd.','f_qpdesd',o.qtdPrevistaDesd)}
+     <div class="fld"><label>Qtd prevista de desdobramento (un) — Supervisão</label><input id="f_qpdesd" type="number" step="1" value="${Math.round((+o.qtdPrevistaDesd||0)*1000)}" ${PROFILE==='producao'?'disabled':''}></div>
+     <div class="fld"><label>Qtd real de desdobramento (un) — Produção</label><input id="f_qdesd" type="number" step="1" value="${Math.round((+o.qtdDesdobramento||0)*1000)}"></div>
      ${selList('Motivo Desdobramento','f_motdesd',o.motivoDesdobramento,SETTINGS.motivosDesdobramento)}
      ${selList('Motivo 2ª passagem','f_mot',o.motivo2aPassagem,SETTINGS.motivos2aPassagem)}
    </div>
@@ -1009,10 +1009,7 @@ function openModal(id){
 function blankOp(){return{dsl:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Aberto',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',obsProd:'',motivoDesdobramento:'',bancaTapete:'',urgente:false,analisado:false,dividido:false,qtdInicialTotal:0,buffer:false,diaPlano:'',dslTipo:'',unidade:'',weekKey:'',diaIdx:0,sortIdx:0};}
 function gv(id){const e=document.getElementById(id);return e?e.value:'';}
 async function saveModal(){
-  // Desdobramento obrigatório quando Desdobra = Sim
-  const _curDesd=editingId?((DATA.find(x=>x.id===editingId)||{}).desdobrar):false;
-  const _willDesd=(gv('f_desd')==='true');
-  if(_willDesd && !((+gv('f_qdesd')||0)>0)){toast('Qtd desdobramento é obrigatória quando Desdobra = Sim.','err');return;}
+  // A quantidade de desdobramento (prevista/real) é opcional ao marcar Desdobra = Sim.
   snapshot();
   const o=editingId?Object.assign({},DATA.find(x=>x.id===editingId)):blankOp();
   const set=(k,v)=>{o[k]=v;};
@@ -1032,7 +1029,8 @@ async function saveModal(){
   if(has('f_urg'))set('urgente',gv('f_urg')==='true');
   if(has('f_estado'))set('estado',gv('f_estado'));
   if(has('f_obs'))set('obs',gv('f_obs'));
-  set('desdobrar',gv('f_desd')==='true');set('qtdPrevistaDesd',+gv('f_qpdesd')||0);
+  set('desdobrar',gv('f_desd')==='true');
+  if(has('f_qpdesd'))set('qtdPrevistaDesd',(+gv('f_qpdesd')||0)/1000);
   set('qtdDesdobramento',(+gv('f_qdesd')||0)/1000);set('motivoDesdobramento',gv('f_motdesd'));set('motivo2aPassagem',gv('f_mot'));
   if(has('f_qvupd'))set('qvUpDsl',gv('f_qvupd'));if(has('f_qvd'))set('qvDsl',gv('f_qvd'));
   set('hInicioR',gv('f_hir'));set('hFimR',gv('f_hfr'));set('tempoAtraso',gv('f_atr'));
