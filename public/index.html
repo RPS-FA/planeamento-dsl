@@ -974,6 +974,7 @@ function openModal(id){
    <div class="grid3">
      ${fld('QV up','f_qvupd',o.qvUpDsl,{prodLock:true})}
      ${fld('QV','f_qvd',o.qvDsl,{prodLock:true})}
+     ${fld('Analisado?','f_analisado',o.analisado,{type:'check'})}
    </div>
    <div class="grid3">
      ${fld('Observações','f_obs',o.obs,{type:'textarea',prodLock:true})}
@@ -994,7 +995,6 @@ function openModal(id){
      ${fld('Tempo atraso (soma ao tempo da ordem)','f_atr',o.tempoAtraso,{type:'time'})}
      ${fld('Qtd real','f_qreal',o.qtdReal)}
      ${fld('Colaborador','f_colab',o.colaborador)}
-     ${fld('Analisado?','f_analisado',o.analisado,{type:'check'})}
      ${fld('Observações Produção / Supervisão','f_obsprod',o.obsProd,{type:'textarea'})}
    </div>`;
   document.getElementById('modalBody').innerHTML=body;
