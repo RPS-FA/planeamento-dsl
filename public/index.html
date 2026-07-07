@@ -491,6 +491,8 @@ function scheduleLine(l){
       if(remMin>0.01){const nd=nextOpen(curDate);if(!nd)break;curDate=nd;curMin=dayWindowFor(l,curDate).ini;}
       else curMin=segEnd;
     }
+    // Fim real preenchido: reancora as ordens seguintes a partir dessa hora real
+    if(remMin<=0.01){const _real=hm2min(op.hFimR);if(_real!=null){let r=_real;if(r<curMin-720)r+=1440;curMin=r;}}
   }
   const byOp={};Object.values(segs).flat().forEach(s=>{(byOp[s.op.id]=byOp[s.op.id]||[]).push(s);});
   Object.values(byOp).forEach(list=>{
