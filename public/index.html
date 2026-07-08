@@ -262,7 +262,6 @@ table.plan td.dnew{font-weight:700;color:var(--c-primary-dark)}
 .toast{position:fixed;bottom:18px;right:18px;padding:10px 16px;border-radius:8px;color:#fff;font-size:13px;z-index:80;box-shadow:0 6px 20px rgba(0,0,0,.25);display:none}
 .toast.err{background:var(--c-warn)} .toast.ok{background:var(--c-ok)}
 body.producao .planner-only{display:none!important}
-body.prof-prod #btnExport{display:none!important}
 body.prof-prod .day-close{display:none!important}
 </style>
 </head>
@@ -1201,7 +1200,9 @@ function exportExcel(){
           'Qtd desd':+o.qtdDesdobramento||0,'Motivo Desd':o.motivoDesdobramento||'','Motivo 2a':o.motivo2aPassagem||'',QV:o.qvDsl||o.qvPlan||'',OBS:o.obs||''});});});});
   rows.sort((a,b)=>a.Data<b.Data?-1:a.Data>b.Data?1:(a.Linha<b.Linha?-1:1));
   if(!rows.length){toast('Sem ordens neste mês.','err');return;}
-  const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();
+  // Produção exporta só campos essenciais; restantes perfis exportam tudo
+  const out=(PROFILE==='producao')?rows.map(r=>({Data:r.Data,DSL:r.DSL,Produto:r.Produto,Lote:r.Lote,Cliente:r.Cliente,'Qtd seg':r['Qtd seg'],QV:r.QV,OBS:r.OBS})):rows;
+  const ws=XLSX.utils.json_to_sheet(out);const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Plano');
   XLSX.writeFile(wb,`Planeamento_DSL_${ANCHOR.getFullYear()}-${pad(ANCHOR.getMonth()+1)}.xlsx`);
 }
