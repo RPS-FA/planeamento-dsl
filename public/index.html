@@ -1039,7 +1039,7 @@ function openModal(id){
   if(fm&&!isProd())fm.addEventListener('change',syncModo);syncModo();
   document.getElementById('modalBg').classList.add('show');
 }
-function blankOp(){return{dsl:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Aberto',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',obsProd:'',motivoDesdobramento:'',bancaTapete:'',urgente:false,analisado:false,dividido:false,qtdInicialTotal:0,buffer:false,diaPlano:'',dslTipo:'',unidade:'',weekKey:'',diaIdx:0,sortIdx:0};}
+function blankOp(){return{dsl:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Aberto',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',obsProd:'',motivoDesdobramento:'',bancaTapete:'',urgente:false,analisado:false,dividido:false,qtdInicialTotal:0,splitGroup:'',buffer:false,diaPlano:'',dslTipo:'',unidade:'',weekKey:'',diaIdx:0,sortIdx:0};}
 function gv(id){const e=document.getElementById(id);return e?e.value:'';}
 async function saveModal(){
   // A quantidade de desdobramento (prevista/real) é opcional ao marcar Desdobra = Sim.
@@ -1079,6 +1079,12 @@ async function saveModal(){
     setConn('loading','a guardar…');
     if(savingId){const s=await Api.putOp(savingId,o);Object.assign(DATA.find(x=>x.id===savingId),s);}
     else{const s=await Api.postOp(o);DATA.push(s);}
+    // Ordem dividida: propaga "Analisado" às restantes partes da mesma divisão
+    if(savingId&&o.dividido){
+      const base=String(o.dsl||'').replace(/\s*-\d+$/,'');
+      const sibs=DATA.filter(x=>x.id!==savingId&&x.dividido&&(o.splitGroup?x.splitGroup===o.splitGroup:String(x.dsl||'').replace(/\s*-\d+$/,'')===base));
+      for(const s of sibs){if(s.analisado!==o.analisado){s.analisado=o.analisado;try{const u=await Api.putOp(s.id,s);Object.assign(s,u);}catch(_){}}}
+    }
     setConn('ok','ligado');toast('Guardado.');render();
   }catch(e){setConn('error','erro');toast('Falha: '+e.message,'err');}
 }
@@ -1100,10 +1106,11 @@ async function splitCurrent(){
   novo.qtd=splitU/1000;novo.dsl=baseDsl+' -2';novo.op=novo.dsl;
   novo.linha='';novo.weekKey='';novo.diaIdx=0;novo.sortIdx=0;novo.estado=ESTADO_POOL;
   novo.hInicioR='';novo.hFimR='';novo.qtdReal=0;novo.tempoAtraso='';novo.inicioMode='auto';novo.hInicioP='';
-  novo.dividido=true;novo.qtdInicialTotal=origTotal;
+  const grp=o.splitGroup||('g'+Date.now());
+  novo.dividido=true;novo.qtdInicialTotal=origTotal;novo.splitGroup=grp;
   // parte que fica no mesmo sítio
   const fica=Object.assign({},o);fica.qtd=(totalU-splitU)/1000;fica.dsl=baseDsl+' -1';fica.op=fica.dsl;
-  fica.dividido=true;fica.qtdInicialTotal=origTotal;
+  fica.dividido=true;fica.qtdInicialTotal=origTotal;fica.splitGroup=grp;
   const id=editingId;closeModal();
   try{
     setConn('loading','a dividir…');
