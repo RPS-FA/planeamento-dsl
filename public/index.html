@@ -1065,6 +1065,10 @@ async function saveModal(){
   if(has('f_qvupd'))set('qvUpDsl',gv('f_qvupd'));if(has('f_qvd'))set('qvDsl',gv('f_qvd'));
   set('hInicioR',gv('f_hir'));set('hFimR',gv('f_hfr'));set('tempoAtraso',gv('f_atr'));
   set('obsProd',gv('f_obsprod'));
+  // Estado automático pelas horas reais: início -> Em Processo; início+fim -> Terminado
+  {const rx=/^\d{1,2}:\d{2}/;const _hi=gv('f_hir'),_hf=gv('f_hfr');
+   if(rx.test(_hi)&&rx.test(_hf))set('estado','Terminado');
+   else if(rx.test(_hi))set('estado','Em Processo');}
   if(has('f_analisado'))set('analisado',gv('f_analisado')==='true');
   const savingId=editingId;            // guardar ANTES de closeModal (que põe editingId=null)
   closeModal();
