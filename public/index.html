@@ -1019,15 +1019,12 @@ function openModal(id){
      <div class="fld"><label>Qtd prevista de desdobramento (un) — Supervisão</label><input id="f_qpdesd" type="number" step="1" value="${Math.round((+o.qtdPrevistaDesd||0)*1000)}" ${PROFILE==='producao'?'disabled':''}></div>
      <div class="fld"><label>Qtd real de desdobramento (un) — Produção</label><input id="f_qdesd" type="number" step="1" value="${Math.round((+o.qtdDesdobramento||0)*1000)}"></div>
      ${selList('Motivo Desdobramento','f_motdesd',o.motivoDesdobramento,SETTINGS.motivosDesdobramento)}
-     ${selList('Motivo 2ª passagem','f_mot',o.motivo2aPassagem,SETTINGS.motivos2aPassagem)}
    </div>
    <div class="sec-title">Execução (Produção)</div>
    <div class="grid3">
      ${fld('Início real','f_hir',o.hInicioR,{type:'time'})}
      ${fld('Fim real','f_hfr',o.hFimR,{type:'time'})}
      ${fld('Tempo atraso (soma ao tempo da ordem)','f_atr',o.tempoAtraso,{type:'time'})}
-     ${fld('Qtd real','f_qreal',o.qtdReal)}
-     ${fld('Colaborador','f_colab',o.colaborador)}
      ${fld('Observações Produção / Supervisão','f_obsprod',o.obsProd,{type:'textarea'})}
    </div>`;
   document.getElementById('modalBody').innerHTML=body;
@@ -1064,10 +1061,10 @@ async function saveModal(){
   if(has('f_obs'))set('obs',gv('f_obs'));
   set('desdobrar',gv('f_desd')==='true');
   if(has('f_qpdesd'))set('qtdPrevistaDesd',(+gv('f_qpdesd')||0)/1000);
-  set('qtdDesdobramento',(+gv('f_qdesd')||0)/1000);set('motivoDesdobramento',gv('f_motdesd'));set('motivo2aPassagem',gv('f_mot'));
+  set('qtdDesdobramento',(+gv('f_qdesd')||0)/1000);set('motivoDesdobramento',gv('f_motdesd'));
   if(has('f_qvupd'))set('qvUpDsl',gv('f_qvupd'));if(has('f_qvd'))set('qvDsl',gv('f_qvd'));
   set('hInicioR',gv('f_hir'));set('hFimR',gv('f_hfr'));set('tempoAtraso',gv('f_atr'));
-  set('qtdReal',+gv('f_qreal')||0);set('colaborador',gv('f_colab'));set('obsProd',gv('f_obsprod'));
+  set('obsProd',gv('f_obsprod'));
   if(has('f_analisado'))set('analisado',gv('f_analisado')==='true');
   const savingId=editingId;            // guardar ANTES de closeModal (que põe editingId=null)
   closeModal();
