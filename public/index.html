@@ -77,6 +77,8 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .mg-cellhead{display:flex;justify-content:space-between;align-items:center;gap:4px;flex-wrap:wrap}
 .mg-pass{font-size:10px;font-weight:700;color:#7a3b00;text-align:right;background:#fff3e6;border-radius:4px;padding:1px 5px}
 .mg-cellhead .turno-sel{font-size:9.5px;border:1px solid var(--c-line);border-radius:4px;padding:0 2px;background:#fff}
+.mg-cellhead .dif-chk{display:inline-flex;align-items:center;gap:2px;font-size:9.5px;color:var(--c-primary-dark);cursor:pointer}
+.mg-cellhead .dif-chk input{margin:0}
 .mg-cap{font-size:12px;font-weight:700;color:#3a5a82;white-space:nowrap}
 .mg-cap.low{color:#c2410c}
 .mg-cap.full{color:#b91c1c}
@@ -410,9 +412,11 @@ function setConn(s,msg){const c=document.getElementById('conn');c.className='con
 let _tt;function toast(msg,kind){const t=document.getElementById('toast');t.textContent=msg;t.className='toast '+(kind==='err'?'err':'ok');t.style.display='block';clearTimeout(_tt);_tt=setTimeout(()=>t.style.display='none',kind==='err'?4500:2500);}
 
 /* ---------------- capacidade / turno ---------------- */
-function capOf(linha,bt){const caps=(SETTINGS.capacidades||{});
-  if(linha==='EM'){const k=(bt==='T')?'EM_T':'EM_B';const c=caps[k]||caps['EM'];return c&&c.krH?c.krH:8500;}
-  const c=caps[linha];return c&&c.krH?c.krH:17000;}
+function oeeOf(linha){const caps=(SETTINGS.capacidades||{});const key=(linha==='EM')?'EM':linha;const c=caps[key];let o=(c&&c.oee!=null)?+c.oee:100;if(!(o>0))o=100;return Math.min(o,100)/100;}
+function capOf(linha,bt){const caps=(SETTINGS.capacidades||{});let base;
+  if(linha==='EM'){const k=(bt==='T')?'EM_T':'EM_B';const c=caps[k]||caps['EM'];base=c&&c.krH?c.krH:8500;}
+  else{const c=caps[linha];base=c&&c.krH?c.krH:17000;}
+  return base*oeeOf(linha);}
 function tipoOf(linha){const c=(SETTINGS.capacidades||{})[linha];return c&&c.tipo?c.tipo:'DSL';}
 function durHoras(op){const kr=capOf(op.linha,op.bancaTapete);let q=(+op.qtd||0);if(op.desdobrar){const real=+op.qtdDesdobramento||0;const prev=+op.qtdPrevistaDesd||0;q+=(real>0?real:prev);}let h=kr>0?q*1000/kr:0;const atr=hm2min(op.tempoAtraso);if(atr)h+=atr/60;return h;}
 function turnoWindow(turno){const t=(SETTINGS.turnos||{})[turno]||(SETTINGS.turnos||{})[1]||{ini:'08:00',fim:'17:00',almocoIni:'12:00',almocoFim:'13:00'};return t;}
@@ -428,6 +432,9 @@ function lineBreaks(l,tno){const c=(SETTINGS.capacidades||{})[l];if(!c||!c.int)r
   if(tno>=2){add(c.int.n1,true);add(c.int.n2,true);}
   return out;}
 
+// Turno diferenciado: pausas próprias (almoço/jantar do turno dif)
+function difBreaks(){const t=turnoWindow('dif');const b=[];const ni=hm2min(t.ini)||0;const push=(is,fs)=>{let s=hm2min(is),e=hm2min(fs);if(s==null||e==null)return;if(s<ni)s+=1440;if(e<ni)e+=1440;if(e>s)b.push([s,e]);};if(t.almocoIni&&t.almocoFim)push(t.almocoIni,t.almocoFim);if(t.jantarIni&&t.jantarFim)push(t.jantarIni,t.jantarFim);return b;}
+function isDifDay(l,d){const dd=(SETTINGS.difDia||{})[dateKey(d)];return !!(dd&&(dd[l]===true||dd[l]==='true'));}
 // nº de turnos da linha NUM DIA (1 ou 2) — definido no quadro (settings.turnosDia)
 // 0 = linha fechada nesse dia; 1 ou 2 turnos
 function lineTurnoForDate(l,d){const td=(SETTINGS.turnosDia||{})[dateKey(d)];const v=td&&td[l];if(v===0||v==='0')return 0;return (v===2||v==='2')?2:1;}
@@ -442,6 +449,7 @@ function dayWindowFor(l,d){
   else{const tno=lineTurnoForDate(l,d);const t1=turnoWindow(1);
     if(tno>=2){const t2=turnoWindow(2);ini=hm2min(t1.ini);fim=hm2min(t2.fim);if(fim<=ini)fim+=1440;breaks=breaksOf(1).concat(breaksOf(2)).concat(lineBreaks(l,2));}
     else{ini=hm2min(t1.ini);fim=hm2min(t1.fim);if(fim<=ini)fim+=1440;breaks=breaksOf(1).concat(lineBreaks(l,1));}}
+  if(isDifDay(l,d)){const t=turnoWindow('dif');ini=hm2min(t.ini);fim=hm2min(t.fim);if(fim<=ini)fim+=1440;breaks=difBreaks().concat(lineBreaks(l,2));}
   if(ov&&ov.ini)ini=hm2min(ov.ini);
   if(ov&&ov.fim){fim=hm2min(ov.fim);if(fim<=ini)fim+=1440;}
   return {ini,fim,breaks};
@@ -811,13 +819,15 @@ function renderBoard(){
       const mark=cellClosed?'<span class="mg-mark closed">fechado</span>':(full?'<span class="mg-mark full">cheio</span>':`<span class="mg-mark ok">livre</span>`);
       const capTxt=cellClosed?'':` ${freeU}/${capU}`;
       const turnoDis=(cellClosed||PROFILE==='producao')?'disabled':'';
-      let html=`<div class="mg-cellhead"><select class="turno-sel" data-date="${dk}" data-linha="${l}" ${turnoDis}><option value="1" ${tno===1?'selected':''}>1 turno</option><option value="2" ${tno===2?'selected':''}>2 turnos</option></select></div>`;
+      const dif=isDifDay(l,d);
+      let html=`<div class="mg-cellhead"><select class="turno-sel" data-date="${dk}" data-linha="${l}" ${turnoDis}><option value="1" ${tno===1?'selected':''}>1 turno</option><option value="2" ${tno===2?'selected':''}>2 turnos</option></select><label class="dif-chk" title="Turno diferenciado"><input type="checkbox" class="dif-sel" data-date="${dk}" data-linha="${l}" ${dif?'checked':''} ${turnoDis}>Dif</label></div>`;
       if(passedU>0&&!cellClosed)html+=`<div class="mg-pass">↪ passou ${passedU} un p/ dia seguinte</div>`;
       segs.forEach(r=>html+=ocardHTML(l,r,searching));
       if(!full&&!cellClosed)html+=`<div class="mg-plan">PLANEAR AQUI<span class="mg-plan-q">livre ${freeU} un</span></div>`;
       cell.innerHTML=html;
       grid.appendChild(cell);bindColZone(cell);bindCards(cell);
       const ts=cell.querySelector('.turno-sel');if(ts)ts.addEventListener('change',()=>changeTurnoDia(ts.dataset.date,ts.dataset.linha,+ts.value));
+      const ds=cell.querySelector('.dif-sel');if(ds)ds.addEventListener('change',()=>changeTurnoDif(ds.dataset.date,ds.dataset.linha,ds.checked));
     }catch(e){console.error('renderBoard célula',l,dk,e);}});
   });
   el.appendChild(grid);
@@ -940,6 +950,14 @@ async function changeTurnoDia(dateStr,linha,turno){
   render();
   try{setConn('loading','a guardar…');await Api.putSettings({turnosDia:SETTINGS.turnosDia});setConn('ok','ligado');}
   catch(e){setConn('error','erro');toast('Falha ao guardar turno: '+e.message,'err');}
+}
+async function changeTurnoDif(dateStr,linha,on){
+  SETTINGS.difDia=SETTINGS.difDia||{};
+  SETTINGS.difDia[dateStr]=Object.assign({},SETTINGS.difDia[dateStr]);
+  if(on)SETTINGS.difDia[dateStr][linha]=true;else delete SETTINGS.difDia[dateStr][linha];
+  render();
+  try{setConn('loading','a guardar…');await Api.putSettings({difDia:SETTINGS.difDia});setConn('ok','ligado');}
+  catch(e){setConn('error','erro');toast('Falha ao guardar turno dif: '+e.message,'err');}
 }
 
 /* ---------------- persistência ---------------- */
@@ -1102,20 +1120,21 @@ function renderCfg(){
   const motRows=arr=>(arr||[]).map(motRow).join('');
   const ivc=(base,key)=>{const iv=(((caps[base]||{}).int)||{})[key]||['',''];return `<td class="ivc"><input id="iv_${base}_${key}_i" type="time" value="${iv[0]||''}" ${cfgDis}></td><td class="ivc"><input id="iv_${base}_${key}_f" type="time" value="${iv[1]||''}" ${cfgDis}></td>`;};
   const ivCells=base=>ivc(base,'d1')+ivc(base,'d2')+ivc(base,'n1')+ivc(base,'n2');
+  const oeeCell=(base)=>{const c=caps[base];const v=(c&&c.oee!=null)?c.oee:100;return `<td><input id="oee_${base}" type="number" min="1" max="100" step="1" value="${v}" ${cfgDis}></td>`;};
   let capRows=ALL_LINES.map(l=>{
     if(l==='EM'){
       const b=(caps.EM_B&&caps.EM_B.krH)||(caps.EM&&caps.EM.krH)||2000;
       const t=(caps.EM_T&&caps.EM_T.krH)||(caps.EM&&caps.EM.krH)||2000;
-      return `<tr><td>Escolha Manual · Banca</td><td><input id="cap_EM_B" type="number" value="${b}" ${cfgDis}></td>${ivCells('EM')}</tr>`+
-             `<tr><td>Escolha Manual · Tapete</td><td><input id="cap_EM_T" type="number" value="${t}" ${cfgDis}></td><td colspan="8" class="mini">intervalos = linha Banca</td></tr>`;
+      return `<tr><td>Escolha Manual · Banca</td><td><input id="cap_EM_B" type="number" value="${b}" ${cfgDis}></td>${oeeCell('EM')}${ivCells('EM')}</tr>`+
+             `<tr><td>Escolha Manual · Tapete</td><td><input id="cap_EM_T" type="number" value="${t}" ${cfgDis}></td><td colspan="9" class="mini">OEE/intervalos = linha Banca</td></tr>`;
     }
-    return `<tr><td>${lineLabel(l)}</td><td><input id="cap_${l}" type="number" value="${(caps[l]&&caps[l].krH)||17000}" ${cfgDis}></td>${ivCells(l)}</tr>`;
+    return `<tr><td>${lineLabel(l)}</td><td><input id="cap_${l}" type="number" value="${(caps[l]&&caps[l].krH)||17000}" ${cfgDis}></td>${oeeCell(l)}${ivCells(l)}</tr>`;
   }).join('');
-  const t1=(SETTINGS.turnos||{})[1]||{},t2=(SETTINGS.turnos||{})[2]||{};
+  const t1=(SETTINGS.turnos||{})[1]||{},t2=(SETTINGS.turnos||{})[2]||{},td=(SETTINGS.turnos||{}).dif||{};
   el.innerHTML=`<div class="cfg">
     <h2>Capacidade por linha (rolhas/h) e intervalos</h2>
-    <table><tr><th rowspan="2">Linha</th><th rowspan="2">Rolhas/h</th><th colspan="2">Int. 1 Dia</th><th colspan="2">Int. 2 Dia</th><th colspan="2">Int. 1 Noite</th><th colspan="2">Int. 2 Noite</th></tr><tr><th>Início</th><th>Fim</th><th>Início</th><th>Fim</th><th>Início</th><th>Fim</th><th>Início</th><th>Fim</th></tr>${capRows}</table>
-    <p class="mini" style="margin:4px 0 0">Os turnos (1 ou 2) definem-se no quadro, em cada dia/linha. Os intervalos (início–fim) são descontados da produção; os de noite só contam quando a linha tem 2 turnos.</p>
+    <table><tr><th rowspan="2">Linha</th><th rowspan="2">Rolhas/h</th><th rowspan="2">OEE %</th><th colspan="2">Int. 1 Dia</th><th colspan="2">Int. 2 Dia</th><th colspan="2">Int. 1 Noite</th><th colspan="2">Int. 2 Noite</th></tr><tr><th>Início</th><th>Fim</th><th>Início</th><th>Fim</th><th>Início</th><th>Fim</th><th>Início</th><th>Fim</th></tr>${capRows}</table>
+    <p class="mini" style="margin:4px 0 0">Os turnos (1 ou 2) definem-se no quadro, em cada dia/linha. O OEE (%) reduz a capacidade efetiva da linha. Os intervalos (início–fim) são descontados da produção; os de noite só contam quando a linha tem 2 turnos.</p>
     <h2>Turnos</h2>
     <table>
       <tr><th>Turno</th><th>Início</th><th>Fim</th><th>Almoço</th><th>Jantar</th></tr>
@@ -1124,7 +1143,11 @@ function renderCfg(){
       <tr><td>2 (noite)</td><td><input id="t2ini" value="${t2.ini||'17:00'}" ${cfgDis}></td><td><input id="t2fim" value="${t2.fim||'01:00'}" ${cfgDis}></td>
           <td>—</td>
           <td><input id="t2ji" value="${t2.jantarIni||'20:30'}" ${cfgDis}>–<input id="t2jf" value="${t2.jantarFim||'21:30'}" ${cfgDis}></td></tr>
+      <tr><td>Dif</td><td><input id="tdifini" value="${td.ini||'08:00'}" ${cfgDis}></td><td><input id="tdiffim" value="${td.fim||'17:00'}" ${cfgDis}></td>
+          <td><input id="tdifai" value="${td.almocoIni||''}" ${cfgDis}>–<input id="tdifaf" value="${td.almocoFim||''}" ${cfgDis}></td>
+          <td><input id="tdifji" value="${td.jantarIni||''}" ${cfgDis}>–<input id="tdifjf" value="${td.jantarFim||''}" ${cfgDis}></td></tr>
     </table>
+    <p class="mini" style="margin:4px 0 0">O turno Dif aplica-se por dia/linha através do visto "Dif" no quadro.</p>
     <h2>Geral</h2>
     <table><tr><th>Setup entre ordens (min)</th><td><input id="setupMin" type="number" value="${SETTINGS.setupMin||10}" ${cfgDis}></td></tr></table>
     <h2>Motivos</h2>
@@ -1151,9 +1174,11 @@ function renderCfg(){
 }
 async function saveCfg(){
   const ivRead=base=>{const r={};['d1','d2','n1','n2'].forEach(k=>{const i=gv('iv_'+base+'_'+k+'_i'),f=gv('iv_'+base+'_'+k+'_f');if(i&&f)r[k]=[i,f];});return Object.keys(r).length?r:null;};
-  const caps={};ALL_LINES.forEach(l=>{if(l==='EM'){caps.EM_B={krH:+gv('cap_EM_B')||2000};caps.EM_T={krH:+gv('cap_EM_T')||2000};const iv=ivRead('EM');caps.EM=iv?{int:iv}:{};}else{caps[l]={krH:+gv('cap_'+l)||17000};const iv=ivRead(l);if(iv)caps[l].int=iv;}});
+  const oeeRead=base=>{let o=+gv('oee_'+base);if(!(o>0))o=100;return Math.min(o,100);};
+  const caps={};ALL_LINES.forEach(l=>{if(l==='EM'){caps.EM_B={krH:+gv('cap_EM_B')||2000};caps.EM_T={krH:+gv('cap_EM_T')||2000};const iv=ivRead('EM');caps.EM=Object.assign({oee:oeeRead('EM')},iv?{int:iv}:{});}else{caps[l]={krH:+gv('cap_'+l)||17000,oee:oeeRead(l)};const iv=ivRead(l);if(iv)caps[l].int=iv;}});
   const turnos={1:{ini:gv('t1ini'),fim:gv('t1fim'),almocoIni:gv('t1ai'),almocoFim:gv('t1af')},
-                2:{ini:gv('t2ini'),fim:gv('t2fim'),jantarIni:gv('t2ji'),jantarFim:gv('t2jf')}}; // T2 só jantar
+                2:{ini:gv('t2ini'),fim:gv('t2fim'),jantarIni:gv('t2ji'),jantarFim:gv('t2jf')}, // T2 só jantar
+                dif:{ini:gv('tdifini'),fim:gv('tdiffim'),almocoIni:gv('tdifai'),almocoFim:gv('tdifaf'),jantarIni:gv('tdifji'),jantarFim:gv('tdifjf')}};
   const parseList=id=>{const c=document.getElementById(id);return c?[...c.querySelectorAll('input')].map(i=>i.value.trim()).filter(Boolean):[];};
   const calibresPorLinha={};ALL_LINES.forEach(l=>{const arr=parseList('cal_'+l);if(arr.length)calibresPorLinha[l]=arr;});
   const payload={capacidades:caps,turnos:turnos,setupMin:+gv('setupMin')||10,motivosDesdobramento:parseList('motDesdList'),motivos2aPassagem:parseList('mot2aList'),calibresPorLinha};
