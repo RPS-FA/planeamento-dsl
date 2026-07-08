@@ -108,7 +108,7 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .ocard .oc-prod{font-size:10px;color:var(--c-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ocard .oc-meta{font-size:10px;color:var(--c-muted);margin-top:2px;display:flex;gap:5px;flex-wrap:wrap;align-items:center}
 .ocard .oc-time{font-size:10.5px;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums;color:var(--c-ink)}
-.ocard .oc-real{font-size:10px;font-weight:600;font-variant-numeric:tabular-nums;color:#6b7a66;margin-top:1px}
+.ocard .oc-real{font-size:10px;font-weight:600;font-variant-numeric:tabular-nums;color:#6b7a66;margin-top:1px;display:flex;justify-content:space-between;align-items:center;gap:6px}
 .ocard.oc-late .oc-real{color:#b91c1c}
 .ocard.oc-ontime .oc-real{color:#15803d}
 .ocard.search-hit{outline:2px solid #00e000;box-shadow:0 0 0 3px #b6ff7a}
@@ -739,12 +739,13 @@ function ocardHTML(l,r,searching){
     if(r.partIdx>1)cont+=`<span class="badge cont-prev">↳ ${Math.round((+r.qtdSeg||0)*1000)} rolhas do dia anterior</span>`;
     if(r.partIdx<r.total)cont+=`<span class="badge cont-next">passa ${Math.round((+r.carriedNext||0)*1000)} rolhas →</span>`;
   }
+  const atrBadge=(isLast&&/^\d{1,2}:\d{2}/.test(o.tempoAtraso||''))?`<span class="badge atr">⏱ +${o.tempoAtraso} atraso</span>`:'';
   return `<div class="ocard${lateCls}${hit}${o.urgente?' oc-urgent':''}" draggable="true" data-id="${o.id}" data-est="${o.estado}">
     <div class="oc-top"><b>${o.dsl||o.lote||'—'}</b><span class="oc-q">${Math.round((+r.qtdSeg||0)*1000)} un</span></div>
     <div class="oc-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div>
-    <div class="oc-meta">${o.cliente||''}${o.calibre?' · '+o.calibre:''}${o.qualidades?' · '+o.qualidades:''} ${urg}${desd}${divBadge(o)}${analBadge(o)}${(isLast&&/^\d{1,2}:\d{2}/.test(o.tempoAtraso||''))?`<span class="badge atr">⏱ +${o.tempoAtraso} atraso</span>`:''}${cont}</div>
+    <div class="oc-meta">${o.cliente||''}${o.calibre?' · '+o.calibre:''}${o.qualidades?' · '+o.qualidades:''} ${urg}${desd}${divBadge(o)}${analBadge(o)}${cont}</div>
     <div class="oc-time">⏱ Plan ${min2hm(r.startMin%1440)} → ${min2hm(r.endMin%1440)}</div>
-    ${(isLast&&(o.hInicioR||o.hFimR))?`<div class="oc-real">▶ Real ${o.hInicioR||'--:--'} → ${o.hFimR||'--:--'}</div>`:''}
+    ${(isLast&&(o.hInicioR||o.hFimR||atrBadge))?`<div class="oc-real"><span>▶ Real ${o.hInicioR||'--:--'} → ${o.hFimR||'--:--'}</span>${atrBadge}</div>`:''}
     ${l==='EM'?`<select class="bt-sel" data-id="${o.id}"><option value="">— B/T? —</option><option value="B" ${o.bancaTapete==='B'?'selected':''}>Banca</option><option value="T" ${o.bancaTapete==='T'?'selected':''}>Tapete</option></select>`:''}
     <select class="oc-est" data-est="${o.estado||'Aberto'}" data-id="${o.id}">${ESTADOS.map(e=>`<option ${e===(o.estado||'Aberto')?'selected':''}>${e}</option>`).join('')}</select>
   </div>`;
