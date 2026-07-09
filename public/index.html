@@ -77,8 +77,9 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .mg-cellhead{display:flex;justify-content:space-between;align-items:center;gap:4px;flex-wrap:wrap}
 .mg-pass{font-size:10px;font-weight:700;color:#7a3b00;text-align:right;background:#fff3e6;border-radius:4px;padding:1px 5px}
 .mg-cellhead .turno-sel{font-size:9.5px;border:1px solid var(--c-line);border-radius:4px;padding:0 2px;background:#fff}
-.mg-cellhead .dif-chk{display:inline-flex;align-items:center;gap:2px;font-size:9.5px;color:var(--c-primary-dark);cursor:pointer}
-.mg-cellhead .dif-chk input{margin:0}
+.mg-cellhead .dif-chk,.mg-cellhead .close-chk{display:inline-flex;align-items:center;gap:2px;font-size:9.5px;color:var(--c-primary-dark);cursor:pointer}
+.mg-cellhead .dif-chk input,.mg-cellhead .close-chk input{margin:0}
+.mg-cellhead .close-chk{color:#a12}
 .mg-cap{font-size:12px;font-weight:700;color:#3a5a82;white-space:nowrap}
 .mg-cap.low{color:#c2410c}
 .mg-cap.full{color:#b91c1c}
@@ -822,7 +823,10 @@ function renderBoard(){
       const capTxt=cellClosed?'':` ${freeU}/${capU}`;
       const turnoDis=(cellClosed||PROFILE==='producao')?'disabled':'';
       const dif=isDifDay(l,d);
-      let html=`<div class="mg-cellhead"><select class="turno-sel" data-date="${dk}" data-linha="${l}" ${turnoDis}><option value="1" ${tno===1?'selected':''}>1 turno</option><option value="2" ${tno===2?'selected':''}>2 turnos</option></select><label class="dif-chk" title="Turno diferenciado"><input type="checkbox" class="dif-sel" data-date="${dk}" data-linha="${l}" ${dif?'checked':''} ${turnoDis}>Dif</label></div>`;
+      const dayClosedAll=isDayClosed(d);
+      const lineClosed=!dayClosedAll&&lineTurnoForDate(l,d)===0;
+      const closeDis=(PROFILE==='producao'||dayClosedAll)?'disabled':'';
+      let html=`<div class="mg-cellhead"><select class="turno-sel" data-date="${dk}" data-linha="${l}" ${turnoDis}><option value="1" ${tno===1?'selected':''}>1 turno</option><option value="2" ${tno===2?'selected':''}>2 turnos</option></select><label class="dif-chk" title="Turno diferenciado"><input type="checkbox" class="dif-sel" data-date="${dk}" data-linha="${l}" ${dif?'checked':''} ${turnoDis}>Dif</label><label class="close-chk" title="Fechar esta linha neste dia"><input type="checkbox" class="close-sel" data-date="${dk}" data-linha="${l}" ${lineClosed?'checked':''} ${closeDis}>Fechar</label></div>`;
       if(passedU>0&&!cellClosed)html+=`<div class="mg-pass">↪ passou ${passedU} un p/ dia seguinte</div>`;
       segs.forEach(r=>html+=ocardHTML(l,r,searching));
       if(!full&&!cellClosed)html+=`<div class="mg-plan">PLANEAR AQUI<span class="mg-plan-q">livre ${freeU} un</span></div>`;
@@ -830,6 +834,7 @@ function renderBoard(){
       grid.appendChild(cell);bindColZone(cell);bindCards(cell);
       const ts=cell.querySelector('.turno-sel');if(ts)ts.addEventListener('change',()=>changeTurnoDia(ts.dataset.date,ts.dataset.linha,+ts.value));
       const ds=cell.querySelector('.dif-sel');if(ds)ds.addEventListener('change',()=>changeTurnoDif(ds.dataset.date,ds.dataset.linha,ds.checked));
+      const cs=cell.querySelector('.close-sel');if(cs)cs.addEventListener('change',()=>changeCloseLine(cs.dataset.date,cs.dataset.linha,cs.checked));
     }catch(e){console.error('renderBoard célula',l,dk,e);}});
   });
   el.appendChild(grid);
@@ -952,6 +957,14 @@ async function changeTurnoDia(dateStr,linha,turno){
   render();
   try{setConn('loading','a guardar…');await Api.putSettings({turnosDia:SETTINGS.turnosDia});setConn('ok','ligado');}
   catch(e){setConn('error','erro');toast('Falha ao guardar turno: '+e.message,'err');}
+}
+async function changeCloseLine(dateStr,linha,close){
+  SETTINGS.turnosDia=SETTINGS.turnosDia||{};
+  SETTINGS.turnosDia[dateStr]=Object.assign({},SETTINGS.turnosDia[dateStr]);
+  SETTINGS.turnosDia[dateStr][linha]=close?0:1;
+  render();
+  try{setConn('loading','a guardar…');await Api.putSettings({turnosDia:SETTINGS.turnosDia});setConn('ok','ligado');}
+  catch(e){setConn('error','erro');toast('Falha ao guardar: '+e.message,'err');}
 }
 async function changeTurnoDif(dateStr,linha,on){
   SETTINGS.difDia=SETTINGS.difDia||{};
