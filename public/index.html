@@ -1199,23 +1199,33 @@ async function saveCfg(){
 /* ---------------- Export Excel ---------------- */
 function exportExcel(){
   clearSchedCache();
-  const board=BOARDS[ACTIVE_TAB]||BOARDS.eedsl;const rows=[];
-  const year=ANCHOR.getFullYear(),month=ANCHOR.getMonth();
-  board.lines.forEach(l=>{const segs=scheduleLine(l);
-    Object.keys(segs).forEach(dk=>{const d=new Date(dk+'T00:00:00');if(d.getFullYear()!==year||d.getMonth()!==month)return;
-      segs[dk].forEach(r=>{const o=r.op;const isLast=r.partIdx===r.total;
-        rows.push({Data:dk,Dia:DIAS_PT[diaIdxOf(d)],Linha:lineLabel(l),Turnos:lineTurnoForDate(l,d),DSL:o.dsl,Produto:o.produtoEntrada,Lote:o.lote,Cliente:o.cliente,
-          'Qtd seg':Math.round((+r.qtdSeg||0)*1000),'Qtd total':Math.round((+o.qtd||0)*1000),'Qtd objetivo':Math.round((+o.qtdNecessaria||0)*1000),
-          Parte:r.multiDay?`${r.partIdx}/${r.total}`:'',Estado:o.estado,'Inicio':min2hm(r.startMin%1440),'Fim':min2hm(r.endMin%1440),'Dur (h)':+((r.endMin-r.startMin)/60).toFixed(2),
-          'Atraso':o.tempoAtraso||'','Inicio real':isLast?(o.hInicioR||''):'','Fim real':isLast?(o.hFimR||''):'',Desdobra:o.desdobrar?'Sim':'',
-          'Qtd desd':+o.qtdDesdobramento||0,'Motivo Desd':o.motivoDesdobramento||'','Motivo 2a':o.motivo2aPassagem||'',QV:o.qvDsl||o.qvPlan||'',OBS:o.obs||''});});});});
-  rows.sort((a,b)=>a.Data<b.Data?-1:a.Data>b.Data?1:(a.Linha<b.Linha?-1:1));
-  if(!rows.length){toast('Sem ordens neste mês.','err');return;}
-  // Produção exporta só campos essenciais; restantes perfis exportam tudo
-  const out=(PROFILE==='producao')?rows.map(r=>({Data:r.Data,DSL:r.DSL,Produto:r.Produto,Lote:r.Lote,Cliente:r.Cliente,'Qtd seg':r['Qtd seg'],QV:r.QV,OBS:r.OBS})):rows;
-  const ws=XLSX.utils.json_to_sheet(out);const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Plano');
-  XLSX.writeFile(wb,`Planeamento_DSL_${ANCHOR.getFullYear()}-${pad(ANCHOR.getMonth()+1)}.xlsx`);
+  const today=new Date();const hoje=`${pad(today.getDate())}/${pad(today.getMonth()+1)}/${today.getFullYear()}`;
+  const ans=prompt('Exportar planos a partir de que data? (dd/mm/aaaa) — vazio = tudo',hoje);
+  if(ans===null)return;
+  let startKey='';
+  if(ans.trim()){const iso=dpToISO(ans.trim());if(!iso){toast('Data inválida. Usa dd/mm/aaaa.','err');return;}startKey=iso;}
+  const isProdMode=(PROFILE==='producao');
+  const reduce=r=>({Data:r.Data,DSL:r.DSL,Produto:r.Produto,Lote:r.Lote,Cliente:r.Cliente,'Qtd seg':r['Qtd seg'],QV:r.QV,OBS:r.OBS});
+  const planRow=(l,d,dk,r)=>{const o=r.op;const isLast=r.partIdx===r.total;return {Data:dk,Dia:DIAS_PT[diaIdxOf(d)],Linha:lineLabel(l),Turnos:lineTurnoForDate(l,d),DSL:o.dsl,Produto:o.produtoEntrada,Lote:o.lote,Cliente:o.cliente,
+    'Qtd seg':Math.round((+r.qtdSeg||0)*1000),'Qtd total':Math.round((+o.qtd||0)*1000),'Qtd objetivo':Math.round((+o.qtdNecessaria||0)*1000),
+    Parte:r.multiDay?`${r.partIdx}/${r.total}`:'',Estado:o.estado,'Inicio':min2hm(r.startMin%1440),'Fim':min2hm(r.endMin%1440),'Dur (h)':+((r.endMin-r.startMin)/60).toFixed(2),
+    'Atraso':o.tempoAtraso||'','Inicio real':isLast?(o.hInicioR||''):'','Fim real':isLast?(o.hFimR||''):'',Desdobra:o.desdobrar?'Sim':'',Analisado:o.analisado?'Sim':'',
+    'Qtd desd':+o.qtdDesdobramento||0,'Motivo Desd':o.motivoDesdobramento||'',QV:o.qvDsl||o.qvPlan||'',OBS:o.obs||''};};
+  const wb=XLSX.utils.book_new();
+  Object.entries(BOARDS).forEach(([k,board])=>{
+    const rows=[];
+    board.lines.forEach(l=>{const segs=scheduleLine(l);
+      Object.keys(segs).forEach(dk=>{if(startKey&&dk<startKey)return;const d=new Date(dk+'T00:00:00');
+        segs[dk].forEach(r=>rows.push(planRow(l,d,dk,r)));});});
+    rows.sort((a,b)=>a.Data<b.Data?-1:a.Data>b.Data?1:(a.Linha<b.Linha?-1:1));
+    const out=isProdMode?rows.map(reduce):rows;
+    if(out.length){XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(out),board.label.slice(0,31));}
+  });
+  // Buffer
+  const buf=DATA.filter(o=>!o.linha&&o.buffer&&isRealOrder(o)).map(o=>({DSL:o.dsl,Unidade:unitLabel(o.unidade),'Dia Plano':dpFmt(o.diaPlano),Produto:o.produtoEntrada,Calibre:o.calibre||'',Lote:o.lote,'Qtd (un)':Math.round((+o.qtd||0)*1000),Cliente:o.cliente,'QV-up':o.qvUpDsl||'',QV:o.qvDsl||'',Urgente:o.urgente?'Sim':'',OBS:o.obs||''}));
+  if(buf.length){XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(buf),'Buffer');}
+  if(!wb.SheetNames.length){toast('Sem dados para exportar.','err');return;}
+  XLSX.writeFile(wb,`Planeamento_DSL_${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}.xlsx`);
 }
 
 /* ---------------- perfil / boot ---------------- */
