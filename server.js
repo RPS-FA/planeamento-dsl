@@ -43,7 +43,7 @@ const PRODUCAO_FIELDS = [
   'hInicioR', 'hFimR', 'horaFecho', 'dataFimTurno', 'terminou',
   'tempoAtraso', 'temposPerdidosAvaria', 'faltas',
   'qtdReal', 'qtdSeguinte',
-  'motivo2aPassagem', 'motivoDesdobramento', 'causaRaiz2a', 'qtdDesdobramento', 'desdobrar', 'qtdPrevistaDesd',
+  'motivo2aPassagem', 'motivoDesdobramento', 'motivoParagem', 'causaRaiz2a', 'qtdDesdobramento', 'desdobrar', 'qtdPrevistaDesd',
   'qvUpDsl', 'qvDsl', 'qvDownDsl', 'qv1Dsl',
   'colaborador', 'obsProd', 'analisado',
 ];
