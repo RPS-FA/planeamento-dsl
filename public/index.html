@@ -567,7 +567,7 @@ function cardHTML(o,hit){
   return `<div class="card${hit?' search-hit':''}" draggable="true" data-id="${o.id}" data-est="${o.estado}">
     <div class="c-top"><span class="c-dsl">${o.dsl||o.lote||'—'}</span><span class="c-qtd">${Math.round((+o.qtd||0)*1000)} un</span></div>
     <div class="c-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div>
-    <div class="c-meta"><span>${o.cliente||''}</span><span class="badge">${o.calibre||''}</span>${o.qualidades?`<span class="badge">${o.qualidades}</span>`:''}${unitChip(o.unidade)}${desd}${urg}${divBadge(o)}</div>
+    <div class="c-meta"><span>${o.cliente||''}</span>${unitChip(o.unidade)}${desd}${urg}${divBadge(o)}</div>
   </div>`;
 }
 function renderPool(){
@@ -744,7 +744,7 @@ function ocardHTML(l,r,searching){
   return `<div class="ocard${lateCls}${hit}${o.urgente?' oc-urgent':''}" draggable="true" data-id="${o.id}" data-est="${o.estado}">
     <div class="oc-top"><b>${o.dsl||o.lote||'—'}</b><span class="oc-q">${Math.round((+r.qtdSeg||0)*1000)} un</span></div>
     <div class="oc-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div>
-    <div class="oc-meta">${o.cliente||''}${o.calibre?' · '+o.calibre:''}${o.qualidades?' · '+o.qualidades:''} ${urg}${desd}${divBadge(o)}${analBadge(o)}${cont}</div>
+    <div class="oc-meta">${o.cliente||''} ${urg}${desd}${divBadge(o)}${analBadge(o)}${cont}</div>
     <div class="oc-time">⏱ Plan ${min2hm(r.startMin%1440)} → ${min2hm(r.endMin%1440)}</div>
     ${(isLast&&(o.hInicioR||o.hFimR||atrBadge))?`<div class="oc-real"><span>▶ Real ${o.hInicioR||'--:--'} → ${o.hFimR||'--:--'}</span>${atrBadge}</div>`:''}
     ${l==='EM'?`<select class="bt-sel" data-id="${o.id}"><option value="">— B/T? —</option><option value="B" ${o.bancaTapete==='B'?'selected':''}>Banca</option><option value="T" ${o.bancaTapete==='T'?'selected':''}>Tapete</option></select>`:''}
