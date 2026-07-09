@@ -61,8 +61,7 @@ const AREAS_ESPECIAIS = ['B', 'EE', 'T']; // Banca, Escolha Eletrónica, Tapete
 
 const DEFAULT_CAPACIDADES = {};
 ['1','2','3','4','5','6','7','8'].forEach((l) => { DEFAULT_CAPACIDADES[l] = { krH: 17000, turno: 1 }; });
-DEFAULT_CAPACIDADES['EM_B'] = { krH: 2000 }; // Escolha Manual · Banca
-DEFAULT_CAPACIDADES['EM_T'] = { krH: 2000 }; // Escolha Manual · Tapete
+DEFAULT_CAPACIDADES['EM'] = { krH: 2000 }; // Banca
 
 const DEFAULT_MOTIVOS = [
   '4 Canos', 'Canos de trás', 'ACERTO DA QUALIDADE', 'APROVEITAMENTO FRACO EE',

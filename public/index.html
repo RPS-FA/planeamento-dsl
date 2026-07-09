@@ -328,7 +328,7 @@ const LINHAS_6_10=['6','7','8','9','10'];
 const ESPECIAIS=['B','EE','T'];
 const ESPECIAIS_LABEL={'B':'Banca','EE':'Escolha Eletrónica','T':'Tapete'};
 // Etiquetas de apresentação das linhas (a chave interna mantém-se 1..10/B/EE/T)
-const LINE_LABELS={'1':'EE - DSL 1','2':'EE - DSL 2','3':'EE - DSL 3','4':'DSL - 4','5':'DSL - 5','6':'EE - DSL 6','7':'EE - DSL 7','8':'EE - DSL 8','EM':'Escolha Manual'};
+const LINE_LABELS={'1':'EE - DSL 1','2':'EE - DSL 2','3':'EE - DSL 3','4':'DSL - 4','5':'DSL - 5','6':'EE - DSL 6','7':'EE - DSL 7','8':'EE - DSL 8','EM':'Banca'};
 function lineLabel(l){return LINE_LABELS[l]||(ESPECIAIS.includes(l)?`${l} · ${ESPECIAIS_LABEL[l]}`:`Linha ${l}`);}
 const ESTADOS=['Aberto','Liberada','Em Processo','Terminado','Concluído Planeamento'];
 const ESTADO_POOL='Aberto';
@@ -338,7 +338,7 @@ const ALL_LINES=['1','2','3','4','5','6','7','8','EM']; // EE-DSL 1..8 + Escolha
 const BOARDS={
   eedsl:{label:'EE - DSL', lines:['1','2','3','6','7','8']},
   dsl:{label:'DSL', lines:['4','5']},
-  em:{label:'Escolha Manual', lines:['EM']},
+  em:{label:'Banca', lines:['EM']},
 };
 const UNIT_COLORS={eedsl:'#3d6b3f',dsl:'#2f5d86',em:'#5b2a86'};
 function unitOfLine(l){for(const k in BOARDS)if(BOARDS[k].lines.includes(l))return k;return '';}
@@ -416,7 +416,7 @@ let _tt;function toast(msg,kind){const t=document.getElementById('toast');t.text
 /* ---------------- capacidade / turno ---------------- */
 function oeeOf(linha){const caps=(SETTINGS.capacidades||{});const key=(linha==='EM')?'EM':linha;const c=caps[key];let o=(c&&c.oee!=null)?+c.oee:100;if(!(o>0))o=100;return Math.min(o,100)/100;}
 function capOf(linha,bt){const caps=(SETTINGS.capacidades||{});let base;
-  if(linha==='EM'){const k=(bt==='T')?'EM_T':'EM_B';const c=caps[k]||caps['EM'];base=c&&c.krH?c.krH:8500;}
+  if(linha==='EM'){const c=caps['EM']||caps['EM_B'];base=c&&c.krH?c.krH:2000;}
   else{const c=caps[linha];base=c&&c.krH?c.krH:17000;}
   return base*oeeOf(linha);}
 function tipoOf(linha){const c=(SETTINGS.capacidades||{})[linha];return c&&c.tipo?c.tipo:'DSL';}
@@ -747,7 +747,6 @@ function ocardHTML(l,r,searching){
     <div class="oc-meta">${o.cliente||''} ${urg}${desd}${divBadge(o)}${analBadge(o)}${cont}</div>
     <div class="oc-time">⏱ Plan ${min2hm(r.startMin%1440)} → ${min2hm(r.endMin%1440)}</div>
     ${(isLast&&(o.hInicioR||o.hFimR||atrBadge))?`<div class="oc-real"><span>▶ Real ${o.hInicioR||'--:--'} → ${o.hFimR||'--:--'}</span>${atrBadge}</div>`:''}
-    ${l==='EM'?`<select class="bt-sel" data-id="${o.id}"><option value="">— B/T? —</option><option value="B" ${o.bancaTapete==='B'?'selected':''}>Banca</option><option value="T" ${o.bancaTapete==='T'?'selected':''}>Tapete</option></select>`:''}
     <select class="oc-est" data-est="${o.estado||'Aberto'}" data-id="${o.id}">${ESTADOS.map(e=>`<option ${e===(o.estado||'Aberto')?'selected':''}>${e}</option>`).join('')}</select>
   </div>`;
 }
@@ -755,8 +754,7 @@ function bindCards(root){
   root.querySelectorAll('.ocard').forEach(c=>{
     c.addEventListener('dragstart',e=>{dragOp=DATA.find(x=>x.id==c.dataset.id);c.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
     c.addEventListener('dragend',()=>c.classList.remove('dragging'));
-    c.addEventListener('click',e=>{if(e.target.classList.contains('bt-sel')||e.target.classList.contains('oc-est'))return;openModal(+c.dataset.id);});
-    const bt=c.querySelector('.bt-sel');if(bt)bt.addEventListener('change',ev=>{ev.stopPropagation();changeBancaTapete(+bt.dataset.id,bt.value);});
+    c.addEventListener('click',e=>{if(e.target.classList.contains('oc-est'))return;openModal(+c.dataset.id);});
     const es=c.querySelector('.oc-est');if(es)es.addEventListener('change',ev=>{ev.stopPropagation();changeEstado(+es.dataset.id,es.value);});
     bindCardReorder(c);
   });
@@ -804,7 +802,7 @@ function renderBoard(){
       const cell=document.createElement('div');cell.className='mg-cell';cell.dataset.linha=l;cell.dataset.date=dk;
       const tno=lineTurnoForDate(l,d);
       const win=dayWindowFor(l,d);const cellClosed=!win;const usableMin=win?workCapacity(win.ini,win.breaks,win.fim):0;
-      const cellBt=(l==='EM')?((segs[0]&&segs[0].op.bancaTapete)||'B'):null;const capU=Math.round(usableMin/60*capOf(l,cellBt));
+      const cellBt=null;const capU=Math.round(usableMin/60*capOf(l));
       const usedU=Math.round(segs.reduce((a,s)=>a+(+s.qtdSeg||0),0)*1000);
       const lastEnd=segs.length?Math.max(...segs.map(s=>s.endMin)):(win?win.ini:0);
       const overflow=segs.some(s=>s.partIdx<s.total);   // alguma ordem transita p/ dia seguinte
@@ -1147,10 +1145,8 @@ function renderCfg(){
   const oeeCell=(base)=>{const c=caps[base];const v=(c&&c.oee!=null)?c.oee:100;return `<td><input id="oee_${base}" type="number" min="1" max="100" step="1" value="${v}" ${cfgDis}></td>`;};
   let capRows=ALL_LINES.map(l=>{
     if(l==='EM'){
-      const b=(caps.EM_B&&caps.EM_B.krH)||(caps.EM&&caps.EM.krH)||2000;
-      const t=(caps.EM_T&&caps.EM_T.krH)||(caps.EM&&caps.EM.krH)||2000;
-      return `<tr><td>Escolha Manual · Banca</td><td><input id="cap_EM_B" type="number" value="${b}" ${cfgDis}></td>${oeeCell('EM')}${ivCells('EM')}</tr>`+
-             `<tr><td>Escolha Manual · Tapete</td><td><input id="cap_EM_T" type="number" value="${t}" ${cfgDis}></td><td colspan="9" class="mini">OEE/intervalos = linha Banca</td></tr>`;
+      const b=(caps.EM&&caps.EM.krH)||(caps.EM_B&&caps.EM_B.krH)||2000;
+      return `<tr><td>Banca</td><td><input id="cap_EM" type="number" value="${b}" ${cfgDis}></td>${oeeCell('EM')}${ivCells('EM')}</tr>`;
     }
     return `<tr><td>${lineLabel(l)}</td><td><input id="cap_${l}" type="number" value="${(caps[l]&&caps[l].krH)||17000}" ${cfgDis}></td>${oeeCell(l)}${ivCells(l)}</tr>`;
   }).join('');
@@ -1202,7 +1198,7 @@ function renderCfg(){
 async function saveCfg(){
   const ivRead=base=>{const r={};['d1','d2','n1','n2'].forEach(k=>{const i=gv('iv_'+base+'_'+k+'_i'),f=gv('iv_'+base+'_'+k+'_f');if(i&&f)r[k]=[i,f];});return Object.keys(r).length?r:null;};
   const oeeRead=base=>{let o=+gv('oee_'+base);if(!(o>0))o=100;return Math.min(o,100);};
-  const caps={};ALL_LINES.forEach(l=>{if(l==='EM'){caps.EM_B={krH:+gv('cap_EM_B')||2000};caps.EM_T={krH:+gv('cap_EM_T')||2000};const iv=ivRead('EM');caps.EM=Object.assign({oee:oeeRead('EM')},iv?{int:iv}:{});}else{caps[l]={krH:+gv('cap_'+l)||17000,oee:oeeRead(l)};const iv=ivRead(l);if(iv)caps[l].int=iv;}});
+  const caps={};ALL_LINES.forEach(l=>{if(l==='EM'){const iv=ivRead('EM');caps.EM=Object.assign({krH:+gv('cap_EM')||2000,oee:oeeRead('EM')},iv?{int:iv}:{});}else{caps[l]={krH:+gv('cap_'+l)||17000,oee:oeeRead(l)};const iv=ivRead(l);if(iv)caps[l].int=iv;}});
   const turnos={1:{ini:gv('t1ini'),fim:gv('t1fim'),almocoIni:gv('t1ai'),almocoFim:gv('t1af')},
                 2:{ini:gv('t2ini'),fim:gv('t2fim'),jantarIni:gv('t2ji'),jantarFim:gv('t2jf')}, // T2 só jantar
                 dif:{ini:gv('tdifini'),fim:gv('tdiffim'),almocoIni:gv('tdifai'),almocoFim:gv('tdifaf'),jantarIni:gv('tdifji'),jantarFim:gv('tdifjf')}};
