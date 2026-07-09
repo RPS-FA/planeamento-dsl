@@ -697,7 +697,7 @@ function render(){
   if(ACTIVE_TAB==='buffer'){wrap.classList.remove('full');const hk=(PROFILE==='producao');document.getElementById('pool').style.display=hk?'none':'block';wb.style.display='none';if(!hk)renderPool();renderBuffer();document.body.classList.toggle('producao',isProd());fitWrap();return;}
   wb.style.display='flex';const hideKanban=(PROFILE==='producao');wrap.classList.toggle('full',hideKanban);document.getElementById('pool').style.display=hideKanban?'none':'block';
   const wkl=document.getElementById('wkLabel');
-  if(PROFILE==='producao'&&PROD_DATE){wkl.textContent=`📅 ${DIAS_PT[diaIdxOf(PROD_DATE)]} ${pad(PROD_DATE.getDate())}/${pad(PROD_DATE.getMonth()+1)} (±1 dia)`;wkl.style.cursor='pointer';wkl.onclick=pickProdDate;}
+  if(PROFILE==='producao'&&PROD_DATE){wkl.textContent=`📅 ${DIAS_PT[diaIdxOf(PROD_DATE)]} ${pad(PROD_DATE.getDate())}/${pad(PROD_DATE.getMonth()+1)} (+ seguinte)`;wkl.style.cursor='pointer';wkl.onclick=pickProdDate;}
   else{wkl.textContent=monthLabel();wkl.style.cursor='';wkl.onclick=null;}
   const n=opCountForMonth();const oc=document.getElementById('opcount');if(oc)oc.textContent=n+(n===1?' OP':' OPs');
   renderPool();renderBoard();
@@ -781,9 +781,9 @@ function renderBoard(){
     const sundayClosed=(dow===6&&SETTINGS.domingoFechado);
     if(hasOrders||!sundayClosed)daySet.add(dateKey(d));}
   let days=[...daySet].sort();
-  if(PROFILE==='producao'&&PROD_DATE){   // Produção: dia selecionado + dia útil anterior e seguinte
-    const pv=prevProdDay(PROD_DATE),nx=nextProdDay(PROD_DATE);const keys=[];
-    if(pv)keys.push(dateKey(pv));keys.push(dateKey(PROD_DATE));if(nx)keys.push(dateKey(nx));
+  if(PROFILE==='producao'&&PROD_DATE){   // Produção: dia selecionado + dia útil seguinte
+    const nx=nextProdDay(PROD_DATE);const keys=[dateKey(PROD_DATE)];
+    if(nx)keys.push(dateKey(nx));
     days=keys;
   }
   const n=board.lines.length;
