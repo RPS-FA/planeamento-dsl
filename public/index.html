@@ -106,6 +106,7 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .ocard .oc-top{display:flex;justify-content:space-between;gap:6px;align-items:baseline}
 .ocard .oc-top b{font-size:12px}
 .ocard .oc-q{font-size:10.5px;color:var(--c-primary-dark);font-weight:600;white-space:nowrap}
+.ocard .oc-po{font-size:10px;font-weight:600;color:#2f5d86}
 .ocard .oc-prod{font-size:10px;color:var(--c-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ocard .oc-meta{font-size:10px;color:var(--c-muted);margin-top:2px;display:flex;gap:5px;flex-wrap:wrap;align-items:center}
 .ocard .oc-time{font-size:10.5px;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums;color:var(--c-ink)}
@@ -743,6 +744,7 @@ function ocardHTML(l,r,searching){
   const atrBadge=(isLast&&/^\d{1,2}:\d{2}/.test(o.tempoAtraso||''))?`<span class="badge atr">⏱ +${o.tempoAtraso} atraso</span>`:'';
   return `<div class="ocard${lateCls}${hit}${o.urgente?' oc-urgent':''}" draggable="true" data-id="${o.id}" data-est="${o.estado}">
     <div class="oc-top"><b>${o.dsl||o.lote||'—'}</b><span class="oc-q">${Math.round((+r.qtdSeg||0)*1000)} un</span></div>
+    ${o.po?`<div class="oc-po">PO ${o.po}</div>`:''}
     <div class="oc-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div>
     <div class="oc-meta">${o.cliente||''} ${urg}${desd}${divBadge(o)}${analBadge(o)}${cont}</div>
     <div class="oc-time">⏱ Plan ${min2hm(r.startMin%1440)} → ${min2hm(r.endMin%1440)}</div>
@@ -1001,6 +1003,7 @@ function openModal(id){
    <div class="sec-title">Identificação</div>
    <div class="grid3">
      ${fld('OP DSL','f_dsl',o.dsl,{prodLock:true})}
+     ${fld('PO / Pedido','f_po',o.po,{prodLock:true})}
      ${fld('Lote','f_lote',o.lote,{prodLock:true})}
      ${fld('Cliente','f_cliente',o.cliente,{prodLock:true})}
      ${fld('Estado','f_estado',o.estado,{type:'select',options:ESTADOS})}
@@ -1051,7 +1054,7 @@ function openModal(id){
   if(fm&&!isProd())fm.addEventListener('change',syncModo);syncModo();
   document.getElementById('modalBg').classList.add('show');
 }
-function blankOp(){return{dsl:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Aberto',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',obsProd:'',motivoDesdobramento:'',bancaTapete:'',urgente:false,analisado:false,dividido:false,qtdInicialTotal:0,splitGroup:'',motivoParagem:'',buffer:false,diaPlano:'',dslTipo:'',unidade:'',weekKey:'',diaIdx:0,sortIdx:0};}
+function blankOp(){return{dsl:'',po:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Aberto',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',obsProd:'',motivoDesdobramento:'',bancaTapete:'',urgente:false,analisado:false,dividido:false,qtdInicialTotal:0,splitGroup:'',motivoParagem:'',buffer:false,diaPlano:'',dslTipo:'',unidade:'',weekKey:'',diaIdx:0,sortIdx:0};}
 function gv(id){const e=document.getElementById(id);return e?e.value:'';}
 async function saveModal(){
   // A quantidade de desdobramento (prevista/real) é opcional ao marcar Desdobra = Sim.
@@ -1060,7 +1063,7 @@ async function saveModal(){
   const set=(k,v)=>{o[k]=v;};
   if(!isProd()){
     const prod=gv('f_prod');
-    set('dsl',gv('f_dsl'));set('cliente',gv('f_cliente'));set('produtoEntrada',prod);
+    set('dsl',gv('f_dsl'));set('po',gv('f_po'));set('cliente',gv('f_cliente'));set('produtoEntrada',prod);
     set('calibre',calibreFrom(prod)||gv('f_cal'));set('qualidades',gv('f_qual')||qualidadeFrom(prod));
     set('qtd',(+gv('f_qtd')||0)/1000);set('qtdNecessaria',(+gv('f_qtdnec')||0)/1000); // input em unidades -> guardado em milhares
     const _modo=gv('f_modo')==='Manual'?'manual':'auto';set('inicioMode',_modo);set('hInicioP',_modo==='manual'?gv('f_hini'):'');
