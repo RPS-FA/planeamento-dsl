@@ -368,7 +368,7 @@ let DATA=[];
 let SETTINGS={};
 let ACTIVE_TAB='eedsl';
 let ANCHOR=null;
-let PROFILE=localStorage.getItem('dsl_profile')||'supervisao';
+let PROFILE=localStorage.getItem('dsl_profile')||'producao';
 let PROD_DATE=null;   // dia visível no perfil Produção (vê esse dia ±1)
 let editingId=null;let _newBuffer=false;let BUF_SORT={key:'dp',dir:1};let BUF_SEARCH='';
 let dragOp=null;
@@ -1260,8 +1260,13 @@ function exportExcel(){
 
 /* ---------------- perfil / boot ---------------- */
 function applyProfile(){document.getElementById('profileSel').value=PROFILE;document.body.classList.toggle('producao',isProd());document.body.classList.toggle('prof-prod',PROFILE==='producao');updateUndoBtn();}
+const PROFILE_PASS='CSPDSL!';
 function changeProfile(v){
-  // Password desativada temporariamente — alternância direta de perfil.
+  // Supervisão e Planeador exigem password; Produção é livre.
+  if((v==='supervisao'||v==='planeador')&&PROFILE!==v){
+    const ans=prompt('Password para o perfil '+(v==='planeador'?'Planeador':'Supervisão')+':');
+    if(ans!==PROFILE_PASS){if(ans!==null)toast('Password incorreta.','err');document.getElementById('profileSel').value=PROFILE;return;}
+  }
   PROFILE=v;localStorage.setItem('dsl_profile',v);
   if(v==='producao'){pickProdDate();return;}
   applyProfile();render();
