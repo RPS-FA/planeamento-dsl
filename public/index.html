@@ -914,14 +914,18 @@ async function moveToDate(op,linha,dateStr){
   const peers=DATA.filter(o=>o.linha===linha&&o.weekKey===wk&&(+o.diaIdx||0)===dia&&o.id!==op.id);
   op.sortIdx=peers.length;
   if(oldL)reindex(oldL,oldW,oldD);reindex(linha,wk,dia);
-  render();await persist(op);
+  render();
+  const affected=DATA.filter(x=>(x.linha===linha&&x.weekKey===wk&&(+x.diaIdx||0)===dia)||(oldL&&x.linha===oldL&&x.weekKey===oldW&&(+x.diaIdx||0)===oldD));
+  await persistMany(affected.length?affected:[op]);
 }
 async function moveToPool(op){
   snapshot();
   const oldL=op.linha,oldW=op.weekKey,oldD=+op.diaIdx||0;
   op.linha='';op.weekKey='';op.diaIdx=0;op.sortIdx=0;op.estado=ESTADO_POOL;op.buffer=false;
   if(oldL)reindex(oldL,oldW,oldD);
-  render();await persist(op);
+  render();
+  const affected=[op].concat(oldL?DATA.filter(x=>x.linha===oldL&&x.weekKey===oldW&&(+x.diaIdx||0)===oldD):[]);
+  await persistMany(affected);
 }
 async function moveToBuffer(op){
   if(isProd())return;
@@ -929,7 +933,9 @@ async function moveToBuffer(op){
   const oldL=op.linha,oldW=op.weekKey,oldD=+op.diaIdx||0;
   op.linha='';op.weekKey='';op.diaIdx=0;op.sortIdx=0;op.buffer=true;
   if(oldL)reindex(oldL,oldW,oldD);
-  render();await persist(op);
+  render();
+  const affected=[op].concat(oldL?DATA.filter(x=>x.linha===oldL&&x.weekKey===oldW&&(+x.diaIdx||0)===oldD):[]);
+  await persistMany(affected);
 }
 async function clearMonthToKanban(){
   if(isProd())return;
@@ -946,6 +952,7 @@ async function clearMonthToKanban(){
 async function moveRelative(op,target,pos){
   if(target.linha&&!calibreAllowed(target.linha,op.calibre)){toast(`Calibre ${op.calibre||'—'} não autorizado em ${lineLabel(target.linha)}.`,'err');return;}
   snapshot();
+  const oldL=op.linha,oldW=op.weekKey,oldD=+op.diaIdx||0;
   const wk=target.weekKey,linha=target.linha,dia=+target.diaIdx||0;
   op.linha=linha;op.weekKey=wk;op.diaIdx=dia;
   const list=DATA.filter(o=>o.linha===linha&&o.weekKey===wk&&(+o.diaIdx||0)===dia&&o.id!==op.id)
@@ -953,7 +960,11 @@ async function moveRelative(op,target,pos){
   const ti=list.findIndex(o=>o.id===target.id);
   const at=pos==='below'?ti+1:ti;list.splice(at,0,op);
   list.forEach((o,i)=>o.sortIdx=i);
-  render();await persist(op);
+  const movedLine=oldL&&!(oldL===linha&&oldW===wk&&oldD===dia);
+  if(movedLine)reindex(oldL,oldW,oldD);
+  render();
+  const affected=list.concat(movedLine?DATA.filter(x=>x.linha===oldL&&x.weekKey===oldW&&(+x.diaIdx||0)===oldD):[]);
+  await persistMany(affected);
 }
 async function changeEstado(id,val){const op=DATA.find(o=>o.id===id);if(!op)return;snapshot();op.estado=val;render();await persist(op);}
 async function changeBancaTapete(id,val){const op=DATA.find(o=>o.id===id);if(!op)return;snapshot();op.bancaTapete=val;render();await persist(op);}
@@ -993,6 +1004,10 @@ async function changeTurnoDif(dateStr,linha,on){
 /* ---------------- persistência ---------------- */
 async function persist(op){
   try{setConn('loading','a guardar…');const saved=await Api.putOp(op.id,op);Object.assign(op,saved);setConn('ok','ligado');}
+  catch(e){setConn('error','erro');toast('Falha ao guardar: '+e.message,'err');}
+}
+async function persistMany(list){
+  try{setConn('loading','a guardar…');for(const op of list){const s=await Api.putOp(op.id,op);Object.assign(op,s);}setConn('ok','ligado');}
   catch(e){setConn('error','erro');toast('Falha ao guardar: '+e.message,'err');}
 }
 
