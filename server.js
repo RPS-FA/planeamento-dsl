@@ -40,7 +40,7 @@ app.use((req, res, next) => {
 // Campos editáveis pelo perfil "producao" (pós-execução / chão de fábrica)
 const PRODUCAO_FIELDS = [
   'estado',
-  'hInicioR', 'hFimR', 'horaFecho', 'dataFimTurno', 'terminou',
+  'hInicioR', 'hFimR', 'dataInicioR', 'dataFimR', 'horaFecho', 'dataFimTurno', 'terminou',
   'tempoAtraso', 'temposPerdidosAvaria', 'faltas',
   'qtdReal', 'qtdSeguinte',
   'motivo2aPassagem', 'motivoDesdobramento', 'motivoParagem', 'causaRaiz2a', 'qtdDesdobramento', 'desdobrar', 'qtdPrevistaDesd',

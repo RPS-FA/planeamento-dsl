@@ -349,6 +349,9 @@ const BOARDS={
 const UNIT_COLORS={eedsl:'#3d6b3f',dsl:'#2f5d86',em:'#5b2a86'};
 function unitOfLine(l){for(const k in BOARDS)if(BOARDS[k].lines.includes(l))return k;return '';}
 function unitLabel(k){return (BOARDS[k]&&BOARDS[k].label)||'';}
+function ddmm(d){return `${pad(d.getDate())}/${pad(d.getMonth()+1)}`;}
+// info de planeamento (data+hora início→fim) da ordem, a partir do escalonamento
+function planInfo(o){if(!o||!o.linha)return null;const segs=scheduleLine(o.linha);const list=[];Object.keys(segs).forEach(dk=>segs[dk].forEach(s=>{if(s.op.id===o.id)list.push(s);}));if(!list.length)return null;list.sort((a,b)=>a.date-b.date||a.startMin-b.startMin);const f=list[0],L=list[list.length-1];const ed=new Date(L.date);if(L.endMin>=1440)ed.setDate(ed.getDate()+Math.floor(L.endMin/1440));return `${ddmm(f.date)} ${min2hm(f.startMin%1440)} → ${ddmm(ed)} ${min2hm(L.endMin%1440)}`;}
 // motivos de paragem aplicáveis à unidade da ordem (após planeada). Sem unidades = todos.
 function paragemMotivos(o){const arr=(SETTINGS.motivosParagem||[]).map(m=>typeof m==='string'?{nome:m,unidades:[]}:m);const unit=o&&o.linha?unitOfLine(o.linha):'';
   return arr.filter(m=>!unit||!m.unidades||!m.unidades.length||m.unidades.includes(unit)).map(m=>m.nome);}
@@ -750,6 +753,9 @@ function ocardHTML(l,r,searching){
     if(r.partIdx<r.total)cont+=`<span class="badge cont-next">passa ${Math.round((+r.carriedNext||0)*1000)} rolhas →</span>`;
   }
   const atrBadge=(isLast&&/^\d{1,2}:\d{2}/.test(o.tempoAtraso||''))?`<span class="badge atr">⏱ +${o.tempoAtraso} atraso</span>`:'';
+  const _sd=ddmm(r.date);const _ed=new Date(r.date);if(r.endMin>=1440)_ed.setDate(_ed.getDate()+Math.floor(r.endMin/1440));const _edStr=ddmm(_ed);
+  const _rdi=/^\d{4}-\d{2}-\d{2}/.test(o.dataInicioR||'')?ddmm(new Date(o.dataInicioR+'T00:00:00'))+' ':'';
+  const _rdf=/^\d{4}-\d{2}-\d{2}/.test(o.dataFimR||'')?ddmm(new Date(o.dataFimR+'T00:00:00'))+' ':'';
   return `<div class="ocard${lateCls}${hit}${o.urgente?' oc-urgent':''}" draggable="true" data-id="${o.id}" data-est="${o.estado}">
     <div class="oc-top"><b>${o.dsl||o.lote||'—'}</b><span class="oc-q">${Math.round((+r.qtdSeg||0)*1000)} un</span></div>
     ${o.po?`<div class="oc-po">PO ${o.po}</div>`:''}
@@ -1027,6 +1033,7 @@ function openModal(id){
      ${fld('Urgente?','f_urg',o.urgente,{type:'check',prodLock:true})}
      ${fld('Início','f_modo',o.inicioMode==='manual'?'Manual':'Automático',{type:'select',options:['Automático','Manual'],prodLock:true})}
      <div class="fld"><label>Hora de início (manual)</label><input type="time" id="f_hini" value="${/^\d{1,2}:\d{2}/.test(o.hInicioP||'')?String(o.hInicioP).slice(0,5):''}" ${(isProd()||o.inicioMode!=='manual')?'disabled':''}></div>
+     <div class="fld" style="grid-column:1/-1"><label>Planeamento (data e hora início → fim)</label><input value="${planInfo(o)||'— não planeada —'}" readonly></div>
    </div>
    <div class="sec-title">QV</div>
    <div class="grid3">
@@ -1047,7 +1054,9 @@ function openModal(id){
    </div>
    <div class="sec-title">Execução (Produção)</div>
    <div class="grid3">
+     <div class="fld"><label>Data início real</label><input type="date" id="f_dir" value="${dpToISO(o.dataInicioR)}"></div>
      ${fld('Início real','f_hir',o.hInicioR,{type:'time'})}
+     <div class="fld"><label>Data fim real</label><input type="date" id="f_dfr" value="${dpToISO(o.dataFimR)}"></div>
      ${fld('Fim real','f_hfr',o.hFimR,{type:'time'})}
      ${fld('Tempo atraso (soma ao tempo da ordem)','f_atr',o.tempoAtraso,{type:'time'})}
      ${selList('Motivo de Paragem','f_motpar',o.motivoParagem,paragemMotivos(o))}
@@ -1062,7 +1071,7 @@ function openModal(id){
   if(fm&&!isProd())fm.addEventListener('change',syncModo);syncModo();
   document.getElementById('modalBg').classList.add('show');
 }
-function blankOp(){return{dsl:'',po:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Aberto',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',obsProd:'',motivoDesdobramento:'',bancaTapete:'',urgente:false,analisado:false,dividido:false,qtdInicialTotal:0,splitGroup:'',motivoParagem:'',buffer:false,diaPlano:'',dslTipo:'',unidade:'',weekKey:'',diaIdx:0,sortIdx:0};}
+function blankOp(){return{dsl:'',po:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Aberto',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',dataInicioR:'',dataFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',obsProd:'',motivoDesdobramento:'',bancaTapete:'',urgente:false,analisado:false,dividido:false,qtdInicialTotal:0,splitGroup:'',motivoParagem:'',buffer:false,diaPlano:'',dslTipo:'',unidade:'',weekKey:'',diaIdx:0,sortIdx:0};}
 function gv(id){const e=document.getElementById(id);return e?e.value:'';}
 async function saveModal(){
   // A quantidade de desdobramento (prevista/real) é opcional ao marcar Desdobra = Sim.
@@ -1090,6 +1099,7 @@ async function saveModal(){
   set('qtdDesdobramento',(+gv('f_qdesd')||0)/1000);set('motivoDesdobramento',gv('f_motdesd'));
   if(has('f_qvupd'))set('qvUpDsl',gv('f_qvupd'));if(has('f_qvd'))set('qvDsl',gv('f_qvd'));
   set('hInicioR',gv('f_hir'));set('hFimR',gv('f_hfr'));set('tempoAtraso',gv('f_atr'));
+  if(has('f_dir'))set('dataInicioR',gv('f_dir'));if(has('f_dfr'))set('dataFimR',gv('f_dfr'));
   if(has('f_motpar'))set('motivoParagem',gv('f_motpar'));
   set('obsProd',gv('f_obsprod'));
   // Estado automático: início real -> Em Processo (só se ainda Aberto/Liberada). Terminado é sempre manual.
