@@ -208,7 +208,8 @@ async function migrateEstados() {
     'Liberado': 'Aberto',
     'Transita Dia anterior': 'Aberto',
     'Em Processo - Desdobrar': 'Em Processo',
-    'Terminada': 'Terminado',
+    'Terminada': 'Terminado em Linha',
+    'Terminado': 'Terminado em Linha',
     'Concluída': 'Concluído Planeamento',
   };
   let total = 0;

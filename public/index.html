@@ -139,6 +139,8 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .card[data-est="Em Processo"]{border-left-color:#FFA500}
 .card[data-est="Em Processo - Desdobrar"]{border-left-color:#ED7D31}
 .card[data-est="Terminado"]{border-left-color:#E0218A}
+.card[data-est="Terminado em Linha"]{border-left-color:#E0218A}
+.card[data-est="Espera JOB"]{border-left-color:#7030A0}
 .card[data-est="Concluído Planeamento"]{border-left-color:#92D050}
 
 .day-block{margin-bottom:14px;border:1px solid var(--c-line);border-radius:var(--r);overflow:hidden;background:#fff;box-shadow:var(--sh)}
@@ -201,6 +203,8 @@ table.plan td.dnew{font-weight:700;color:var(--c-primary-dark)}
 .est-sel[data-est="Em Processo"],.oc-est[data-est="Em Processo"]{background:#FFA500;color:#3a2c18}
 .est-sel[data-est="Em Processo - Desdobrar"],.oc-est[data-est="Em Processo - Desdobrar"]{background:#ED7D31;color:#fff}
 .est-sel[data-est="Terminado"],.oc-est[data-est="Terminado"]{background:#E0218A;color:#fff}
+.est-sel[data-est="Terminado em Linha"],.oc-est[data-est="Terminado em Linha"]{background:#E0218A;color:#fff}
+.est-sel[data-est="Espera JOB"],.oc-est[data-est="Espera JOB"]{background:#7030A0;color:#fff}
 .est-sel[data-est="Concluído Planeamento"],.oc-est[data-est="Concluído Planeamento"]{background:#92D050;color:#21301f}
 .mini{font-size:10px;color:var(--c-muted)}
 .tnum{font-variant-numeric:tabular-nums}
@@ -336,7 +340,7 @@ const ESPECIAIS_LABEL={'B':'Banca','EE':'Escolha Eletrónica','T':'Tapete'};
 // Etiquetas de apresentação das linhas (a chave interna mantém-se 1..10/B/EE/T)
 const LINE_LABELS={'1':'EE - DSL 1','2':'EE - DSL 2','3':'EE - DSL 3','4':'DSL - 4','5':'DSL - 5','6':'EE - DSL 6','7':'EE - DSL 7','8':'EE - DSL 8','EM':'Banca'};
 function lineLabel(l){return LINE_LABELS[l]||(ESPECIAIS.includes(l)?`${l} · ${ESPECIAIS_LABEL[l]}`:`Linha ${l}`);}
-const ESTADOS=['Aberto','Liberada','Em Processo','Terminado','Concluído Planeamento'];
+const ESTADOS=['Aberto','Liberada','Em Processo','Terminado em Linha','Espera JOB','Concluído Planeamento'];
 const ESTADO_POOL='Aberto';
 const PLANEADOR_PW='Cork2026!';
 
@@ -561,7 +565,7 @@ function renderTabs(){
   const tc=document.createElement('div');tc.className='tab'+(ACTIVE_TAB==='cfg'?' active':'');
   tc.textContent='Configurações';tc.onclick=()=>{ACTIVE_TAB='cfg';render();};el.appendChild(tc);
 }
-function estColor(e){return{'Aberto':'#FFFFFF','Liberada':'#00B050','Em Processo':'#FFA500','Terminado':'#E0218A','Concluído Planeamento':'#92D050'}[e]||'#ccc';}
+function estColor(e){return{'Aberto':'#FFFFFF','Liberada':'#00B050','Em Processo':'#FFA500','Terminado':'#E0218A','Terminado em Linha':'#E0218A','Espera JOB':'#7030A0','Concluído Planeamento':'#92D050'}[e]||'#ccc';}
 function renderLegend(){
   const el=document.getElementById('legend');
   el.innerHTML=ESTADOS.map(e=>`<span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;border:1px solid #bbb;margin-right:4px;vertical-align:-1px;background:${estColor(e)}"></i>${e}</span>`).join('');
@@ -1118,9 +1122,10 @@ async function saveModal(){
   if(has('f_dir'))set('dataInicioR',gv('f_dir'));if(has('f_dfr'))set('dataFimR',gv('f_dfr'));
   if(has('f_motpar'))set('motivoParagem',gv('f_motpar'));
   set('obsProd',gv('f_obsprod'));
-  // Estado automático: início real -> Em Processo (só se ainda Aberto/Liberada). Terminado é sempre manual.
-  {const rx=/^\d{1,2}:\d{2}/;const _hi=gv('f_hir');const cur=o.estado;
-   if(rx.test(_hi)&&(cur==='Aberto'||cur==='Liberada'))set('estado','Em Processo');}
+  // Estado automático: fim real -> Terminado em Linha; senão início real -> Em Processo. Não recua estados posteriores.
+  {const rx=/^\d{1,2}:\d{2}/;const _hi=gv('f_hir'),_hf=gv('f_hfr');const cur=o.estado;
+   if(rx.test(_hf)&&['Aberto','Liberada','Em Processo'].includes(cur))set('estado','Terminado em Linha');
+   else if(rx.test(_hi)&&(cur==='Aberto'||cur==='Liberada'))set('estado','Em Processo');}
   if(has('f_analisado'))set('analisado',gv('f_analisado')==='true');
   const savingId=editingId;            // guardar ANTES de closeModal (que põe editingId=null)
   closeModal();
