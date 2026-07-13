@@ -1350,6 +1350,7 @@ async function loadState(){
 document.getElementById('profileSel').addEventListener('change',e=>changeProfile(e.target.value));
 document.getElementById('btnUndo').addEventListener('click',doUndo);
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'&&!isProd()&&!document.getElementById('modalBg').classList.contains('show')){e.preventDefault();doUndo();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('modalBg').classList.contains('show')){e.preventDefault();closeModal();}});
 document.getElementById('btnNew').addEventListener('click',()=>openModal(null));
 document.getElementById('btnExport').addEventListener('click',exportExcel);
 document.getElementById('btnReset').addEventListener('click',async()=>{if(!confirm('Repor todas as ordens do seed inicial? Isto apaga alterações.'))return;try{DATA=await Api.reset();toast('Reposto.');render();}catch(e){toast('Falha: '+e.message,'err');}});
