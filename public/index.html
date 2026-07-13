@@ -1105,6 +1105,12 @@ function openModal(id){
   const fm=document.getElementById('f_modo'),fh=document.getElementById('f_hini');
   const syncModo=()=>{if(fh)fh.disabled=isProd()||!fm||fm.value!=='Manual';};
   if(fm&&!isProd())fm.addEventListener('change',syncModo);syncModo();
+  // Ao introduzir hora real, assume a data de hoje (se vazia); alterável depois.
+  {const _t=new Date();const _iso=`${_t.getFullYear()}-${pad(_t.getMonth()+1)}-${pad(_t.getDate())}`;
+   const fhi=document.getElementById('f_hir'),fdi=document.getElementById('f_dir');
+   if(fhi&&fdi)fhi.addEventListener('input',()=>{if(fhi.value&&!fdi.value)fdi.value=_iso;});
+   const fhf=document.getElementById('f_hfr'),fdf=document.getElementById('f_dfr');
+   if(fhf&&fdf)fhf.addEventListener('input',()=>{if(fhf.value&&!fdf.value)fdf.value=_iso;});}
   document.getElementById('modalBg').classList.add('show');
 }
 function blankOp(){return{dsl:'',po:'',lote:'',cliente:'',produtoEntrada:'',calibre:'',qualidades:'',linha:'',turno:1,estado:'Aberto',qtd:0,qtdNecessaria:0,hInicioP:'',inicioMode:'auto',desdobrar:false,qtdDesdobramento:0,desdPrevisto:0,qtdPrevistaDesd:0,motivo2aPassagem:'',causaRaiz2a:'',qvUpPlan:'',qvPlan:'',qvDownPlan:'',qvUpDsl:'',qvDsl:'',qvDownDsl:'',qv1Dsl:'',proximoPasso:'',hInicioR:'',hFimR:'',dataInicioR:'',dataFimR:'',tempoAtraso:'',qtdReal:0,qtdSeguinte:0,temposPerdidosAvaria:'',faltas:'',colaborador:'',obs:'',obsProd:'',motivoDesdobramento:'',bancaTapete:'',urgente:false,analisado:false,dividido:false,qtdInicialTotal:0,splitGroup:'',motivoParagem:'',buffer:false,diaPlano:'',dslTipo:'',unidade:'',weekKey:'',diaIdx:0,sortIdx:0};}
