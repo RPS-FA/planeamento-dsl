@@ -62,6 +62,7 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .mg-head{position:sticky;top:0;z-index:3;background:var(--c-primary);color:#fff;font-weight:700;font-size:12px;padding:6px 8px;border-radius:6px;text-align:center}
 .mg-head.line-hl{background:#2f5d86}
 .mg-head.line-em{background:#5b2a86}
+.mg-head.line-ee{background:#0f766e}
 .mg-date{position:sticky;left:0;z-index:2;font-size:10.5px;font-weight:700;color:#1f3a5f;background:#dbe6f2;border:1px solid #b9cde4;border-radius:6px;padding:4px;text-align:center;display:flex;flex-direction:column;justify-content:center;align-items:center;line-height:1.3}
 .mg-date.fds{background:#efe7d6;color:#6b5836;border-color:#ddccae}
 .mg-date.mg-prev{background:#e2e2e2;color:#555;border-color:#cccccc}
@@ -351,7 +352,7 @@ const ALL_LINES=['1','2','3','4','5','6','7','8','EM','EEB']; // EE-DSL 1..8 + B
 const BOARDS={
   eedsl:{label:'EE - DSL', lines:['1','2','3','6','7','8']},
   dsl:{label:'DSL', lines:['4','5']},
-  em:{label:'Banca', lines:['EM','EEB']},
+  em:{label:'Banca / EE', lines:['EM','EEB']},
 };
 const UNIT_COLORS={eedsl:'#3d6b3f',dsl:'#2f5d86',em:'#5b2a86'};
 function unitOfLine(l){for(const k in BOARDS)if(BOARDS[k].lines.includes(l))return k;return '';}
@@ -825,7 +826,7 @@ function renderBoard(){
   const colW=n<=2?500:250;   // poucas máquinas → colunas o dobro da largura
   const grid=document.createElement('div');grid.className='mgrid';grid.style.gridTemplateColumns=`64px repeat(${n}, ${colW}px)`;
   const corner=document.createElement('div');corner.className='mg-corner';grid.appendChild(corner);
-  board.lines.forEach(l=>{const h=document.createElement('div');h.className='mg-head'+((l==='4'||l==='5')?' line-hl':'')+(l==='EM'?' line-em':'');h.textContent=lineLabel(l);grid.appendChild(h);});
+  board.lines.forEach(l=>{const h=document.createElement('div');h.className='mg-head'+((l==='4'||l==='5')?' line-hl':'')+(l==='EM'?' line-em':'')+(l==='EEB'?' line-ee':'');h.textContent=lineLabel(l);grid.appendChild(h);});
   if(!days.length){const e=document.createElement('div');e.className='empty';e.style.gridColumn='1 / -1';e.style.padding='12px';e.textContent='Sem ordens neste mês — arrasta ordens do Kanban para as máquinas.';grid.appendChild(e);el.appendChild(grid);return;}
   days.forEach(dk=>{
     const d=new Date(dk+'T00:00:00');const dia=diaIdxOf(d);const dClosed=isDayClosed(d);
