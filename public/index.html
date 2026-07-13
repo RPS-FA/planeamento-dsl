@@ -761,8 +761,8 @@ function ocardHTML(l,r,searching){
     ${o.po?`<div class="oc-po">PO ${o.po}</div>`:''}
     <div class="oc-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div>
     <div class="oc-meta">${o.cliente||''} ${urg}${desd}${divBadge(o)}${analBadge(o)}${cont}</div>
-    <div class="oc-time">⏱ Plan ${min2hm(r.startMin%1440)} → ${min2hm(r.endMin%1440)}</div>
-    ${(isLast&&(o.hInicioR||o.hFimR||atrBadge))?`<div class="oc-real"><span>▶ Real ${o.hInicioR||'--:--'} → ${o.hFimR||'--:--'}</span>${atrBadge}</div>`:''}
+    <div class="oc-time">⏱ Plan ${_sd} ${min2hm(r.startMin%1440)} → ${_edStr!==_sd?_edStr+' ':''}${min2hm(r.endMin%1440)}</div>
+    ${(isLast&&(o.hInicioR||o.hFimR||atrBadge))?`<div class="oc-real"><span>▶ Real ${_rdi}${o.hInicioR||'--:--'} → ${_rdf}${o.hFimR||'--:--'}</span>${atrBadge}</div>`:''}
     <select class="oc-est" data-est="${o.estado||'Aberto'}" data-id="${o.id}">${ESTADOS.map(e=>`<option ${e===(o.estado||'Aberto')?'selected':''}>${e}</option>`).join('')}</select>
   </div>`;
 }
