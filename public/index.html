@@ -743,15 +743,15 @@ function renderSearchBar(el){
     chip.onclick=()=>{ANCHOR=new Date(x.d);render();};
     bar.appendChild(chip);
   });
-  // Separador onde está cada resultado
-  const bySep={};
-  matches.forEach(o=>{let lab;if(o.buffer)lab='BUFFER';else if(!o.linha)lab='Kanban';else{const u=unitOfLine(o.linha);lab=u?BOARDS[u].label:'—';}bySep[lab]=(bySep[lab]||0)+1;});
-  const sepKeys=Object.keys(bySep);
-  if(sepKeys.length){
-    const sw=document.createElement('span');sw.style.marginLeft='10px';sw.innerHTML='· separador: ';
-    sepKeys.forEach(lab=>{const chip=document.createElement('span');chip.className='mchip';chip.textContent=`${lab}: ${bySep[lab]}`;
-      let tabKey=null;if(lab==='BUFFER')tabKey='buffer';else{for(const k in BOARDS)if(BOARDS[k].label===lab)tabKey=k;}
-      if(tabKey){chip.style.cursor='pointer';chip.title='Ir para '+lab;chip.onclick=()=>{ACTIVE_TAB=tabKey;render();};}
+  // Máquina (linha) onde está cada resultado
+  const byMac={};
+  matches.forEach(o=>{let lab,tab;if(o.buffer){lab='BUFFER';tab='buffer';}else if(!o.linha){lab='Kanban';tab=null;}else{lab=lineLabel(o.linha);tab=unitOfLine(o.linha)||null;}
+    (byMac[lab]=byMac[lab]||{n:0,tab}).n++;});
+  const macKeys=Object.keys(byMac);
+  if(macKeys.length){
+    const sw=document.createElement('span');sw.style.marginLeft='10px';sw.innerHTML='· máquina: ';
+    macKeys.forEach(lab=>{const info=byMac[lab];const chip=document.createElement('span');chip.className='mchip';chip.textContent=`${lab}: ${info.n}`;
+      if(info.tab){chip.style.cursor='pointer';chip.title='Ir para '+lab;chip.onclick=()=>{ACTIVE_TAB=info.tab;render();};}
       sw.appendChild(chip);});
     bar.appendChild(sw);
   }
