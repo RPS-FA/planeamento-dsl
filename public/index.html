@@ -178,7 +178,9 @@ table.plan tr.desd td{box-shadow:inset 3px 0 0 #f0a93a}
 table.plan tr.search-hit td{background:#fff3bf!important}
 table.plan tr.search-hit td:first-child{box-shadow:inset 4px 0 0 #e0a008}
 .card.search-hit{background:#86efac!important;box-shadow:0 0 0 2px #16a34a}
-.search-bar{position:sticky;top:0;z-index:3;background:#ecffd9;border:1px solid #7bd83a;border-radius:6px;padding:6px 10px;margin-bottom:10px;font-size:11.5px;color:#2c5e00;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.search-info{flex:1 1 auto;min-width:0;overflow-x:auto;white-space:nowrap}
+.search-info .search-bar{display:inline-flex;margin:0}
+.search-bar{background:#ecffd9;border:1px solid #7bd83a;border-radius:6px;padding:4px 8px;font-size:11px;color:#2c5e00;display:flex;align-items:center;gap:6px}
 .search-bar .mchip{background:#fff;border:1px solid #9ee05a;border-radius:12px;padding:2px 9px;cursor:pointer;color:#2c5e00}
 .search-bar .mchip.cur{background:#caff8f;font-weight:600}
 .search-bar .mchip:hover{background:#e0ffbc}
@@ -296,6 +298,7 @@ body.prof-prod .day-close{display:none!important}
 <div class="legend" id="legend"></div>
 
 <div class="weekbar" id="weekbar">
+  <span id="searchInfo" class="search-info"></span>
   <input class="search" id="search" placeholder="Pesquisar DSL, lote, cliente, produto…">
   <span class="wknav">
     <button id="wkPrev">◀</button>
@@ -717,7 +720,7 @@ function render(){
   if(PROFILE==='producao'&&PROD_DATE){wkl.textContent=`📅 ${DIAS_PT[diaIdxOf(PROD_DATE)]} ${pad(PROD_DATE.getDate())}/${pad(PROD_DATE.getMonth()+1)} (+ seguinte)`;wkl.style.cursor='pointer';wkl.onclick=pickProdDate;}
   else{wkl.textContent=monthLabel();wkl.style.cursor='';wkl.onclick=null;}
   const n=opCountForMonth();const oc=document.getElementById('opcount');if(oc)oc.textContent=n+(n===1?' OP':' OPs');
-  renderPool();renderBoard();
+  renderPool();renderBoard();renderSearchBar();
   document.body.classList.toggle('producao',isProd());
   fitWrap();
 }
@@ -727,7 +730,8 @@ function opMonthDate(o){if(!o.linha||!o.weekKey)return null;const m=o.weekKey.ma
 function opCountForMonth(){const y=ANCHOR.getFullYear(),mo=ANCHOR.getMonth();return DATA.filter(o=>{if(!ALL_LINES.includes(o.linha)||!o.weekKey)return false;const m=o.weekKey.match(/(\d+)-W(\d+)/);if(!m)return false;const j=new Date(+m[1],0,4);const mon=mondayOf(j);mon.setDate(mon.getDate()+(+m[2]-1)*7+(+o.diaIdx||0));return mon.getFullYear()===y&&mon.getMonth()===mo;}).length;}
 function diaIdxOf(d){return (d.getDay()+6)%7;}
 
-function renderSearchBar(el){
+function renderSearchBar(){
+  const box=document.getElementById('searchInfo');if(!box)return;box.innerHTML='';
   const term=SEARCH.v.trim();if(!term)return;
   const matches=DATA.filter(matchesSearch);
   const curKey=ANCHOR.getFullYear()*12+ANCHOR.getMonth();
@@ -755,7 +759,7 @@ function renderSearchBar(el){
       sw.appendChild(chip);});
     bar.appendChild(sw);
   }
-  el.appendChild(bar);
+  box.appendChild(bar);
 }
 function ocardHTML(l,r,searching){
   const o=r.op;const isLast=r.partIdx===r.total;const ot=isLast?onTimeInfo(o,r.endMin):null;
@@ -795,7 +799,6 @@ function bindCards(root){
 function renderBoard(){
   const el=document.getElementById('board');el.innerHTML='';
   el.ondragover=el.ondrop=el.ondragleave=null;el.classList.remove('bf-dropzone');
-  renderSearchBar(el);
   const board=BOARDS[ACTIVE_TAB];if(!board)return;
   const searching=!!SEARCH.v.trim();
   const year=ANCHOR.getFullYear(),month=ANCHOR.getMonth();
