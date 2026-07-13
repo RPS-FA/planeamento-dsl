@@ -752,17 +752,18 @@ function ocardHTML(l,r,searching){
     if(r.partIdx>1)cont+=`<span class="badge cont-prev">↳ ${Math.round((+r.qtdSeg||0)*1000)} rolhas do dia anterior</span>`;
     if(r.partIdx<r.total)cont+=`<span class="badge cont-next">passa ${Math.round((+r.carriedNext||0)*1000)} rolhas →</span>`;
   }
-  const atrBadge=(isLast&&/^\d{1,2}:\d{2}/.test(o.tempoAtraso||''))?`<span class="badge atr">⏱ +${o.tempoAtraso} atraso</span>`:'';
-  const _sd=ddmm(r.date);const _ed=new Date(r.date);if(r.endMin>=1440)_ed.setDate(_ed.getDate()+Math.floor(r.endMin/1440));const _edStr=ddmm(_ed);
+  const atrBadge=(/^\d{1,2}:\d{2}/.test(o.tempoAtraso||''))?`<span class="badge atr">⏱ +${o.tempoAtraso} atraso</span>`:'';
+  const _plan=planInfo(o)||`${ddmm(r.date)} ${min2hm(r.startMin%1440)} → ${min2hm(r.endMin%1440)}`;
   const _rdi=/^\d{4}-\d{2}-\d{2}/.test(o.dataInicioR||'')?ddmm(new Date(o.dataInicioR+'T00:00:00'))+' ':'';
   const _rdf=/^\d{4}-\d{2}-\d{2}/.test(o.dataFimR||'')?ddmm(new Date(o.dataFimR+'T00:00:00'))+' ':'';
+  const _hasReal=(o.hInicioR||o.hFimR||_rdi||_rdf);
   return `<div class="ocard${lateCls}${hit}${o.urgente?' oc-urgent':''}" draggable="true" data-id="${o.id}" data-est="${o.estado}">
     <div class="oc-top"><b>${o.dsl||o.lote||'—'}</b><span class="oc-q">${Math.round((+r.qtdSeg||0)*1000)} un</span></div>
     ${o.po?`<div class="oc-po">PO ${o.po}</div>`:''}
     <div class="oc-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div>
     <div class="oc-meta">${o.cliente||''} ${urg}${desd}${divBadge(o)}${analBadge(o)}${cont}</div>
-    <div class="oc-time">⏱ Plan ${_sd} ${min2hm(r.startMin%1440)} → ${_edStr!==_sd?_edStr+' ':''}${min2hm(r.endMin%1440)}</div>
-    ${(isLast&&(o.hInicioR||o.hFimR||atrBadge))?`<div class="oc-real"><span>▶ Real ${_rdi}${o.hInicioR||'--:--'} → ${_rdf}${o.hFimR||'--:--'}</span>${atrBadge}</div>`:''}
+    <div class="oc-time">⏱ Plan ${_plan}</div>
+    ${(_hasReal||atrBadge)?`<div class="oc-real"><span>▶ Real ${_rdi}${o.hInicioR||'--:--'} → ${_rdf}${o.hFimR||'--:--'}</span>${atrBadge}</div>`:''}
     <select class="oc-est" data-est="${o.estado||'Aberto'}" data-id="${o.id}">${ESTADOS.map(e=>`<option ${e===(o.estado||'Aberto')?'selected':''}>${e}</option>`).join('')}</select>
   </div>`;
 }
