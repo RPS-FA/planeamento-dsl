@@ -1132,7 +1132,7 @@ async function saveModal(){
     if(savingId&&o.dividido){
       const base=String(o.dsl||'').replace(/\s*-\d+$/,'');
       const sibs=DATA.filter(x=>x.id!==savingId&&x.dividido&&(o.splitGroup?x.splitGroup===o.splitGroup:String(x.dsl||'').replace(/\s*-\d+$/,'')===base));
-      const SHARED=['analisado','po','lote','cliente','qualidades','produtoEntrada','calibre','qvUpDsl','qvDsl','unidade'];
+      const SHARED=['analisado','urgente','po','lote','cliente','qualidades','produtoEntrada','calibre','qvUpDsl','qvDsl','unidade'];
       for(const s of sibs){let ch=false;for(const f of SHARED){if(s[f]!==o[f]){s[f]=o[f];ch=true;}}if(ch){try{const u=await Api.putOp(s.id,s);Object.assign(s,u);}catch(_){}}}
     }
     setConn('ok','ligado');toast('Guardado.');render();
