@@ -341,17 +341,17 @@ const LINHAS_6_10=['6','7','8','9','10'];
 const ESPECIAIS=['B','EE','T'];
 const ESPECIAIS_LABEL={'B':'Banca','EE':'Escolha Eletrónica','T':'Tapete'};
 // Etiquetas de apresentação das linhas (a chave interna mantém-se 1..10/B/EE/T)
-const LINE_LABELS={'1':'EE - DSL 1','2':'EE - DSL 2','3':'EE - DSL 3','4':'DSL - 4','5':'DSL - 5','6':'EE - DSL 6','7':'EE - DSL 7','8':'EE - DSL 8','EM':'Banca'};
+const LINE_LABELS={'1':'EE - DSL 1','2':'EE - DSL 2','3':'EE - DSL 3','4':'DSL - 4','5':'DSL - 5','6':'EE - DSL 6','7':'EE - DSL 7','8':'EE - DSL 8','EM':'Banca','EEB':'EE'};
 function lineLabel(l){return LINE_LABELS[l]||(ESPECIAIS.includes(l)?`${l} · ${ESPECIAIS_LABEL[l]}`:`Linha ${l}`);}
 const ESTADOS=['Aberto','Liberada','Em Processo','Terminado em Linha','Espera JOB','Concluído Planeamento'];
 const ESTADO_POOL='Aberto';
 const PLANEADOR_PW='Cork2026!';
 
-const ALL_LINES=['1','2','3','4','5','6','7','8','EM']; // EE-DSL 1..8 + Escolha Manual
+const ALL_LINES=['1','2','3','4','5','6','7','8','EM','EEB']; // EE-DSL 1..8 + Banca + EE
 const BOARDS={
   eedsl:{label:'EE - DSL', lines:['1','2','3','6','7','8']},
   dsl:{label:'DSL', lines:['4','5']},
-  em:{label:'Banca', lines:['EM']},
+  em:{label:'Banca', lines:['EM','EEB']},
 };
 const UNIT_COLORS={eedsl:'#3d6b3f',dsl:'#2f5d86',em:'#5b2a86'};
 function unitOfLine(l){for(const k in BOARDS)if(BOARDS[k].lines.includes(l))return k;return '';}
