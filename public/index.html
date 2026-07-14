@@ -1178,15 +1178,18 @@ async function splitCurrent(){
   snapshot();
   const baseDsl=String(o.dsl||o.lote||'').replace(/\s*-\d+$/,'');   // tira sufixo prévio
   const origTotal=(+o.qtdInicialTotal>0)?+o.qtdInicialTotal:(+o.qtd||0);   // milhares; mantém total original se já dividida antes
+  // próximo nº de parte disponível (evita "-2" duplicado ao dividir várias vezes)
+  let maxN=1;DATA.forEach(x=>{if(String(x.dsl||'').replace(/\s*-\d+$/,'')===baseDsl){const m=String(x.dsl).match(/-(\d+)\s*$/);if(m)maxN=Math.max(maxN,+m[1]);}});
+  const curHasSuffix=/-\d+\s*$/.test(String(o.dsl||''));
+  const grp=o.splitGroup||('g'+Date.now());
   // parte que vai para o Kanban
   const novo=Object.assign({},o);delete novo.id;
-  novo.qtd=splitU/1000;novo.dsl=baseDsl+' -2';novo.op=novo.dsl;
+  novo.qtd=splitU/1000;novo.dsl=baseDsl+' -'+(maxN+1);novo.op=novo.dsl;
   novo.linha='';novo.weekKey='';novo.diaIdx=0;novo.sortIdx=0;novo.estado=ESTADO_POOL;
   novo.hInicioR='';novo.hFimR='';novo.qtdReal=0;novo.tempoAtraso='';novo.inicioMode='auto';novo.hInicioP='';
-  const grp=o.splitGroup||('g'+Date.now());
   novo.dividido=true;novo.qtdInicialTotal=origTotal;novo.splitGroup=grp;
-  // parte que fica no mesmo sítio
-  const fica=Object.assign({},o);fica.qtd=(totalU-splitU)/1000;fica.dsl=baseDsl+' -1';fica.op=fica.dsl;
+  // parte que fica no mesmo sítio (mantém o sufixo atual, ou passa a -1)
+  const fica=Object.assign({},o);fica.qtd=(totalU-splitU)/1000;fica.dsl=curHasSuffix?String(o.dsl):(baseDsl+' -1');fica.op=fica.dsl;
   fica.dividido=true;fica.qtdInicialTotal=origTotal;fica.splitGroup=grp;
   const id=editingId;closeModal();
   try{
