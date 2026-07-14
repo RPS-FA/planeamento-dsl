@@ -841,7 +841,9 @@ function renderBoard(){
       const win=dayWindowFor(l,d);const cellClosed=!win;const usableMin=win?workCapacity(win.ini,win.breaks,win.fim):0;
       const cellBt=null;const capU=Math.round(usableMin/60*capOf(l));
       const usedU=Math.round(segs.reduce((a,s)=>a+(+s.qtdSeg||0),0)*1000);
-      const lastEnd=segs.length?Math.max(...segs.map(s=>s.endMin)):(win?win.ini:0);
+      let lastEnd=segs.length?Math.max(...segs.map(s=>s.endMin)):(win?win.ini:0);
+      // se a última ordem tem fim real mais tarde que o planeado, a máquina fica ocupada até esse fim real
+      segs.forEach(s=>{if(s.partIdx===s.total&&/^\d{1,2}:\d{2}/.test(s.op.hFimR||'')){let rm=hm2min(s.op.hFimR);if(rm!=null){if(rm<s.startMin-720)rm+=1440;lastEnd=Math.max(lastEnd,rm);}}});
       const overflow=segs.some(s=>s.partIdx<s.total);   // alguma ordem transita p/ dia seguinte
       // "livre" = tempo de relógio realmente disponível (após setup), convertido em unidades.
       // Coerente com o escalonador (que conta setup + tempo de atraso), evita "livre fantasma".
