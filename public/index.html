@@ -927,6 +927,7 @@ function reindex(linha,wk,dia){
 }
 async function moveToDate(op,linha,dateStr){
   if(!calibreAllowed(linha,op.calibre)){toast(`Calibre ${op.calibre||'—'} não autorizado em ${lineLabel(linha)}.`,'err');return;}
+  if(op.linha&&op.linha!==linha&&!confirm(`Mover ${op.dsl||op.lote||'ordem'} de ${lineLabel(op.linha)} para ${lineLabel(linha)}?`))return;
   snapshot();
   const d=new Date(dateStr+'T00:00:00');const wk=weekKeyOf(mondayOf(d));const dia=diaIdxOf(d);
   const oldL=op.linha,oldW=op.weekKey,oldD=+op.diaIdx||0;
@@ -971,6 +972,7 @@ async function clearMonthToKanban(){
 }
 async function moveRelative(op,target,pos){
   if(target.linha&&!calibreAllowed(target.linha,op.calibre)){toast(`Calibre ${op.calibre||'—'} não autorizado em ${lineLabel(target.linha)}.`,'err');return;}
+  if(op.linha&&target.linha&&op.linha!==target.linha&&!confirm(`Mover ${op.dsl||op.lote||'ordem'} de ${lineLabel(op.linha)} para ${lineLabel(target.linha)}?`))return;
   snapshot();
   const oldL=op.linha,oldW=op.weekKey,oldD=+op.diaIdx||0;
   const wk=target.weekKey,linha=target.linha,dia=+target.diaIdx||0;
