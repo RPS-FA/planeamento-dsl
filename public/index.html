@@ -1303,7 +1303,7 @@ function exportExcel(){
         segs[dk].forEach(r=>rows.push(planRow(l,d,dk,r)));});});
     rows.sort((a,b)=>a.Data<b.Data?-1:a.Data>b.Data?1:(a.Linha<b.Linha?-1:1));
     const out=isProdMode?rows.map(reduce):rows;
-    if(out.length){XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(out),board.label.slice(0,31));}
+    if(out.length){XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(out),board.label.replace(/[\\\/?*\[\]:]/g,'-').slice(0,31));}
   });
   // Buffer
   const buf=DATA.filter(o=>!o.linha&&o.buffer&&isRealOrder(o)).map(o=>({DSL:o.dsl,Unidade:unitLabel(o.unidade),'Dia Plano':dpFmt(o.diaPlano),Produto:o.produtoEntrada,Calibre:o.calibre||'',Lote:o.lote,'Qtd (un)':Math.round((+o.qtd||0)*1000),Cliente:o.cliente,'QV-up':o.qvUpDsl||'',QV:o.qvDsl||'',Urgente:o.urgente?'Sim':'',OBS:o.obs||''}));
