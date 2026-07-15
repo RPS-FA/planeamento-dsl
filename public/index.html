@@ -1069,7 +1069,7 @@ function openModal(id){
      ${fld('QV','f_qual',o.qualidades,{prodLock:true})}
      <div class="fld"><label>Qtd (unidades)</label><input id="f_qtd" type="number" step="1" value="${Math.round((+o.qtd||0)*1000)}" ${isProd()?'disabled':''}></div>
      <div class="fld"><label>Qtd objetivo</label><input id="f_qtdnec" type="number" step="1" value="${Math.round((+o.qtdNecessaria||0)*1000)}" ${isProd()?'disabled':''}></div>
-     ${o.dividido?`<div class="fld"><label>Dividida</label><input value="Sim · total inicial ${Math.round((+o.qtdInicialTotal||0)*1000).toLocaleString('pt-PT')} un" readonly></div>`:''}
+     ${o.dividido?`<div class="fld"><label>Dividida (total inicial ${Math.round((+o.qtdInicialTotal||0)*1000).toLocaleString('pt-PT')} un)</label><select id="f_dividida" ${isProd()?'disabled':''}><option ${o.dividido?'selected':''}>Sim</option><option ${!o.dividido?'selected':''}>Não</option></select></div>`:''}
      ${fld('Urgente?','f_urg',o.urgente,{type:'check',prodLock:true})}
      ${fld('Início','f_modo',o.inicioMode==='manual'?'Manual':'Automático',{type:'select',options:['Automático','Manual'],prodLock:true})}
      <div class="fld"><label>Hora de início (manual)</label><input type="time" id="f_hini" value="${/^\d{1,2}:\d{2}/.test(o.hInicioP||'')?String(o.hInicioP).slice(0,5):''}" ${(isProd()||o.inicioMode!=='manual')?'disabled':''}></div>
@@ -1141,6 +1141,7 @@ async function saveModal(){
   if(has('f_estado'))set('estado',gv('f_estado'));
   if(has('f_obs'))set('obs',gv('f_obs'));
   set('desdobrar',gv('f_desd')==='true');
+  if(has('f_dividida')){const dv=gv('f_dividida')==='Sim';set('dividido',dv);if(!dv)set('splitGroup','');}
   if(has('f_qpdesd'))set('qtdPrevistaDesd',(+gv('f_qpdesd')||0)/1000);
   set('qtdDesdobramento',(+gv('f_qdesd')||0)/1000);set('motivoDesdobramento',gv('f_motdesd'));
   if(has('f_qvupd'))set('qvUpDsl',gv('f_qvupd'));if(has('f_qvd'))set('qvDsl',gv('f_qvd'));
