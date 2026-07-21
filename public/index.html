@@ -391,6 +391,7 @@ function snapshot(){UNDO_STACK.push(JSON.stringify(DATA));if(UNDO_STACK.length>U
 function updateUndoBtn(){const b=document.getElementById('btnUndo');if(b)b.disabled=(UNDO_STACK.length===0)||isProd();}
 async function doUndo(){
   if(isProd()||!UNDO_STACK.length)return;
+  if(!confirm('Anular a última ação? Isto repõe o estado anterior no servidor.'))return;
   const prev=JSON.parse(UNDO_STACK.pop());
   const pMap={},cMap={};
   prev.forEach(o=>{if(o.id!=null)pMap[o.id]=o;});
@@ -1357,7 +1358,7 @@ async function loadState(){
 
 document.getElementById('profileSel').addEventListener('change',e=>changeProfile(e.target.value));
 document.getElementById('btnUndo').addEventListener('click',doUndo);
-document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'&&!isProd()&&!document.getElementById('modalBg').classList.contains('show')){e.preventDefault();doUndo();}});
+// Atalho Ctrl+Z removido — o undo reescreve o servidor inteiro e era acionável por acidente. Usar só o botão Anular.
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('modalBg').classList.contains('show')){e.preventDefault();closeModal();}});
 document.getElementById('btnNew').addEventListener('click',()=>openModal(null));
 document.getElementById('btnExport').addEventListener('click',exportExcel);
@@ -1378,7 +1379,7 @@ document.getElementById('search').addEventListener('input',e=>{SEARCH.v=e.target
 
 applyProfile();
 loadState();
-setInterval(()=>{if(document.getElementById('modalBg').classList.contains('show'))return;if(ACTIVE_TAB==='cfg')return;Api.getState().then(st=>{DATA=st.ops||[];SETTINGS=st.settings||{};setConn('ok','ligado');render();}).catch(()=>setConn('error','sem ligação'));},30000);
+setInterval(()=>{if(document.getElementById('modalBg').classList.contains('show'))return;if(ACTIVE_TAB==='cfg'||ACTIVE_TAB==='buffer')return;Api.getState().then(st=>{DATA=st.ops||[];SETTINGS=st.settings||{};UNDO_STACK.length=0;updateUndoBtn();setConn('ok','ligado');render();}).catch(()=>setConn('error','sem ligação'));},30000);
 </script>
 </body>
 </html>
