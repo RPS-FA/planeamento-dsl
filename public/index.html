@@ -1298,12 +1298,12 @@ function exportExcel(){
   let startKey='';
   if(ans.trim()){const iso=dpToISO(ans.trim());if(!iso){toast('Data inválida. Usa dd/mm/aaaa.','err');return;}startKey=iso;}
   const isProdMode=(PROFILE==='producao');
-  const reduce=r=>({Data:r.Data,DSL:r.DSL,Produto:r.Produto,Lote:r.Lote,Cliente:r.Cliente,'Qtd seg':r['Qtd seg'],QV:r.QV,OBS:r.OBS});
+  const reduce=r=>({Data:r.Data,'Analisado?':(r.Analisado==='Sim'?'Sim':'Não'),DSL:r.DSL,Produto:r.Produto,Lote:r.Lote,Cliente:r.Cliente,'Qtd seg':r['Qtd seg'],'QV UP':r['QV UP'],QV:r.QV,OBS:r.OBS});
   const planRow=(l,d,dk,r)=>{const o=r.op;const isLast=r.partIdx===r.total;return {Data:dk,Dia:DIAS_PT[diaIdxOf(d)],Linha:lineLabel(l),Turnos:lineTurnoForDate(l,d),DSL:o.dsl,Produto:o.produtoEntrada,Lote:o.lote,Cliente:o.cliente,
     'Qtd seg':Math.round((+r.qtdSeg||0)*1000),'Qtd total':Math.round((+o.qtd||0)*1000),'Qtd objetivo':Math.round((+o.qtdNecessaria||0)*1000),
     Parte:r.multiDay?`${r.partIdx}/${r.total}`:'',Estado:o.estado,'Inicio':min2hm(r.startMin%1440),'Fim':min2hm(r.endMin%1440),'Dur (h)':+((r.endMin-r.startMin)/60).toFixed(2),
     'Atraso':o.tempoAtraso||'','Inicio real':isLast?(o.hInicioR||''):'','Fim real':isLast?(o.hFimR||''):'',Desdobra:o.desdobrar?'Sim':'',Analisado:o.analisado?'Sim':'',
-    'Qtd desd':+o.qtdDesdobramento||0,'Motivo Desd':o.motivoDesdobramento||'',QV:o.qvDsl||o.qvPlan||'',OBS:o.obs||''};};
+    'Qtd desd':+o.qtdDesdobramento||0,'Motivo Desd':o.motivoDesdobramento||'','QV UP':o.qvUpDsl||'',QV:o.qvDsl||o.qvPlan||'',OBS:o.obs||''};};
   const wb=XLSX.utils.book_new();
   Object.entries(BOARDS).forEach(([k,board])=>{
     const rows=[];
