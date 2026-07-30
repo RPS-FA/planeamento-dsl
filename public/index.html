@@ -808,7 +808,7 @@ function renderBoard(){
   const segLD={};const daySet=new Set();
   board.lines.forEach(l=>{let segs={};try{segs=scheduleLine(l);}catch(e){console.error('scheduleLine',l,e);}
     segLD[l]={};
-    Object.keys(segs).forEach(dk=>{const d=new Date(dk+'T00:00:00');if(d.getFullYear()!==year||d.getMonth()!==month)return;
+    Object.keys(segs).forEach(dk=>{const d=new Date(dk+'T00:00:00');if(PROFILE!=='producao'&&(d.getFullYear()!==year||d.getMonth()!==month))return;
       segLD[l][dk]=segs[dk].slice().sort((a,b)=>a.startMin-b.startMin);daySet.add(dk);});
   });
   // mostrar todos os dias (exceto domingos fechados sem ordens) — incl. dias fechados pelo botão
