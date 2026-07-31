@@ -1269,11 +1269,55 @@ function renderCfg(){
         ${canCfg()?`<button type="button" class="mot-add" data-list="cal_${l}">+ Adicionar</button>`:''}</div>`).join('')}
     </div>
     <div style="margin-top:14px"><button class="primary cfg-save" id="btnSaveCfg" style="${canCfg()?'':'display:none'}">Guardar configurações</button></div>
+    ${PROFILE==='planeador'?`<h2>Backups automáticos <span class="mini" style="font-weight:400">(JSON 30 dias · Excel 24h · 08–18h de 2 em 2h, hora de Lisboa)</span></h2>
+      <div style="display:flex;gap:8px;margin-bottom:8px"><button type="button" class="mot-add" id="bkNow">📸 Fazer backup agora</button><button type="button" class="mot-add" id="bkRefresh">🔄 Atualizar lista</button></div>
+      <div id="bkList" class="mini">(clica em Atualizar lista)</div>`:''}
   </div>`;
   const b=document.getElementById('btnSaveCfg');if(b)b.onclick=saveCfg;
+  const bkN=document.getElementById('bkNow');if(bkN)bkN.onclick=triggerBackup;
+  const bkR=document.getElementById('bkRefresh');if(bkR)bkR.onclick=renderBackups;
   el.querySelectorAll('.mot-del').forEach(x=>x.onclick=()=>x.closest('.mot-row').remove());
   el.querySelectorAll('.mot-add:not(.par-add)').forEach(x=>x.onclick=()=>{const list=document.getElementById(x.dataset.list);const d=document.createElement('div');d.className='mot-row';d.innerHTML='<input type="text" value=""><button type="button" class="mot-del" title="Remover">×</button>';list.appendChild(d);d.querySelector('.mot-del').onclick=()=>d.remove();d.querySelector('input').focus();});
   const pa=el.querySelector('.par-add');if(pa)pa.onclick=()=>{const list=document.getElementById('motParList');const d=document.createElement('div');d.className='mot-row par-row';d.innerHTML='<input type="text" class="par-nome" value=""><label class="par-u"><input type="checkbox" class="par-u-eedsl">EE-DSL</label><label class="par-u"><input type="checkbox" class="par-u-dsl">DSL</label><label class="par-u"><input type="checkbox" class="par-u-em">Banca</label><button type="button" class="mot-del" title="Remover">×</button>';list.appendChild(d);d.querySelector('.mot-del').onclick=()=>d.remove();d.querySelector('.par-nome').focus();};
+}
+async function triggerBackup(){
+  const btn=document.getElementById('bkNow');if(btn){btn.disabled=true;btn.textContent='⏳ a fazer…';}
+  try{const r=await fetch('/api/backups/trigger',{method:'POST',headers:{'Content-Type':'application/json','X-Profile':PROFILE},body:JSON.stringify({note:'via UI'})});const b=await r.json();if(!r.ok||b.ok===false)throw new Error(b.error||'erro');toast('Backup feito.');renderBackups();}
+  catch(e){toast('Falha: '+e.message,'err');}
+  finally{if(btn){btn.disabled=false;btn.textContent='📸 Fazer backup agora';}}
+}
+async function renderBackups(){
+  const box=document.getElementById('bkList');if(!box)return;box.innerHTML='a carregar…';
+  try{
+    const [jr,xr]=await Promise.all([
+      fetch('/api/backups?limit=60',{headers:{'X-Profile':PROFILE}}).then(r=>r.json()),
+      fetch('/api/backups/xlsx?limit=30',{headers:{'X-Profile':PROFILE}}).then(r=>r.json())
+    ]);
+    const fmt=t=>new Date(t).toLocaleString('pt-PT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    const kb=n=>n?(n<1024?n+' B':(n/1024).toFixed(0)+' KB'):'?';
+    let h='<div style="display:flex;gap:24px;flex-wrap:wrap">';
+    h+='<div><b>JSON (30 dias)</b><table class="buffer-table" style="font-size:11px"><thead><tr><th>Data</th><th>Origem</th><th>#Ordens</th><th>Tam.</th><th></th></tr></thead><tbody>';
+    h+=((jr.backups||[]).map(x=>`<tr><td>${fmt(x.snapshot_at)}</td><td>${x.triggered_by||''}</td><td>${x.count!=null?x.count:'—'}</td><td>${kb(x.bytes)}</td><td><a href="#" data-bkjson="${x.id}">⬇ JSON</a></td></tr>`).join('')||'<tr><td colspan="5">(sem backups)</td></tr>');
+    h+='</tbody></table></div>';
+    h+='<div><b>Excel (24h)</b><table class="buffer-table" style="font-size:11px"><thead><tr><th>Data</th><th>Origem</th><th>Tam.</th><th></th></tr></thead><tbody>';
+    h+=((xr.backups||[]).map(x=>`<tr><td>${fmt(x.snapshot_at)}</td><td>${x.triggered_by||''}</td><td>${kb(x.size_bytes)}</td><td><a href="#" data-bkxlsx="${x.id}">📊 Excel</a></td></tr>`).join('')||'<tr><td colspan="4">(sem Excel)</td></tr>');
+    h+='</tbody></table></div></div>';
+    box.innerHTML=h;
+    box.querySelectorAll('[data-bkjson]').forEach(a=>a.addEventListener('click',ev=>{ev.preventDefault();downloadJsonBackup(+a.dataset.bkjson);}));
+    box.querySelectorAll('[data-bkxlsx]').forEach(a=>a.addEventListener('click',ev=>{ev.preventDefault();downloadXlsxBackup(+a.dataset.bkxlsx);}));
+  }catch(e){box.innerHTML='Erro: '+e.message;}
+}
+async function downloadJsonBackup(id){
+  try{const r=await fetch('/api/backups/'+id,{headers:{'X-Profile':PROFILE}});const b=await r.json();if(!r.ok||b.ok===false)throw new Error(b.error||'erro');
+    const stamp=(b.snapshot_at||'').replace(/[^0-9]/g,'').slice(0,14);
+    const blob=new Blob([JSON.stringify(b.data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=`backup_dsl_${stamp}.json`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+  }catch(e){toast('Falha: '+e.message,'err');}
+}
+async function downloadXlsxBackup(id){
+  try{const r=await fetch('/api/backups/xlsx/'+id,{headers:{'X-Profile':PROFILE}});if(!r.ok)throw new Error('HTTP '+r.status);
+    const blob=await r.blob();const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`planeamento_dsl_${id}.xlsx`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+  }catch(e){toast('Falha: '+e.message,'err');}
 }
 async function saveCfg(){
   const ivRead=base=>{const r={};['d1','d2','n1','n2'].forEach(k=>{const i=gv('iv_'+base+'_'+k+'_i'),f=gv('iv_'+base+'_'+k+'_f');if(i&&f)r[k]=[i,f];});return Object.keys(r).length?r:null;};

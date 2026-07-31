@@ -126,6 +126,29 @@ async function initSchema() {
   const sql = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf-8');
   await pool.query(sql);
   console.log('[db] Schema inicializado.');
+  // Tabelas de backups automáticos (idempotente e ISOLADO — nunca bloqueia o resto)
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS app_backups (
+        id SERIAL PRIMARY KEY,
+        key TEXT NOT NULL,
+        data JSONB NOT NULL,
+        snapshot_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        triggered_by TEXT NOT NULL DEFAULT 'auto',
+        note TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_app_backups_time ON app_backups (snapshot_at DESC);
+      CREATE TABLE IF NOT EXISTS app_backups_xlsx (
+        id SERIAL PRIMARY KEY,
+        xlsx_data BYTEA NOT NULL,
+        size_bytes INTEGER NOT NULL,
+        snapshot_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        triggered_by TEXT NOT NULL DEFAULT 'auto'
+      );
+      CREATE INDEX IF NOT EXISTS idx_app_backups_xlsx_time ON app_backups_xlsx (snapshot_at DESC);
+    `);
+    console.log('[db] Tabelas de backup prontas.');
+  } catch (e) { console.warn('[db] Tabelas de backup não criadas (backups desativados):', e.message); }
 }
 
 async function ensureDefaultSettings() {
@@ -317,9 +340,73 @@ async function resetOps(by) {
   return listOps();
 }
 
+// ============================================================
+// Backups automáticos
+// ============================================================
+async function insertJsonBackup(key, data, by, note) {
+  if (!pool) throw new Error('Sem ligação à BD.');
+  await pool.query(
+    `INSERT INTO app_backups (key, data, triggered_by, note) VALUES ($1, $2::jsonb, $3, $4)`,
+    [key, JSON.stringify(data), by || 'auto', note || null]
+  );
+}
+async function pruneJsonBackups(days) {
+  if (!pool) return 0;
+  const r = await pool.query(`DELETE FROM app_backups WHERE snapshot_at < NOW() - ($1 || ' days')::interval`, [String(days)]);
+  return r.rowCount;
+}
+async function listJsonBackups(limit) {
+  if (!pool) throw new Error('Sem ligação à BD.');
+  const lim = Math.min(parseInt(limit || 100, 10) || 100, 500);
+  const r = await pool.query(
+    `SELECT id, key, snapshot_at, triggered_by, note, pg_column_size(data) AS bytes,
+            CASE WHEN jsonb_typeof(data->'ops')='array' THEN jsonb_array_length(data->'ops') ELSE NULL END AS count
+     FROM app_backups ORDER BY snapshot_at DESC LIMIT ${lim}`
+  );
+  return r.rows;
+}
+async function getJsonBackup(id) {
+  if (!pool) throw new Error('Sem ligação à BD.');
+  const r = await pool.query(`SELECT id, key, data, snapshot_at, triggered_by, note FROM app_backups WHERE id = $1`, [id]);
+  return r.rows[0] || null;
+}
+async function insertXlsxBackup(buf, by) {
+  if (!pool) throw new Error('Sem ligação à BD.');
+  await pool.query(
+    `INSERT INTO app_backups_xlsx (xlsx_data, size_bytes, triggered_by) VALUES ($1, $2, $3)`,
+    [buf, buf.length, by || 'auto']
+  );
+}
+async function pruneXlsxBackups(hours) {
+  if (!pool) return 0;
+  // apaga os mais antigos que N horas, mas mantém sempre o mais recente
+  const r = await pool.query(
+    `DELETE FROM app_backups_xlsx
+      WHERE snapshot_at < NOW() - ($1 || ' hours')::interval
+        AND id <> (SELECT id FROM app_backups_xlsx ORDER BY snapshot_at DESC LIMIT 1)`,
+    [String(hours)]
+  );
+  return r.rowCount;
+}
+async function listXlsxBackups(limit) {
+  if (!pool) throw new Error('Sem ligação à BD.');
+  const lim = Math.min(parseInt(limit || 50, 10) || 50, 200);
+  const r = await pool.query(
+    `SELECT id, snapshot_at, size_bytes, triggered_by FROM app_backups_xlsx ORDER BY snapshot_at DESC LIMIT ${lim}`
+  );
+  return r.rows;
+}
+async function getXlsxBackup(id) {
+  if (!pool) throw new Error('Sem ligação à BD.');
+  const r = await pool.query(`SELECT xlsx_data, snapshot_at FROM app_backups_xlsx WHERE id = $1`, [id]);
+  return r.rows[0] || null;
+}
+
 module.exports = {
   isConnected, initSchema, ensureDefaultSettings, seedIfEmpty, cleanupEmptyPool, migrateEscolhaManual, migrateTurno2NoLunch, migrateEstados,
   listOps, getOp, createOp, updateOp, deleteOp,
   getSettings, putSettings, deleteAllOps, resetOps,
+  insertJsonBackup, pruneJsonBackups, listJsonBackups, getJsonBackup,
+  insertXlsxBackup, pruneXlsxBackups, listXlsxBackups, getXlsxBackup,
   SEED_OPS, DEFAULT_SETTINGS,
 };
