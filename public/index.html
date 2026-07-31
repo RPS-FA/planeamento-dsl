@@ -1274,11 +1274,12 @@ function renderCfg(){
       <div id="bkList" class="mini">(clica em Atualizar lista)</div>`:''}
   </div>`;
   const b=document.getElementById('btnSaveCfg');if(b)b.onclick=saveCfg;
-  const bkN=document.getElementById('bkNow');if(bkN)bkN.onclick=triggerBackup;
-  const bkR=document.getElementById('bkRefresh');if(bkR)bkR.onclick=renderBackups;
   el.querySelectorAll('.mot-del').forEach(x=>x.onclick=()=>x.closest('.mot-row').remove());
   el.querySelectorAll('.mot-add:not(.par-add)').forEach(x=>x.onclick=()=>{const list=document.getElementById(x.dataset.list);const d=document.createElement('div');d.className='mot-row';d.innerHTML='<input type="text" value=""><button type="button" class="mot-del" title="Remover">×</button>';list.appendChild(d);d.querySelector('.mot-del').onclick=()=>d.remove();d.querySelector('input').focus();});
   const pa=el.querySelector('.par-add');if(pa)pa.onclick=()=>{const list=document.getElementById('motParList');const d=document.createElement('div');d.className='mot-row par-row';d.innerHTML='<input type="text" class="par-nome" value=""><label class="par-u"><input type="checkbox" class="par-u-eedsl">EE-DSL</label><label class="par-u"><input type="checkbox" class="par-u-dsl">DSL</label><label class="par-u"><input type="checkbox" class="par-u-em">Banca</label><button type="button" class="mot-del" title="Remover">×</button>';list.appendChild(d);d.querySelector('.mot-del').onclick=()=>d.remove();d.querySelector('.par-nome').focus();};
+  // Botões de backup ligados DEPOIS do binding genérico dos .mot-add (senão eram sobrepostos)
+  const bkN=document.getElementById('bkNow');if(bkN)bkN.onclick=triggerBackup;
+  const bkR=document.getElementById('bkRefresh');if(bkR)bkR.onclick=renderBackups;
 }
 async function triggerBackup(){
   const btn=document.getElementById('bkNow');if(btn){btn.disabled=true;btn.textContent='⏳ a fazer…';}
