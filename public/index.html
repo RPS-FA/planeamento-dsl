@@ -502,12 +502,15 @@ function scheduleLine(l){
   const segs={};const setup=+SETTINGS.setupMin||0;
   const push=(date,op,s,e,q)=>{const k=dateKey(date);(segs[k]=segs[k]||[]).push({op,startMin:s,endMin:e,qtdSeg:q,date:new Date(date)});};
   const nextOpen=(date)=>{let d=new Date(date);for(let i=0;i<500;i++){d.setDate(d.getDate()+1);if(dayWindowFor(l,d))return d;}return null;};
-  let curDate=null,curMin=0;
+  let curDate=null,curMin=0,pullUntil=null;   // pullUntil: dia até ao qual as seguintes fluem (fim real mais cedo)
   for(const op of orders){
     let startDay=dDate(op),w=dayWindowFor(l,startDay);
     while(!w){startDay=nextOpen(startDay);if(!startDay)break;w=dayWindowFor(l,startDay);}
     if(!startDay)continue;
-    if(curDate===null||cmpDay(curDate,startDay)<0){curDate=startDay;curMin=dayWindowFor(l,curDate).ini;}
+    if(curDate===null||cmpDay(curDate,startDay)<0){
+      if(pullUntil&&cmpDay(startDay,pullUntil)<=0){curMin+=setup;}   // fluxo contínuo puxado por fim real
+      else{curDate=startDay;curMin=dayWindowFor(l,curDate).ini;pullUntil=null;}
+    }
     else curMin+=setup;
     const _manual=(op.inicioMode==='manual')?hm2min(op.hInicioP):null;
     if(_manual!=null){const win0=dayWindowFor(l,startDay);if(win0){curDate=startDay;curMin=Math.min(Math.max(_manual,win0.ini),win0.fim-1);}}
@@ -526,8 +529,16 @@ function scheduleLine(l){
       if(remMin>0.01){const nd=nextOpen(curDate);if(!nd)break;curDate=nd;curMin=dayWindowFor(l,curDate).ini;}
       else curMin=segEnd;
     }
-    // Fim real preenchido: reancora as ordens seguintes a partir dessa hora real
-    if(remMin<=0.01){const _real=hm2min(op.hFimR);if(_real!=null){let r=_real;if(r<curMin-720)r+=1440;curMin=r;}}
+    // Fim real preenchido: reancora as ordens seguintes a partir do fim real (data + hora)
+    if(remMin<=0.01){const _real=hm2min(op.hFimR);if(_real!=null){
+      const _pd=new Date(curDate),_pm=curMin;   // fim planeado antes de reancorar
+      let rDate=curDate,rMin=_real;
+      if(/^\d{4}-\d{2}-\d{2}/.test(op.dataFimR||'')){const rd=new Date(op.dataFimR+'T00:00:00');if(!isNaN(rd))rDate=rd;}
+      else if(rMin<curMin-720)rMin+=1440;
+      curDate=rDate;curMin=rMin;
+      // se terminou mais cedo que o planeado, puxa as seguintes até ao dia de fim planeado
+      if(cmpDay(rDate,_pd)<0||(cmpDay(rDate,_pd)===0&&rMin<_pm))pullUntil=_pd;
+    }}
   }
   const byOp={};Object.values(segs).flat().forEach(s=>{(byOp[s.op.id]=byOp[s.op.id]||[]).push(s);});
   Object.values(byOp).forEach(list=>{
