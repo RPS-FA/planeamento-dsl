@@ -502,6 +502,25 @@ function scheduleLine(l){
   const segs={};const setup=+SETTINGS.setupMin||0;
   const push=(date,op,s,e,q)=>{const k=dateKey(date);(segs[k]=segs[k]||[]).push({op,startMin:s,endMin:e,qtdSeg:q,date:new Date(date)});};
   const nextOpen=(date)=>{let d=new Date(date);for(let i=0;i<500;i++){d.setDate(d.getDate()+1);if(dayWindowFor(l,d))return d;}return null;};
+  // fim (data,min) após 'workMin' minutos de trabalho a partir de (d0,m0)
+  const endAfter=(d0,m0,workMin)=>{let d=new Date(d0),m=m0,left=workMin,g=0;
+    while(left>0.01&&g++<800){const win=dayWindowFor(l,d);
+      if(!win){const nd=nextOpen(d);if(!nd)return {date:new Date(d),min:m};d=nd;m=dayWindowFor(l,d).ini;continue;}
+      if(m<win.ini)m=win.ini;const cap=workCapacity(m,win.breaks,win.fim);
+      if(cap<=0){const nd=nextOpen(d);if(!nd)return {date:new Date(d),min:win.fim};d=nd;m=dayWindowFor(l,d).ini;continue;}
+      const work=Math.min(left,cap);const e=spanEnd(m,work,win.breaks,win.fim);left-=work;
+      if(left>0.01){const nd=nextOpen(d);if(!nd)return {date:new Date(d),min:e};d=nd;m=dayWindowFor(l,d).ini;}
+      else return {date:new Date(d),min:e};}
+    return {date:new Date(d),min:m};};
+  // minutos de trabalho entre (d0,m0) e (d2,m2)
+  const workMinsBetween=(d0,m0,d2,m2)=>{let d=new Date(d0),m=m0,mins=0,g=0;
+    while(g++<800){const win=dayWindowFor(l,d);
+      if(win){if(m<win.ini)m=win.ini;
+        if(cmpDay(d,d2)<0){mins+=workCapacity(m,win.breaks,win.fim);}
+        else{const e=Math.min(m2,win.fim);if(e>m)mins+=workCapacity(m,win.breaks,e);return mins;}}
+      else if(cmpDay(d,d2)>=0)return mins;
+      const nd=nextOpen(d);if(!nd)return mins;d=nd;m=dayWindowFor(l,d).ini;}
+    return mins;};
   let curDate=null,curMin=0,pullUntil=null;   // pullUntil: dia até ao qual as seguintes fluem (fim real mais cedo)
   for(const op of orders){
     let startDay=dDate(op),w=dayWindowFor(l,startDay);
@@ -514,7 +533,17 @@ function scheduleLine(l){
     else curMin+=setup;
     const _manual=(op.inicioMode==='manual')?hm2min(op.hInicioP):null;
     if(_manual!=null){const win0=dayWindowFor(l,startDay);if(win0){curDate=startDay;curMin=Math.min(Math.max(_manual,win0.ini),win0.fim-1);}}
-    let remMin=durHoras(op)*60;const totalDur=remMin||1;const totalQtd=(+op.qtd||0);let guard=0;
+    let remMin=durHoras(op)*60;const totalQtd=(+op.qtd||0);let guard=0;
+    // Fim real (data+hora): a ordem ocupa do início até esse fim real (trunca/estende)
+    const _rft=hm2min(op.hFimR);
+    const _rfd=/^\d{4}-\d{2}-\d{2}/.test(op.dataFimR||'')?new Date(op.dataFimR+'T00:00:00'):null;
+    let _plannedEnd=null;
+    if(_rft!=null&&_rfd&&!isNaN(_rfd)){
+      _plannedEnd=endAfter(curDate,curMin,remMin);          // onde acabaria pelo plano
+      const rm=workMinsBetween(curDate,curMin,_rfd,_rft);   // ocupação real
+      if(rm>0)remMin=rm;
+    }
+    const totalDur=remMin||1;
     while(remMin>0.01&&guard++<800){
       let win=dayWindowFor(l,curDate);
       if(!win){const nd=nextOpen(curDate);if(!nd)break;curDate=nd;curMin=dayWindowFor(l,curDate).ini;continue;}
@@ -529,16 +558,11 @@ function scheduleLine(l){
       if(remMin>0.01){const nd=nextOpen(curDate);if(!nd)break;curDate=nd;curMin=dayWindowFor(l,curDate).ini;}
       else curMin=segEnd;
     }
-    // Fim real preenchido: reancora as ordens seguintes a partir do fim real (data + hora)
-    if(remMin<=0.01){const _real=hm2min(op.hFimR);if(_real!=null){
-      const _pd=new Date(curDate),_pm=curMin;   // fim planeado antes de reancorar
-      let rDate=curDate,rMin=_real;
-      if(/^\d{4}-\d{2}-\d{2}/.test(op.dataFimR||'')){const rd=new Date(op.dataFimR+'T00:00:00');if(!isNaN(rd))rDate=rd;}
-      else if(rMin<curMin-720)rMin+=1440;
-      curDate=rDate;curMin=rMin;
-      // se terminou mais cedo que o planeado, puxa as seguintes até ao dia de fim planeado
-      if(cmpDay(rDate,_pd)<0||(cmpDay(rDate,_pd)===0&&rMin<_pm))pullUntil=_pd;
-    }}
+    // A ordem já terminou no fim real (loop truncado até aí). Se acabou mais cedo que o planeado,
+    // puxa as ordens seguintes (até ao dia onde teria terminado pelo plano).
+    if(_plannedEnd&&_rfd){
+      if(cmpDay(_rfd,_plannedEnd.date)<0||(cmpDay(_rfd,_plannedEnd.date)===0&&_rft<_plannedEnd.min))pullUntil=_plannedEnd.date;
+    }
   }
   const byOp={};Object.values(segs).flat().forEach(s=>{(byOp[s.op.id]=byOp[s.op.id]||[]).push(s);});
   Object.values(byOp).forEach(list=>{
