@@ -345,6 +345,7 @@ const ESPECIAIS_LABEL={'B':'Banca','EE':'Escolha Eletrónica','T':'Tapete'};
 const LINE_LABELS={'1':'EE - DSL 1','2':'EE - DSL 2','3':'EE - DSL 3','4':'DSL - 4','5':'DSL - 5','6':'EE - DSL 6','7':'EE - DSL 7','8':'EE - DSL 8','EM':'Banca','EEB':'EE'};
 function lineLabel(l){return LINE_LABELS[l]||(ESPECIAIS.includes(l)?`${l} · ${ESPECIAIS_LABEL[l]}`:`Linha ${l}`);}
 const ESTADOS=['Aberto','Liberada','Em Processo','Terminado em Linha','Espera JOB','Concluído Planeamento'];
+const ESTADO_SHARED=['Liberada','Espera JOB','Concluído Planeamento']; // estados que se propagam entre partes divididas
 const ESTADO_POOL='Aberto';
 const PLANEADOR_PW='Cork2026!';
 
@@ -1026,9 +1027,17 @@ async function moveRelative(op,target,pos){
   const affected=list.concat(movedLine?DATA.filter(x=>x.linha===oldL&&x.weekKey===oldW&&(+x.diaIdx||0)===oldD):[]);
   await persistMany(affected);
 }
-async function changeEstado(id,val){const op=DATA.find(o=>o.id===id);if(!op)return;snapshot();op.estado=val;render();await persist(op);}
+async function changeEstado(id,val){const op=DATA.find(o=>o.id===id);if(!op)return;snapshot();op.estado=val;render();await persist(op);await propagateEstado(op,val);}
 async function changeBancaTapete(id,val){const op=DATA.find(o=>o.id===id);if(!op)return;snapshot();op.bancaTapete=val;render();await persist(op);}
-async function changeEstado(id,val){const op=DATA.find(o=>o.id===id);if(!op)return;snapshot();op.estado=val;render();await persist(op);}
+// Propaga estados partilhados (Liberada / Espera JOB / Concluído Planeamento) às restantes partes divididas
+async function propagateEstado(op,val){
+  if(!op||!op.dividido||!ESTADO_SHARED.includes(val))return;
+  const base=String(op.dsl||'').replace(/\s*-\d+$/,'');
+  const sibs=DATA.filter(x=>x.id!==op.id&&x.dividido&&(op.splitGroup?x.splitGroup===op.splitGroup:String(x.dsl||'').replace(/\s*-\d+$/,'')===base));
+  let ch=false;
+  for(const s of sibs){if(s.estado!==val){s.estado=val;ch=true;try{const u=await Api.putOp(s.id,s);Object.assign(s,u);}catch(_){}}}
+  if(ch)render();
+}
 async function toggleDayClosed(dateStr,close){
   SETTINGS.turnosPorDia=SETTINGS.turnosPorDia||{};
   SETTINGS.turnosPorDia[dateStr]=Object.assign({},SETTINGS.turnosPorDia[dateStr],{fechado:!!close});
@@ -1203,7 +1212,8 @@ async function saveModal(){
       const base=String(o.dsl||'').replace(/\s*-\d+$/,'');
       const sibs=DATA.filter(x=>x.id!==savingId&&x.dividido&&(o.splitGroup?x.splitGroup===o.splitGroup:String(x.dsl||'').replace(/\s*-\d+$/,'')===base));
       const SHARED=['analisado','urgente','po','lote','cliente','qualidades','produtoEntrada','calibre','qvUpDsl','qvDsl','unidade'];
-      for(const s of sibs){let ch=false;for(const f of SHARED){if(s[f]!==o[f]){s[f]=o[f];ch=true;}}if(ch){try{const u=await Api.putOp(s.id,s);Object.assign(s,u);}catch(_){}}}
+      const propEst=ESTADO_SHARED.includes(o.estado);   // só estes estados se propagam
+      for(const s of sibs){let ch=false;for(const f of SHARED){if(s[f]!==o[f]){s[f]=o[f];ch=true;}}if(propEst&&s.estado!==o.estado){s.estado=o.estado;ch=true;}if(ch){try{const u=await Api.putOp(s.id,s);Object.assign(s,u);}catch(_){}}}
     }
     setConn('ok','ligado');toast('Guardado.');render();
   }catch(e){setConn('error','erro');toast('Falha: '+e.message,'err');}
