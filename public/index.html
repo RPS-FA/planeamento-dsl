@@ -345,7 +345,7 @@ const ESPECIAIS_LABEL={'B':'Banca','EE':'Escolha Eletrónica','T':'Tapete'};
 const LINE_LABELS={'1':'EE - DSL 1','2':'EE - DSL 2','3':'EE - DSL 3','4':'DSL - 4','5':'DSL - 5','6':'EE - DSL 6','7':'EE - DSL 7','8':'EE - DSL 8','EM':'Banca','EEB':'EE'};
 function lineLabel(l){return LINE_LABELS[l]||(ESPECIAIS.includes(l)?`${l} · ${ESPECIAIS_LABEL[l]}`:`Linha ${l}`);}
 const ESTADOS=['Aberto','Liberada','Em Processo','Terminado em Linha','Espera JOB','Concluído Planeamento'];
-const ESTADO_SHARED=['Liberada','Em Processo','Terminado em Linha','Espera JOB','Concluído Planeamento']; // estados que se propagam entre partes divididas (todos menos Aberto)
+const ESTADO_SHARED=['Liberada','Espera JOB','Concluído Planeamento']; // só estes propagam entre partes divididas (Em Processo/Terminado ficam por parte)
 const ESTADO_POOL='Aberto';
 const PLANEADOR_PW='Cork2026!';
 
