@@ -112,6 +112,7 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .ocard .oc-meta{font-size:10px;color:var(--c-muted);margin-top:2px;display:flex;gap:5px;flex-wrap:wrap;align-items:center}
 .ocard .oc-time{font-size:10.5px;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums;color:var(--c-ink)}
 .ocard .oc-real{font-size:10px;font-weight:600;font-variant-numeric:tabular-nums;color:#6b7a66;margin-top:1px;display:flex;justify-content:space-between;align-items:center;gap:6px}
+.ocard .oc-real.oc-real-late{color:#dc2626}
 .ocard.oc-late .oc-real{color:#b91c1c}
 .ocard.oc-ontime .oc-real{color:#15803d}
 .ocard.search-hit{background:#86efac!important;box-shadow:0 0 0 2px #16a34a}
@@ -360,7 +361,8 @@ function unitOfLine(l){for(const k in BOARDS)if(BOARDS[k].lines.includes(l))retu
 function unitLabel(k){return (BOARDS[k]&&BOARDS[k].label)||'';}
 function ddmm(d){return `${pad(d.getDate())}/${pad(d.getMonth()+1)}`;}
 // info de planeamento (data+hora início→fim) da ordem, a partir do escalonamento
-function planInfo(o){if(!o||!o.linha)return null;const segs=scheduleLine(o.linha);const list=[];Object.keys(segs).forEach(dk=>segs[dk].forEach(s=>{if(s.op.id===o.id)list.push(s);}));if(!list.length)return null;list.sort((a,b)=>a.date-b.date||a.startMin-b.startMin);const f=list[0],L=list[list.length-1];const ed=new Date(L.date);if(L.endMin>=1440)ed.setDate(ed.getDate()+Math.floor(L.endMin/1440));return `${ddmm(f.date)} ${min2hm(f.startMin%1440)} → ${ddmm(ed)} ${min2hm(L.endMin%1440)}`;}
+function planInfo(o){if(!o||!o.linha)return null;const segs=scheduleLine(o.linha,true);const list=[];Object.keys(segs).forEach(dk=>segs[dk].forEach(s=>{if(s.op.id===o.id)list.push(s);}));if(!list.length)return null;list.sort((a,b)=>a.date-b.date||a.startMin-b.startMin);const f=list[0],L=list[list.length-1];const ed=new Date(L.date);if(L.endMin>=1440)ed.setDate(ed.getDate()+Math.floor(L.endMin/1440));
+  return {txt:`${ddmm(f.date)} ${min2hm(f.startMin%1440)} → ${ddmm(ed)} ${min2hm(L.endMin%1440)}`, endTs:L.date.getTime()+L.endMin*60000};}
 // motivos de paragem aplicáveis à unidade da ordem (após planeada). Sem unidades = todos.
 function paragemMotivos(o){const arr=(SETTINGS.motivosParagem||[]).map(m=>typeof m==='string'?{nome:m,unidades:[]}:m);const unit=o&&o.linha?unitOfLine(o.linha):'';
   return arr.filter(m=>!unit||!m.unidades||!m.unidades.length||m.unidades.includes(unit)).map(m=>m.nome);}
@@ -495,9 +497,11 @@ function nextProdDay(d){let x=new Date(d);for(let i=0;i<120;i++){x.setDate(x.get
 // início do turno. Sem transição/encadeamento entre dias (remover uma ordem só
 // recalcula o próprio dia; os outros dias mantêm-se). Ordem que excede o turno
 // termina depois do fim (capacidade fica a 0/over). 1 segmento por ordem.
-const _schedCache={};
-function scheduleLine(l){
-  if(_schedCache[l])return _schedCache[l];
+const _schedCache={};const _schedCachePlanned={};
+// planned=true -> ignora horas reais (fim real): dá o plano ORIGINAL (só quantidade). Usado no texto do cartão.
+function scheduleLine(l,planned){
+  const cache=planned?_schedCachePlanned:_schedCache;
+  if(cache[l])return cache[l];
   const orders=DATA.filter(o=>o.linha===l&&o.weekKey&&dDate(o))
     .sort((a,b)=>cmpDay(dDate(a),dDate(b))||((+a.sortIdx||0)-(+b.sortIdx||0)));
   const segs={};const setup=+SETTINGS.setupMin||0;
@@ -539,7 +543,7 @@ function scheduleLine(l){
     const _rft=hm2min(op.hFimR);
     const _rfd=/^\d{4}-\d{2}-\d{2}/.test(op.dataFimR||'')?new Date(op.dataFimR+'T00:00:00'):null;
     let _plannedEnd=null;
-    if(_rft!=null&&_rfd&&!isNaN(_rfd)){
+    if(!planned&&_rft!=null&&_rfd&&!isNaN(_rfd)){
       _plannedEnd=endAfter(curDate,curMin,remMin);          // onde acabaria pelo plano
       const rm=workMinsBetween(curDate,curMin,_rfd,_rft);   // ocupação real
       if(rm>0)remMin=rm;
@@ -573,9 +577,9 @@ function scheduleLine(l){
       s.carriedNext=list.slice(i+1).reduce((a,x)=>a+(+x.qtdSeg||0),0);
       s.carriedPrev=list.slice(0,i).reduce((a,x)=>a+(+x.qtdSeg||0),0);});
   });
-  _schedCache[l]=segs;return segs;
+  cache[l]=segs;return segs;
 }
-function clearSchedCache(){for(const k in _schedCache)delete _schedCache[k];}
+function clearSchedCache(){for(const k in _schedCache)delete _schedCache[k];for(const k in _schedCachePlanned)delete _schedCachePlanned[k];}
 
 function onTimeInfo(op,endPlanMin){
   if(!op.hFimR)return null;
@@ -800,8 +804,8 @@ function renderSearchBar(){
   box.appendChild(bar);
 }
 function ocardHTML(l,r,searching){
-  const o=r.op;const isLast=r.partIdx===r.total;const ot=isLast?onTimeInfo(o,r.endMin):null;
-  const lateCls=ot==null?'':(ot>10?' oc-late':' oc-ontime');
+  const o=r.op;const isLast=r.partIdx===r.total;
+  const lateCls='';
   const hit=searching&&matchesSearch(o)?' search-hit':'';
   const desd=o.desdobrar?'<span class="badge desd">DESD</span>':'';
   const urg=o.urgente?'<span class="badge urg">URG</span>':'';
@@ -811,17 +815,24 @@ function ocardHTML(l,r,searching){
     if(r.partIdx<r.total)cont+=`<span class="badge cont-next">passa ${Math.round((+r.carriedNext||0)*1000)} rolhas →</span>`;
   }
   const atrBadge=(/^\d{1,2}:\d{2}/.test(o.tempoAtraso||''))?`<span class="badge atr">⏱ +${o.tempoAtraso} atraso</span>`:'';
-  const _plan=planInfo(o)||`${ddmm(r.date)} ${min2hm(r.startMin%1440)} → ${min2hm(r.endMin%1440)}`;
+  const _pi=planInfo(o);
+  const _plan=_pi?_pi.txt:`${ddmm(r.date)} ${min2hm(r.startMin%1440)} → ${min2hm(r.endMin%1440)}`;
   const _rdi=/^\d{4}-\d{2}-\d{2}/.test(o.dataInicioR||'')?ddmm(new Date(o.dataInicioR+'T00:00:00'))+' ':'';
   const _rdf=/^\d{4}-\d{2}-\d{2}/.test(o.dataFimR||'')?ddmm(new Date(o.dataFimR+'T00:00:00'))+' ':'';
   const _hasReal=(o.hInicioR||o.hFimR||_rdi||_rdf);
+  // Real a vermelho se o fim real ultrapassar o fim planeado
+  let _realLate=false;
+  if(_pi&&/^\d{4}-\d{2}-\d{2}/.test(o.dataFimR||'')&&/^\d{1,2}:\d{2}/.test(o.hFimR||'')){
+    const _rts=new Date(o.dataFimR+'T00:00:00').getTime()+hm2min(o.hFimR)*60000;
+    if(_rts>_pi.endTs)_realLate=true;
+  }
   return `<div class="ocard${lateCls}${hit}${o.urgente?' oc-urgent':''}" draggable="true" data-id="${o.id}" data-est="${o.estado}">
     <div class="oc-top"><b>${o.dsl||o.lote||'—'}</b><span class="oc-q">${Math.round((+r.qtdSeg||0)*1000)} un</span></div>
     ${o.po?`<div class="oc-po">PO ${o.po}</div>`:''}
     <div class="oc-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div>
     <div class="oc-meta">${o.cliente||''} ${urg}${desd}${divBadge(o)}${analBadge(o)}${cont}</div>
     <div class="oc-time">⏱ Plan ${_plan}</div>
-    ${(_hasReal||atrBadge)?`<div class="oc-real"><span>▶ Real ${_rdi}${o.hInicioR||'--:--'} → ${_rdf}${o.hFimR||'--:--'}</span>${atrBadge}</div>`:''}
+    ${(_hasReal||atrBadge)?`<div class="oc-real${_realLate?' oc-real-late':''}"><span>▶ Real ${_rdi}${o.hInicioR||'--:--'} → ${_rdf}${o.hFimR||'--:--'}</span>${atrBadge}</div>`:''}
     <select class="oc-est" data-est="${o.estado||'Aberto'}" data-id="${o.id}">${ESTADOS.map(e=>`<option ${e===(o.estado||'Aberto')?'selected':''}>${e}</option>`).join('')}</select>
   </div>`;
 }
