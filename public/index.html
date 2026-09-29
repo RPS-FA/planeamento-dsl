@@ -363,7 +363,7 @@ function unitOfLine(l){for(const k in BOARDS)if(BOARDS[k].lines.includes(l))retu
 function unitLabel(k){return (BOARDS[k]&&BOARDS[k].label)||'';}
 function ddmm(d){return `${pad(d.getDate())}/${pad(d.getMonth()+1)}`;}
 // info de planeamento (data+hora início→fim) da ordem, a partir do escalonamento
-function planInfo(o,planned){if(!o||!o.linha)return null;planned=(planned!==false);const segs=scheduleLine(o.linha,planned);const list=[];Object.keys(segs).forEach(dk=>segs[dk].forEach(s=>{if(s.op.id===o.id)list.push(s);}));if(!list.length)return null;list.sort((a,b)=>a.date-b.date||a.startMin-b.startMin);const f=list[0],L=list[list.length-1];const ed=new Date(L.date);if(L.endMin>=1440)ed.setDate(ed.getDate()+Math.floor(L.endMin/1440));
+function planInfo(o,mode){if(!o||!o.linha)return null;const segs=scheduleLine(o.linha,mode||'plan');const list=[];Object.keys(segs).forEach(dk=>segs[dk].forEach(s=>{if(s.op.id===o.id)list.push(s);}));if(!list.length)return null;list.sort((a,b)=>a.date-b.date||a.startMin-b.startMin);const f=list[0],L=list[list.length-1];const ed=new Date(L.date);if(L.endMin>=1440)ed.setDate(ed.getDate()+Math.floor(L.endMin/1440));
   return {txt:`${ddmm(f.date)} ${min2hm(f.startMin%1440)} → ${ddmm(ed)} ${min2hm(L.endMin%1440)}`, endTs:L.date.getTime()+L.endMin*60000};}
 // motivos de paragem aplicáveis à unidade da ordem (após planeada). Sem unidades = todos.
 function paragemMotivos(o){const arr=(SETTINGS.motivosParagem||[]).map(m=>typeof m==='string'?{nome:m,unidades:[]}:m);const unit=o&&o.linha?unitOfLine(o.linha):'';
@@ -499,10 +499,11 @@ function nextProdDay(d){let x=new Date(d);for(let i=0;i<120;i++){x.setDate(x.get
 // início do turno. Sem transição/encadeamento entre dias (remover uma ordem só
 // recalcula o próprio dia; os outros dias mantêm-se). Ordem que excede o turno
 // termina depois do fim (capacidade fica a 0/over). 1 segmento por ordem.
-const _schedCache={};const _schedCachePlanned={};
-// planned=true -> ignora horas reais (fim real): dá o plano ORIGINAL (só quantidade). Usado no texto do cartão.
-function scheduleLine(l,planned){
-  const cache=planned?_schedCachePlanned:_schedCache;
+const _schedCaches={plan:{},efet:{},eff:{}};
+// modo: 'plan' = só quantidade (plano original) | 'efet' = reancora pelo fim real das ANTERIORES mas mantém a duração planeada da própria | 'eff' (default) = reancora + trunca a própria pelo seu fim real (posicionamento no quadro)
+function scheduleLine(l,mode){
+  mode=(mode===true?'plan':(mode||'eff'));
+  const cache=_schedCaches[mode]||_schedCaches.eff;
   if(cache[l])return cache[l];
   const orders=DATA.filter(o=>o.linha===l&&o.weekKey&&dDate(o))
     .sort((a,b)=>cmpDay(dDate(a),dDate(b))||((+a.sortIdx||0)-(+b.sortIdx||0)));
@@ -541,11 +542,12 @@ function scheduleLine(l,planned){
     const _manual=(op.inicioMode==='manual')?hm2min(op.hInicioP):null;
     if(_manual!=null){const win0=dayWindowFor(l,startDay);if(win0){curDate=startDay;curMin=Math.min(Math.max(_manual,win0.ini),win0.fim-1);}}
     let remMin=durHoras(op)*60;const totalQtd=(+op.qtd||0);let guard=0;
-    // Fim real (data+hora): a ordem ocupa do início até esse fim real (trunca/estende)
+    // Fim real (data+hora)
     const _rft=hm2min(op.hFimR);
     const _rfd=/^\d{4}-\d{2}-\d{2}/.test(op.dataFimR||'')?new Date(op.dataFimR+'T00:00:00'):null;
+    const _hasRealEnd=(mode!=='plan'&&_rft!=null&&_rfd&&!isNaN(_rfd));
     let _plannedEnd=null;
-    if(!planned&&_rft!=null&&_rfd&&!isNaN(_rfd)){
+    if(mode==='eff'&&_hasRealEnd){   // só 'eff' trunca a própria ordem pelo seu fim real
       _plannedEnd=endAfter(curDate,curMin,remMin);          // onde acabaria pelo plano
       const rm=workMinsBetween(curDate,curMin,_rfd,_rft);   // ocupação real
       if(rm>0)remMin=rm;
@@ -565,9 +567,13 @@ function scheduleLine(l,planned){
       if(remMin>0.01){const nd=nextOpen(curDate);if(!nd)break;curDate=nd;curMin=dayWindowFor(l,curDate).ini;}
       else curMin=segEnd;
     }
-    // A ordem já terminou no fim real (loop truncado até aí). Se acabou mais cedo que o planeado,
-    // puxa as ordens seguintes (até ao dia onde teria terminado pelo plano).
-    if(_plannedEnd&&_rfd){
+    // 'efet': mantém a duração planeada (já colocada) mas reancora o CURSOR no fim real p/ as seguintes
+    if(mode==='efet'&&_hasRealEnd){
+      _plannedEnd={date:new Date(curDate),min:curMin};   // fim planeado (duração própria)
+      curDate=new Date(_rfd);curMin=_rft;                // cursor para a ordem seguinte = fim real
+    }
+    // Se terminou mais cedo que o planeado, puxa as seguintes (até ao dia de fim planeado)
+    if(_hasRealEnd&&_plannedEnd){
       if(cmpDay(_rfd,_plannedEnd.date)<0||(cmpDay(_rfd,_plannedEnd.date)===0&&_rft<_plannedEnd.min))pullUntil=_plannedEnd.date;
     }
   }
@@ -581,7 +587,7 @@ function scheduleLine(l,planned){
   });
   cache[l]=segs;return segs;
 }
-function clearSchedCache(){for(const k in _schedCache)delete _schedCache[k];for(const k in _schedCachePlanned)delete _schedCachePlanned[k];}
+function clearSchedCache(){for(const m in _schedCaches){const c=_schedCaches[m];for(const k in c)delete c[k];}}
 
 function onTimeInfo(op,endPlanMin){
   if(!op.hFimR)return null;
@@ -817,11 +823,16 @@ function ocardHTML(l,r,searching){
     if(r.partIdx<r.total)cont+=`<span class="badge cont-next">passa ${Math.round((+r.carriedNext||0)*1000)} rolhas →</span>`;
   }
   const atrBadge=(/^\d{1,2}:\d{2}/.test(o.tempoAtraso||''))?`<span class="badge atr">⏱ +${o.tempoAtraso} atraso</span>`:'';
-  const _pi=planInfo(o,true);     // plano original
-  const _eff=planInfo(o,false);   // efetivo (após reais)
+  const _pi=planInfo(o,'plan');     // plano original
+  const _eff=planInfo(o,'efet');    // efetivo (desvio das anteriores; duração planeada própria)
   const _planTxt=_pi?_pi.txt:`${ddmm(r.date)} ${min2hm(r.startMin%1440)} → ${min2hm(r.endMin%1440)}`;
   const _effTxt=_eff?_eff.txt:'';
   const _changed=!!(_effTxt&&_planTxt&&_effTxt!==_planTxt);   // efetivo difere do plano
+  // Esquema Plan/Efet só para hoje e dia seguinte; a partir de +2 dias o efetivo entra direto no Plan
+  const _tday=new Date();_tday.setHours(0,0,0,0);const _cday=new Date(r.date);_cday.setHours(0,0,0,0);
+  const _diff=Math.round((_cday-_tday)/86400000);
+  const _showEfet=_changed&&_diff<=1;
+  const _planLineTxt=_showEfet?_planTxt:(_effTxt||_planTxt);
   const _rdi=/^\d{4}-\d{2}-\d{2}/.test(o.dataInicioR||'')?ddmm(new Date(o.dataInicioR+'T00:00:00'))+' ':'';
   const _rdf=/^\d{4}-\d{2}-\d{2}/.test(o.dataFimR||'')?ddmm(new Date(o.dataFimR+'T00:00:00'))+' ':'';
   const _hasReal=(o.hInicioR||o.hFimR||_rdi||_rdf);
@@ -836,8 +847,8 @@ function ocardHTML(l,r,searching){
     ${o.po?`<div class="oc-po">PO ${o.po}</div>`:''}
     <div class="oc-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div>
     <div class="oc-meta">${o.cliente||''} ${urg}${desd}${divBadge(o)}${analBadge(o)}${cont}</div>
-    <div class="oc-time${_changed?' oc-plan-old':''}">⏱ Plan ${_planTxt}</div>
-    ${_changed?`<div class="oc-eff">↳ Efet ${_effTxt}</div>`:''}
+    <div class="oc-time${_showEfet?' oc-plan-old':''}">⏱ Plan ${_planLineTxt}</div>
+    ${_showEfet?`<div class="oc-eff">↳ Efet ${_effTxt}</div>`:''}
     ${(_hasReal||atrBadge)?`<div class="oc-real${_realLate?' oc-real-late':''}"><span>▶ Real ${_rdi}${o.hInicioR||'--:--'} → ${_rdf}${o.hFimR||'--:--'}</span>${atrBadge}</div>`:''}
     <select class="oc-est" data-est="${o.estado||'Aberto'}" data-id="${o.id}">${ESTADOS.map(e=>`<option ${e===(o.estado||'Aberto')?'selected':''}>${e}</option>`).join('')}</select>
   </div>`;
