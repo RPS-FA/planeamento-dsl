@@ -542,16 +542,17 @@ function scheduleLine(l,mode){
     const _manual=(op.inicioMode==='manual')?hm2min(op.hInicioP):null;
     if(_manual!=null){const win0=dayWindowFor(l,startDay);if(win0){curDate=startDay;curMin=Math.min(Math.max(_manual,win0.ini),win0.fim-1);}}
     let remMin=durHoras(op)*60;const totalQtd=(+op.qtd||0);let guard=0;
-    // Fim real (data+hora)
+    // Horas reais (data+hora)
     const _rft=hm2min(op.hFimR);
     const _rfd=/^\d{4}-\d{2}-\d{2}/.test(op.dataFimR||'')?new Date(op.dataFimR+'T00:00:00'):null;
+    const _rst=hm2min(op.hInicioR);
+    const _rsd=/^\d{4}-\d{2}-\d{2}/.test(op.dataInicioR||'')?new Date(op.dataInicioR+'T00:00:00'):null;
     const _hasRealEnd=(mode!=='plan'&&_rft!=null&&_rfd&&!isNaN(_rfd));
+    const _hasRealStart=(mode!=='plan'&&_rst!=null&&_rsd&&!isNaN(_rsd));
     let _plannedEnd=null;
-    if(mode==='eff'&&_hasRealEnd){   // só 'eff' trunca a própria ordem pelo seu fim real
-      _plannedEnd=endAfter(curDate,curMin,remMin);          // onde acabaria pelo plano
-      const rm=workMinsBetween(curDate,curMin,_rfd,_rft);   // ocupação real
-      if(rm>0)remMin=rm;
-    }
+    if(mode!=='plan'&&(_hasRealEnd||_hasRealStart))_plannedEnd=endAfter(curDate,curMin,remMin);  // fim planeado (posição em cascata)
+    if(_hasRealStart){curDate=new Date(_rsd);curMin=_rst;}   // arranque real fixa o início
+    if(mode==='eff'&&_hasRealEnd){const rm=workMinsBetween(curDate,curMin,_rfd,_rft);if(rm>0)remMin=rm;}  // eff trunca até ao fim real
     const totalDur=remMin||1;
     while(remMin>0.01&&guard++<800){
       let win=dayWindowFor(l,curDate);
@@ -567,15 +568,10 @@ function scheduleLine(l,mode){
       if(remMin>0.01){const nd=nextOpen(curDate);if(!nd)break;curDate=nd;curMin=dayWindowFor(l,curDate).ini;}
       else curMin=segEnd;
     }
-    // 'efet': mantém a duração planeada (já colocada) mas reancora o CURSOR no fim real p/ as seguintes
-    if(mode==='efet'&&_hasRealEnd){
-      _plannedEnd={date:new Date(curDate),min:curMin};   // fim planeado (duração própria)
-      curDate=new Date(_rfd);curMin=_rft;                // cursor para a ordem seguinte = fim real
-    }
-    // Se terminou mais cedo que o planeado, puxa as seguintes (até ao dia de fim planeado)
-    if(_hasRealEnd&&_plannedEnd){
-      if(cmpDay(_rfd,_plannedEnd.date)<0||(cmpDay(_rfd,_plannedEnd.date)===0&&_rft<_plannedEnd.min))pullUntil=_plannedEnd.date;
-    }
+    // 'efet': manteve a duração planeada (do início real); reancora o CURSOR no fim real p/ as seguintes
+    if(mode==='efet'&&_hasRealEnd){curDate=new Date(_rfd);curMin=_rft;}
+    // Fim efetivo desta ordem (cursor atual) -> se for mais cedo que o planeado, puxa as seguintes
+    if(_plannedEnd&&(cmpDay(curDate,_plannedEnd.date)<0||(cmpDay(curDate,_plannedEnd.date)===0&&curMin<_plannedEnd.min)))pullUntil=_plannedEnd.date;
   }
   const byOp={};Object.values(segs).flat().forEach(s=>{(byOp[s.op.id]=byOp[s.op.id]||[]).push(s);});
   Object.values(byOp).forEach(list=>{
