@@ -113,11 +113,6 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .ocard .oc-time{font-size:10.5px;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums;color:var(--c-ink)}
 .ocard .oc-real{font-size:10px;font-weight:600;font-variant-numeric:tabular-nums;color:#6b7a66;margin-top:1px;display:flex;justify-content:space-between;align-items:center;gap:6px}
 .ocard .oc-real.oc-real-late{color:#dc2626}
-.plan-status{padding:7px 16px;font-size:12.5px;font-weight:700;text-align:center;letter-spacing:.2px}
-.ocard.oc-deadline-late{box-shadow:inset 4px 0 0 #dc2626}
-.ocard.oc-deadline-risk{box-shadow:inset 4px 0 0 #d97706}
-.badge.dl-late{background:#dc2626;color:#fff;font-weight:700}
-.badge.dl-risk{background:#f59e0b;color:#3a2c18;font-weight:700}
 .ocard .oc-time.oc-plan-old{color:#9aa1a6;text-decoration:line-through}
 .ocard .oc-eff{font-size:10.5px;font-weight:600;font-variant-numeric:tabular-nums;color:#1f3a5f;margin-top:1px}
 .ocard.oc-late .oc-real{color:#b91c1c}
@@ -305,7 +300,6 @@ body.prof-prod .day-close{display:none!important}
 
 <div class="tabs" id="tabs"></div>
 <div class="legend" id="legend"></div>
-<div id="plan-status" class="plan-status" style="display:none"></div>
 
 <div class="weekbar" id="weekbar">
   <span id="searchInfo" class="search-info"></span>
@@ -371,26 +365,6 @@ function ddmm(d){return `${pad(d.getDate())}/${pad(d.getMonth()+1)}`;}
 // info de planeamento (data+hora início→fim) da ordem, a partir do escalonamento
 function planInfo(o,mode){if(!o||!o.linha)return null;const segs=scheduleLine(o.linha,mode||'plan');const list=[];Object.keys(segs).forEach(dk=>segs[dk].forEach(s=>{if(s.op.id===o.id)list.push(s);}));if(!list.length)return null;list.sort((a,b)=>a.date-b.date||a.startMin-b.startMin);const f=list[0],L=list[list.length-1];const ed=new Date(L.date);if(L.endMin>=1440)ed.setDate(ed.getDate()+Math.floor(L.endMin/1440));
   return {txt:`${ddmm(f.date)} ${min2hm(f.startMin%1440)} → ${ddmm(ed)} ${min2hm(L.endMin%1440)}`, endTs:L.date.getTime()+L.endMin*60000};}
-// Atraso face ao Dia de Plano (data limite): compara o fim EFETIVO com o diaPlano
-function deadlineStatus(o){
-  if(!o||!o.linha||!/^\d{4}-\d{2}-\d{2}/.test(o.diaPlano||''))return null;
-  const eff=planInfo(o,'eff');if(!eff)return null;
-  const e=new Date(eff.endTs);const concl=new Date(e.getFullYear(),e.getMonth(),e.getDate()).getTime();
-  const dl=new Date(o.diaPlano+'T00:00:00');const lim=new Date(dl.getFullYear(),dl.getMonth(),dl.getDate()).getTime();
-  const days=Math.round((concl-lim)/86400000);
-  if(days>0)return {kind:'late',days};
-  if(days===0)return {kind:'risk',days:0};
-  return {kind:'ok',days};
-}
-function updatePlanStatus(){
-  const el=document.getElementById('plan-status');if(!el)return;
-  let late=0,risk=0,tot=0;
-  DATA.forEach(o=>{if(!o.linha||!o.weekKey)return;const st=deadlineStatus(o);if(!st)return;tot++;if(st.kind==='late')late++;else if(st.kind==='risk')risk++;});
-  if(late>0){el.style.display='block';el.style.background='#7f1d1d';el.style.color='#fecaca';el.innerHTML=`⚠ ATRASO — <strong>${late}</strong> OP${late===1?'':'s'} depois do Dia de Plano${risk?` · ${risk} no limite`:''}`;}
-  else if(risk>0){el.style.display='block';el.style.background='#78350f';el.style.color='#fed7aa';el.innerHTML=`⚠ RISCO — <strong>${risk}</strong> OP${risk===1?'':'s'} a terminar no Dia de Plano`;}
-  else if(tot>0){el.style.display='block';el.style.background='#14532d';el.style.color='#bbf7d0';el.innerHTML=`✓ No prazo — ${tot} OP${tot===1?'':'s'} com Dia de Plano`;}
-  else{el.style.display='none';el.innerHTML='';}
-}
 // motivos de paragem aplicáveis à unidade da ordem (após planeada). Sem unidades = todos.
 function paragemMotivos(o){const arr=(SETTINGS.motivosParagem||[]).map(m=>typeof m==='string'?{nome:m,unidades:[]}:m);const unit=o&&o.linha?unitOfLine(o.linha):'';
   return arr.filter(m=>!unit||!m.unidades||!m.unidades.length||m.unidades.includes(unit)).map(m=>m.nome);}
@@ -782,7 +756,7 @@ function importBufferExcel(file){
 function fitWrap(){const w=document.getElementById('wrap');if(!w)return;const top=w.getBoundingClientRect().top;const h=Math.max(240,window.innerHeight-top-8);w.style.height=h+'px';}
 function render(){
   clearSchedCache();
-  renderTabs();renderLegend();updatePlanStatus();
+  renderTabs();renderLegend();
   const wrap=document.getElementById('wrap');
   const wb=document.getElementById('weekbar');
   if(ACTIVE_TAB==='cfg'){wrap.classList.add('full');document.getElementById('pool').style.display='none';wb.style.display='none';renderCfg();document.body.classList.toggle('producao',isProd());fitWrap();return;}
@@ -835,9 +809,7 @@ function renderSearchBar(){
 }
 function ocardHTML(l,r,searching){
   const o=r.op;const isLast=r.partIdx===r.total;
-  const _dl=isLast?deadlineStatus(o):null;
-  const lateCls=_dl?(_dl.kind==='late'?' oc-deadline-late':(_dl.kind==='risk'?' oc-deadline-risk':'')):'';
-  const _dlBadge=_dl?(_dl.kind==='late'?`<span class="badge dl-late" title="Conclusão depois do Dia de Plano">⚠ atraso +${_dl.days}d</span>`:(_dl.kind==='risk'?`<span class="badge dl-risk" title="Conclui no Dia de Plano">⚠ limite</span>`:'')):'';
+  const lateCls='';
   const hit=searching&&matchesSearch(o)?' search-hit':'';
   const desd=o.desdobrar?'<span class="badge desd">DESD</span>':'';
   const urg=o.urgente?'<span class="badge urg">URG</span>':'';
@@ -870,7 +842,7 @@ function ocardHTML(l,r,searching){
     <div class="oc-top"><b>${o.dsl||o.lote||'—'}</b><span class="oc-q">${Math.round((+r.qtdSeg||0)*1000)} un</span></div>
     ${o.po?`<div class="oc-po">PO ${o.po}</div>`:''}
     <div class="oc-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div>
-    <div class="oc-meta">${o.cliente||''} ${urg}${desd}${divBadge(o)}${analBadge(o)}${_dlBadge}${cont}</div>
+    <div class="oc-meta">${o.cliente||''} ${urg}${desd}${divBadge(o)}${analBadge(o)}${cont}</div>
     <div class="oc-time${_showEfet?' oc-plan-old':''}">⏱ Plan ${_planLineTxt}</div>
     ${_showEfet?`<div class="oc-eff">↳ Efet ${_effTxt}</div>`:''}
     ${(_hasReal||atrBadge)?`<div class="oc-real${_realLate?' oc-real-late':''}"><span>▶ Real ${_rdi}${o.hInicioR||'--:--'} → ${_rdf}${o.hFimR||'--:--'}</span>${atrBadge}</div>`:''}
