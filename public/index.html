@@ -14,7 +14,9 @@
   --est-proc:#FFA500; --est-term:#00B050; --est-concl:#00B0F0; --est-csp:#FFFF00;
 }
 *{box-sizing:border-box}
-body{margin:0;font-family:"Segoe UI",system-ui,Arial,sans-serif;background:var(--c-bg);color:var(--c-ink);font-size:13px}
+html{background:var(--c-bg)}
+body{margin:0;font-family:"Segoe UI",system-ui,Arial,sans-serif;background:transparent;color:var(--c-ink);font-size:13px}
+#bg-watermark{position:fixed;inset:0;background:url('cork-logo.png') center center no-repeat;background-size:min(55vw,720px) auto;opacity:.06;pointer-events:none;z-index:-1}
 header{display:flex;align-items:center;gap:14px;padding:9px 16px;background:var(--c-primary);color:#fff}
 header .brand{font-weight:700;font-size:16px;letter-spacing:.3px}
 header .brand small{font-weight:400;opacity:.8;font-size:11px;display:block}
@@ -285,6 +287,7 @@ body.prof-prod .day-close{display:none!important}
 </style>
 </head>
 <body>
+<div id="bg-watermark"></div>
 <header>
   <div class="brand">DSL Planeamento <small>Cork Supply · Harv 81 Group</small></div>
   <div class="spacer"></div>
