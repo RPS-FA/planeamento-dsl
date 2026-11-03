@@ -106,6 +106,7 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .day-sep .cap-info.low{color:#b91c1c}
 .ocard{background:#fff;border:1px solid var(--c-line);border-radius:6px;padding:6px 8px;cursor:grab;box-shadow:var(--sh)}
 .ocard.dragging{opacity:.4}
+.ocard .oc-clean{font-size:9.5px;font-weight:700;color:#8a4b00;background:#ffedd0;border:1px solid #f0c48a;border-radius:4px;padding:2px 5px;margin:-1px -1px 4px;display:flex;align-items:center;gap:4px;line-height:1.2}
 .ocard .oc-top{display:flex;justify-content:space-between;gap:6px;align-items:baseline}
 .ocard .oc-top b{font-size:12px}
 .ocard .oc-q{font-size:10.5px;color:var(--c-primary-dark);font-weight:600;white-space:nowrap}
@@ -629,6 +630,8 @@ function matchesSearch(o){const v=SEARCH.v.trim().toLowerCase();if(!v)return tru
 function blankVal(x){x=String(x==null?'':x).trim();return (!x||x==='0'||/^#[A-Z0-9_\/]+[!?]?$/i.test(x))?'':x;}
 // ordem "real": tem DSL/lote/produto válidos ou quantidade — exclui linhas vazias/erro da extração
 function isRealOrder(o){return !!(blankVal(o.dsl)||blankVal(o.lote)||blankVal(o.produtoEntrada))||(+o.qtd>0);}
+// Produto de entrada diferente de NAT (p.ex. L03, L01...) exige limpeza de equipamento+transportadores (30 min, só visual)
+function needsLimpeza(o){const p=(o.produtoEntrada||'').trim().toUpperCase();return !!p&&!p.startsWith('NAT');}
 function cardHTML(o,hit){
   const desd=o.desdobrar?'<span class="badge desd">DESD</span>':'';
   const urg=o.urgente?'<span class="badge urg">URG</span>':'';
@@ -842,6 +845,7 @@ function ocardHTML(l,r,searching){
     if(_rts>_pi.endTs)_realLate=true;
   }
   return `<div class="ocard${lateCls}${hit}${o.urgente?' oc-urgent':''}" draggable="true" data-id="${o.id}" data-est="${o.estado}">
+    ${needsLimpeza(o)?`<div class="oc-clean" title="Limpeza do equipamento e transportadores — 30 min (não desconta no planeamento)">🧹 Limpeza equip. + transportadores · 30 min</div>`:''}
     <div class="oc-top"><b>${o.dsl||o.lote||'—'}</b><span class="oc-q">${Math.round((+r.qtdSeg||0)*1000)} un</span></div>
     ${o.po?`<div class="oc-po">PO ${o.po}</div>`:''}
     <div class="oc-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div>
