@@ -587,7 +587,7 @@ function scheduleLine(l,mode){
   });
   cache[l]=segs;return segs;
 }
-function clearSchedCache(){for(const m in _schedCaches){const c=_schedCaches[m];for(const k in c)delete c[k];}}
+function clearSchedCache(){for(const m in _schedCaches){const c=_schedCaches[m];for(const k in c)delete c[k];}_lineSeqCache={};}
 
 function onTimeInfo(op,endPlanMin){
   if(!op.hFimR)return null;
@@ -630,8 +630,15 @@ function matchesSearch(o){const v=SEARCH.v.trim().toLowerCase();if(!v)return tru
 function blankVal(x){x=String(x==null?'':x).trim();return (!x||x==='0'||/^#[A-Z0-9_\/]+[!?]?$/i.test(x))?'':x;}
 // ordem "real": tem DSL/lote/produto válidos ou quantidade — exclui linhas vazias/erro da extração
 function isRealOrder(o){return !!(blankVal(o.dsl)||blankVal(o.lote)||blankVal(o.produtoEntrada))||(+o.qtd>0);}
-// Produto de entrada cujo segmento de lote (antes do calibre) é diferente de NAT (p.ex. L01, L02, L03, 205, 323...) exige limpeza de equipamento+transportadores (30 min, só visual)
-function needsLimpeza(o){const s=(o.produtoEntrada||'').toUpperCase();const lots=[...s.matchAll(/-([^-\s()]+)-\d{2}X\d{2,3}/g)].map(m=>m[1]);if(!lots.length)return false;return lots.some(l=>l!=='NAT');}
+// Segmentos de lote (antes do calibre) de um produto de entrada: NAT, L01, L02, L03, 205, 323...
+function lotSegs(o){const s=(o&&o.produtoEntrada||'').toUpperCase();return [...s.matchAll(/-([^-\s()]+)-\d{2}X\d{2,3}/g)].map(m=>m[1]);}
+function isLavada(o){return lotSegs(o).some(l=>/^L\d+$/.test(l));}   // rolha lavada: lote L01, L02, L03...
+function isNat(o){const l=lotSegs(o);return l.length>0&&l.every(x=>x==='NAT');}  // ordem em NAT
+// Sequência de ordens por linha (mesma ordenação do escalonador) — p/ encontrar a ordem imediatamente anterior
+let _lineSeqCache={};
+function lineSeq(l){if(_lineSeqCache[l])return _lineSeqCache[l];const arr=DATA.filter(o=>o.linha===l&&o.weekKey&&dDate(o)).sort((a,b)=>cmpDay(dDate(a),dDate(b))||((+a.sortIdx||0)-(+b.sortIdx||0)));return _lineSeqCache[l]=arr;}
+// Limpeza do master ajustador: só em rolhas lavadas (Lxx) e apenas quando a ordem imediatamente anterior na linha é em NAT
+function needsLimpeza(o){if(!o||!o.linha||!isLavada(o))return false;const seq=lineSeq(o.linha);const i=seq.findIndex(x=>x.id===o.id);if(i<=0)return false;return isNat(seq[i-1]);}
 function cardHTML(o,hit){
   const desd=o.desdobrar?'<span class="badge desd">DESD</span>':'';
   const urg=o.urgente?'<span class="badge urg">URG</span>':'';
@@ -845,7 +852,7 @@ function ocardHTML(l,r,searching){
     if(_rts>_pi.endTs)_realLate=true;
   }
   return `<div class="ocard${lateCls}${hit}${o.urgente?' oc-urgent':''}" draggable="true" data-id="${o.id}" data-est="${o.estado}">
-    ${needsLimpeza(o)?`<div class="oc-clean" title="Limpeza do equipamento e transportadores — 30 min (não desconta no planeamento)">🧹 Limpeza equip. + transportadores · 30 min</div>`:''}
+    ${needsLimpeza(o)?`<div class="oc-clean" title="Mudança de NAT para lavada — limpeza do master ajustador e transportadores, 30 min (não desconta no planeamento)">🧹 Limpeza master ajustador + transportadores · 30 min</div>`:''}
     <div class="oc-top"><b>${o.dsl||o.lote||'—'}</b><span class="oc-q">${Math.round((+r.qtdSeg||0)*1000)} un</span></div>
     ${o.po?`<div class="oc-po">PO ${o.po}</div>`:''}
     <div class="oc-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div>
