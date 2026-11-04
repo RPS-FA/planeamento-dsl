@@ -630,8 +630,8 @@ function matchesSearch(o){const v=SEARCH.v.trim().toLowerCase();if(!v)return tru
 function blankVal(x){x=String(x==null?'':x).trim();return (!x||x==='0'||/^#[A-Z0-9_\/]+[!?]?$/i.test(x))?'':x;}
 // ordem "real": tem DSL/lote/produto válidos ou quantidade — exclui linhas vazias/erro da extração
 function isRealOrder(o){return !!(blankVal(o.dsl)||blankVal(o.lote)||blankVal(o.produtoEntrada))||(+o.qtd>0);}
-// Produto de entrada diferente de NAT (p.ex. L03, L01...) exige limpeza de equipamento+transportadores (30 min, só visual)
-function needsLimpeza(o){const p=(o.produtoEntrada||'').trim().toUpperCase();return !!p&&!p.startsWith('NAT');}
+// Produto de entrada cujo segmento de lote (antes do calibre) é diferente de NAT (p.ex. L01, L02, L03, 205, 323...) exige limpeza de equipamento+transportadores (30 min, só visual)
+function needsLimpeza(o){const s=(o.produtoEntrada||'').toUpperCase();const lots=[...s.matchAll(/-([^-\s()]+)-\d{2}X\d{2,3}/g)].map(m=>m[1]);if(!lots.length)return false;return lots.some(l=>l!=='NAT');}
 function cardHTML(o,hit){
   const desd=o.desdobrar?'<span class="badge desd">DESD</span>':'';
   const urg=o.urgente?'<span class="badge urg">URG</span>':'';
