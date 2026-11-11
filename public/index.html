@@ -563,6 +563,7 @@ function scheduleLine(l,mode){
     const _hasRealStart=(mode!=='plan'&&_rst!=null&&_rsd&&!isNaN(_rsd));
     let _plannedEnd=null;
     if(mode!=='plan'&&(_hasRealEnd||_hasRealStart))_plannedEnd=endAfter(curDate,curMin,remMin);  // fim planeado (posição em cascata)
+    const _frontDate=curDate?new Date(curDate):null,_frontMin=curMin;   // fronteira antes das horas reais (não pode recuar)
     if(_hasRealStart){curDate=new Date(_rsd);curMin=_rst;}   // arranque real fixa o início
     if(mode==='eff'&&_hasRealEnd){const rm=workMinsBetween(curDate,curMin,_rfd,_rft);if(rm>0)remMin=rm;}  // eff trunca até ao fim real
     const totalDur=remMin||1;
@@ -582,8 +583,11 @@ function scheduleLine(l,mode){
     }
     // 'efet': manteve a duração planeada (do início real); reancora o CURSOR no fim real p/ as seguintes
     if(mode==='efet'&&_hasRealEnd){curDate=new Date(_rfd);curMin=_rft;}
+    // Fronteira monotónica: uma ordem já realizada no passado (reais antes da fronteira anterior) não recua o cursor nem puxa as seguintes
+    let _backwards=false;
+    if(_frontDate&&(cmpDay(curDate,_frontDate)<0||(cmpDay(curDate,_frontDate)===0&&curMin<_frontMin))){curDate=_frontDate;curMin=_frontMin;_backwards=true;}
     // Fim efetivo desta ordem (cursor atual) -> se for mais cedo que o planeado, puxa as seguintes
-    if(_plannedEnd&&(cmpDay(curDate,_plannedEnd.date)<0||(cmpDay(curDate,_plannedEnd.date)===0&&curMin<_plannedEnd.min)))pullUntil=_plannedEnd.date;
+    if(!_backwards&&_plannedEnd&&(cmpDay(curDate,_plannedEnd.date)<0||(cmpDay(curDate,_plannedEnd.date)===0&&curMin<_plannedEnd.min)))pullUntil=_plannedEnd.date;
   }
   const byOp={};Object.values(segs).flat().forEach(s=>{(byOp[s.op.id]=byOp[s.op.id]||[]).push(s);});
   Object.values(byOp).forEach(list=>{
