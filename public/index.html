@@ -82,6 +82,8 @@ select,input,textarea{font-family:inherit;font-size:12px;border:1px solid var(--
 .mg-cellhead .turno-sel{font-size:9.5px;border:1px solid var(--c-line);border-radius:4px;padding:0 2px;background:#fff}
 .mg-cellhead .dif-chk,.mg-cellhead .close-chk{display:inline-flex;align-items:center;gap:2px;font-size:9.5px;color:var(--c-primary-dark);cursor:pointer}
 .mg-cellhead .dif-chk input,.mg-cellhead .close-chk input{margin:0}
+.mg-custom{display:flex;align-items:center;gap:3px;margin:2px 0 4px;font-size:9.5px;color:var(--c-primary-dark)}
+.mg-custom input[type=time]{font-size:9.5px;padding:1px 2px;border:1px solid var(--c-line);border-radius:3px;width:62px}
 .mg-cellhead .close-chk{color:#a12}
 .mg-cap{font-size:12px;font-weight:700;color:#3a5a82;white-space:nowrap}
 .mg-cap.low{color:#c2410c}
@@ -464,24 +466,30 @@ function lineBreaks(l,tno){const c=(SETTINGS.capacidades||{})[l];if(!c||!c.int)r
   if(tno>=2){add(c.int.n1,true);add(c.int.n2,true);}
   return out;}
 
-// Turno diferenciado: pausas próprias (almoço/jantar do turno dif)
-function difBreaks(){const t=turnoWindow('dif');const b=[];const ni=hm2min(t.ini)||0;const push=(is,fs)=>{let s=hm2min(is),e=hm2min(fs);if(s==null||e==null)return;if(s<ni)s+=1440;if(e<ni)e+=1440;if(e>s)b.push([s,e]);};if(t.almocoIni&&t.almocoFim)push(t.almocoIni,t.almocoFim);if(t.jantarIni&&t.jantarFim)push(t.jantarIni,t.jantarFim);return b;}
-function isDifDay(l,d){const dd=(SETTINGS.difDia||{})[dateKey(d)];return !!(dd&&(dd[l]===true||dd[l]==='true'));}
-// nº de turnos da linha NUM DIA (1 ou 2) — definido no quadro (settings.turnosDia)
-// 0 = linha fechada nesse dia; 1 ou 2 turnos
-function lineTurnoForDate(l,d){const td=(SETTINGS.turnosDia||{})[dateKey(d)];const v=td&&td[l];if(v===0||v==='0')return 0;return (v===2||v==='2')?2:1;}
+// Turno personalizado: definição central das paragens (almoço/jantar) nas Configurações
+function customDef(){return (SETTINGS.turnos||{}).custom||(SETTINGS.turnos||{}).dif||{};}
+// Janela personalizada (início/fim) por máquina e por dia; recorre aos defaults das Configurações
+function customWin(l,d){const m=(SETTINGS.turnoCustom||{})[dateKey(d)];const c=m&&m[l];const def=customDef();return {ini:(c&&c.ini)||def.ini||'07:00',fim:(c&&c.fim)||def.fim||'19:00'};}
+// Paragens do turno personalizado (das Configurações), ajustadas ao início 'ni' da janela
+function customBreaks(ni){const t=customDef();const b=[];const push=(is,fs)=>{let s=hm2min(is),e=hm2min(fs);if(s==null||e==null)return;if(s<ni)s+=1440;if(e<ni)e+=1440;if(e>s)b.push([s,e]);};if(t.almocoIni&&t.almocoFim)push(t.almocoIni,t.almocoFim);if(t.jantarIni&&t.jantarFim)push(t.jantarIni,t.jantarFim);return b;}
+function isCustomDay(l,d){return lineTurnoForDate(l,d)==='p';}
+// nº de turnos da linha NUM DIA — definido no quadro (settings.turnosDia)
+// 0 = linha fechada nesse dia; 1 ou 2 turnos; 'p' = personalizado (janela própria)
+function lineTurnoForDate(l,d){const td=(SETTINGS.turnosDia||{})[dateKey(d)];const v=td&&td[l];if(v==='p'||v==='custom')return 'p';if(v===0||v==='0')return 0;return (v===2||v==='2')?2:1;}
 function dDate(o){const m=(o.weekKey||'').match(/(\d+)-W(\d+)/);if(!m)return null;const j=new Date(+m[1],0,4);const mon=mondayOf(j);mon.setDate(mon.getDate()+(+m[2]-1)*7+(+o.diaIdx||0));mon.setHours(0,0,0,0);return mon;}
 function cmpDay(a,b){const ka=dateKey(a),kb=dateKey(b);return ka<kb?-1:ka>kb?1:0;}
 // Janela útil do dia para a linha (min). null = dia fechado/sem capacidade.
 function dayWindowFor(l,d){
   if(isDayClosed(d))return null;
-  if(lineTurnoForDate(l,d)===0)return null;   // linha fechada nesse dia
+  const tno=lineTurnoForDate(l,d);
+  if(tno===0)return null;   // linha fechada nesse dia
   const ov=dayOverride(d);const dow=(d.getDay()+6)%7;let ini,fim,breaks;
-  if(dow===5){ini=hm2min(SETTINGS.sabadoIni||'07:00');fim=hm2min(SETTINGS.sabadoFim||'11:00');breaks=[];}
-  else{const tno=lineTurnoForDate(l,d);const t1=turnoWindow(1);
+  if(tno==='p'){   // turno personalizado: janela por máquina+dia + paragens das Configurações
+    const cw=customWin(l,d);ini=hm2min(cw.ini);fim=hm2min(cw.fim);if(fim<=ini)fim+=1440;breaks=customBreaks(ini);}
+  else if(dow===5){ini=hm2min(SETTINGS.sabadoIni||'07:00');fim=hm2min(SETTINGS.sabadoFim||'11:00');breaks=[];}
+  else{const t1=turnoWindow(1);
     if(tno>=2){const t2=turnoWindow(2);ini=hm2min(t1.ini);fim=hm2min(t2.fim);if(fim<=ini)fim+=1440;breaks=breaksOf(1).concat(breaksOf(2)).concat(lineBreaks(l,2));}
     else{ini=hm2min(t1.ini);fim=hm2min(t1.fim);if(fim<=ini)fim+=1440;breaks=breaksOf(1).concat(lineBreaks(l,1));}}
-  if(isDifDay(l,d)){const t=turnoWindow('dif');ini=hm2min(t.ini);fim=hm2min(t.fim);if(fim<=ini)fim+=1440;breaks=difBreaks().concat(lineBreaks(l,2));}
   if(ov&&ov.ini)ini=hm2min(ov.ini);
   if(ov&&ov.fim){fim=hm2min(ov.fim);if(fim<=ini)fim+=1440;}
   return {ini,fim,breaks};
@@ -934,18 +942,20 @@ function renderBoard(){
       const mark=cellClosed?'<span class="mg-mark closed">fechado</span>':(full?'<span class="mg-mark full">cheio</span>':`<span class="mg-mark ok">livre</span>`);
       const capTxt=cellClosed?'':` ${freeU}/${capU}`;
       const turnoDis=(cellClosed||PROFILE==='producao')?'disabled':'';
-      const dif=isDifDay(l,d);
+      const isCustom=(tno==='p');
+      const cw=isCustom?customWin(l,d):null;
       const dayClosedAll=isDayClosed(d);
       const lineClosed=!dayClosedAll&&lineTurnoForDate(l,d)===0;
       const closeDis=(PROFILE==='producao'||dayClosedAll)?'disabled':'';
-      let html=`<div class="mg-cellhead"><select class="turno-sel" data-date="${dk}" data-linha="${l}" ${turnoDis}><option value="1" ${tno===1?'selected':''}>1 turno</option><option value="2" ${tno===2?'selected':''}>2 turnos</option></select><label class="dif-chk" title="Turno diferenciado"><input type="checkbox" class="dif-sel" data-date="${dk}" data-linha="${l}" ${dif?'checked':''} ${turnoDis}>Dif</label><label class="close-chk" title="Fechar esta linha neste dia"><input type="checkbox" class="close-sel" data-date="${dk}" data-linha="${l}" ${lineClosed?'checked':''} ${closeDis}>Fechar</label></div>`;
+      let html=`<div class="mg-cellhead"><select class="turno-sel" data-date="${dk}" data-linha="${l}" ${turnoDis}><option value="1" ${tno===1?'selected':''}>1 turno</option><option value="2" ${tno===2?'selected':''}>2 turnos</option><option value="p" ${isCustom?'selected':''}>Personalizado</option></select><label class="close-chk" title="Fechar esta linha neste dia"><input type="checkbox" class="close-sel" data-date="${dk}" data-linha="${l}" ${lineClosed?'checked':''} ${closeDis}>Fechar</label></div>${isCustom?`<div class="mg-custom"><span>⏱</span><input type="time" class="cust-ini" data-date="${dk}" data-linha="${l}" value="${cw.ini}" ${turnoDis}><span>→</span><input type="time" class="cust-fim" data-date="${dk}" data-linha="${l}" value="${cw.fim}" ${turnoDis}></div>`:''}`;
       if(passedU>0&&!cellClosed)html+=`<div class="mg-pass">↪ passou ${passedU} un p/ dia seguinte</div>`;
       segs.forEach(r=>html+=ocardHTML(l,r,searching));
       if(!full&&!cellClosed)html+=`<div class="mg-plan">PLANEAR AQUI<span class="mg-plan-q">livre ${freeU} un</span></div>`;
       cell.innerHTML=html;
       grid.appendChild(cell);bindColZone(cell);bindCards(cell);
-      const ts=cell.querySelector('.turno-sel');if(ts)ts.addEventListener('change',()=>changeTurnoDia(ts.dataset.date,ts.dataset.linha,+ts.value));
-      const ds=cell.querySelector('.dif-sel');if(ds)ds.addEventListener('change',()=>changeTurnoDif(ds.dataset.date,ds.dataset.linha,ds.checked));
+      const ts=cell.querySelector('.turno-sel');if(ts)ts.addEventListener('change',()=>changeTurnoDia(ts.dataset.date,ts.dataset.linha,ts.value));
+      const ci=cell.querySelector('.cust-ini');if(ci)ci.addEventListener('change',()=>changeTurnoCustom(ci.dataset.date,ci.dataset.linha,'ini',ci.value));
+      const cf=cell.querySelector('.cust-fim');if(cf)cf.addEventListener('change',()=>changeTurnoCustom(cf.dataset.date,cf.dataset.linha,'fim',cf.value));
       const cs=cell.querySelector('.close-sel');if(cs)cs.addEventListener('change',()=>changeCloseLine(cs.dataset.date,cs.dataset.linha,cs.checked));
     }catch(e){console.error('renderBoard célula',l,dk,e);}});
   });
@@ -1086,7 +1096,7 @@ async function toggleDayClosed(dateStr,close){
 async function changeTurnoDia(dateStr,linha,turno){
   SETTINGS.turnosDia=SETTINGS.turnosDia||{};
   SETTINGS.turnosDia[dateStr]=Object.assign({},SETTINGS.turnosDia[dateStr]);
-  SETTINGS.turnosDia[dateStr][linha]=turno;
+  SETTINGS.turnosDia[dateStr][linha]=(turno==='p'||turno==='custom')?'p':(+turno);
   render();
   try{setConn('loading','a guardar…');await Api.putSettings({turnosDia:SETTINGS.turnosDia});setConn('ok','ligado');}
   catch(e){setConn('error','erro');toast('Falha ao guardar turno: '+e.message,'err');}
@@ -1099,13 +1109,15 @@ async function changeCloseLine(dateStr,linha,close){
   try{setConn('loading','a guardar…');await Api.putSettings({turnosDia:SETTINGS.turnosDia});setConn('ok','ligado');}
   catch(e){setConn('error','erro');toast('Falha ao guardar: '+e.message,'err');}
 }
-async function changeTurnoDif(dateStr,linha,on){
-  SETTINGS.difDia=SETTINGS.difDia||{};
-  SETTINGS.difDia[dateStr]=Object.assign({},SETTINGS.difDia[dateStr]);
-  if(on)SETTINGS.difDia[dateStr][linha]=true;else delete SETTINGS.difDia[dateStr][linha];
+async function changeTurnoCustom(dateStr,linha,field,val){
+  SETTINGS.turnoCustom=SETTINGS.turnoCustom||{};
+  SETTINGS.turnoCustom[dateStr]=Object.assign({},SETTINGS.turnoCustom[dateStr]);
+  const cur=Object.assign({},customWin(linha,new Date(dateStr+'T00:00:00')),SETTINGS.turnoCustom[dateStr][linha]);
+  cur[field]=val;
+  SETTINGS.turnoCustom[dateStr][linha]=cur;
   render();
-  try{setConn('loading','a guardar…');await Api.putSettings({difDia:SETTINGS.difDia});setConn('ok','ligado');}
-  catch(e){setConn('error','erro');toast('Falha ao guardar turno dif: '+e.message,'err');}
+  try{setConn('loading','a guardar…');await Api.putSettings({turnoCustom:SETTINGS.turnoCustom});setConn('ok','ligado');}
+  catch(e){setConn('error','erro');toast('Falha ao guardar janela personalizada: '+e.message,'err');}
 }
 
 /* ---------------- persistência ---------------- */
@@ -1315,7 +1327,7 @@ function renderCfg(){
     }
     return `<tr><td>${lineLabel(l)}</td><td><input id="cap_${l}" type="number" value="${(caps[l]&&caps[l].krH)||17000}" ${cfgDis}></td>${oeeCell(l)}${ivCells(l)}</tr>`;
   }).join('');
-  const t1=(SETTINGS.turnos||{})[1]||{},t2=(SETTINGS.turnos||{})[2]||{},td=(SETTINGS.turnos||{}).dif||{};
+  const t1=(SETTINGS.turnos||{})[1]||{},t2=(SETTINGS.turnos||{})[2]||{},td=(SETTINGS.turnos||{}).custom||(SETTINGS.turnos||{}).dif||{};
   el.innerHTML=`<div class="cfg">
     <h2>Capacidade por linha (rolhas/h) e intervalos</h2>
     <table><tr><th rowspan="2">Linha</th><th rowspan="2">Rolhas/h</th><th rowspan="2">OEE %</th><th colspan="2">Int. 1 Dia</th><th colspan="2">Int. 2 Dia</th><th colspan="2">Int. 1 Noite</th><th colspan="2">Int. 2 Noite</th></tr><tr><th>Início</th><th>Fim</th><th>Início</th><th>Fim</th><th>Início</th><th>Fim</th><th>Início</th><th>Fim</th></tr>${capRows}</table>
@@ -1328,11 +1340,11 @@ function renderCfg(){
       <tr><td>2 (noite)</td><td><input id="t2ini" value="${t2.ini||'17:00'}" ${cfgDis}></td><td><input id="t2fim" value="${t2.fim||'01:00'}" ${cfgDis}></td>
           <td>—</td>
           <td><input id="t2ji" value="${t2.jantarIni||'20:30'}" ${cfgDis}>–<input id="t2jf" value="${t2.jantarFim||'21:30'}" ${cfgDis}></td></tr>
-      <tr><td>Dif</td><td><input id="tdifini" value="${td.ini||'08:00'}" ${cfgDis}></td><td><input id="tdiffim" value="${td.fim||'17:00'}" ${cfgDis}></td>
+      <tr><td>Personalizado<br><span class="mini" style="font-weight:400">(defeito)</span></td><td><input id="tdifini" value="${td.ini||'07:00'}" ${cfgDis}></td><td><input id="tdiffim" value="${td.fim||'19:00'}" ${cfgDis}></td>
           <td><input id="tdifai" value="${td.almocoIni||''}" ${cfgDis}>–<input id="tdifaf" value="${td.almocoFim||''}" ${cfgDis}></td>
           <td><input id="tdifji" value="${td.jantarIni||''}" ${cfgDis}>–<input id="tdifjf" value="${td.jantarFim||''}" ${cfgDis}></td></tr>
     </table>
-    <p class="mini" style="margin:4px 0 0">O turno Dif aplica-se por dia/linha através do visto "Dif" no quadro.</p>
+    <p class="mini" style="margin:4px 0 0">O turno <b>Personalizado</b> escolhe-se no quadro (lista de turnos da linha/dia); a hora de início e fim definem-se em cada máquina e dia. As paragens (almoço/jantar) acima são as do turno personalizado e são descontadas da produção. Os valores de início/fim acima são apenas o defeito ao ativar o personalizado.</p>
     <h2>Geral</h2>
     <table><tr><th>Setup entre ordens (min)</th><td><input id="setupMin" type="number" value="${SETTINGS.setupMin||10}" ${cfgDis}></td></tr></table>
     <h2>Motivos</h2>
@@ -1409,7 +1421,7 @@ async function saveCfg(){
   const caps={};ALL_LINES.forEach(l=>{if(l==='EM'){const iv=ivRead('EM');caps.EM=Object.assign({krH:+gv('cap_EM')||2000,oee:oeeRead('EM')},iv?{int:iv}:{});}else{caps[l]={krH:+gv('cap_'+l)||17000,oee:oeeRead(l)};const iv=ivRead(l);if(iv)caps[l].int=iv;}});
   const turnos={1:{ini:gv('t1ini'),fim:gv('t1fim'),almocoIni:gv('t1ai'),almocoFim:gv('t1af')},
                 2:{ini:gv('t2ini'),fim:gv('t2fim'),jantarIni:gv('t2ji'),jantarFim:gv('t2jf')}, // T2 só jantar
-                dif:{ini:gv('tdifini'),fim:gv('tdiffim'),almocoIni:gv('tdifai'),almocoFim:gv('tdifaf'),jantarIni:gv('tdifji'),jantarFim:gv('tdifjf')}};
+                custom:{ini:gv('tdifini'),fim:gv('tdiffim'),almocoIni:gv('tdifai'),almocoFim:gv('tdifaf'),jantarIni:gv('tdifji'),jantarFim:gv('tdifjf')}};
   const parseList=id=>{const c=document.getElementById(id);return c?[...c.querySelectorAll('input[type="text"],input:not([type])')].map(i=>i.value.trim()).filter(Boolean):[];};
   const calibresPorLinha={};ALL_LINES.forEach(l=>{const arr=parseList('cal_'+l);if(arr.length)calibresPorLinha[l]=arr;});
   const parList=document.getElementById('motParList');
@@ -1429,7 +1441,7 @@ function exportExcel(){
   if(ans.trim()){const iso=dpToISO(ans.trim());if(!iso){toast('Data inválida. Usa dd/mm/aaaa.','err');return;}startKey=iso;}
   const isProdMode=(PROFILE==='producao');
   const reduce=r=>({Data:r.Data,'Analisado?':(r.Analisado==='Sim'?'Sim':'Não'),DSL:r.DSL,Produto:r.Produto,Lote:r.Lote,Cliente:r.Cliente,'Qtd seg':r['Qtd seg'],'QV UP':r['QV UP'],QV:r.QV,OBS:r.OBS});
-  const planRow=(l,d,dk,r)=>{const o=r.op;const isLast=r.partIdx===r.total;return {Data:dk,Dia:DIAS_PT[diaIdxOf(d)],Linha:lineLabel(l),Turnos:lineTurnoForDate(l,d),DSL:o.dsl,Produto:o.produtoEntrada,Lote:o.lote,Cliente:o.cliente,
+  const planRow=(l,d,dk,r)=>{const o=r.op;const isLast=r.partIdx===r.total;return {Data:dk,Dia:DIAS_PT[diaIdxOf(d)],Linha:lineLabel(l),Turnos:(lineTurnoForDate(l,d)==='p'?'Pers.':lineTurnoForDate(l,d)),DSL:o.dsl,Produto:o.produtoEntrada,Lote:o.lote,Cliente:o.cliente,
     'Qtd seg':Math.round((+r.qtdSeg||0)*1000),'Qtd total':Math.round((+o.qtd||0)*1000),'Qtd objetivo':Math.round((+o.qtdNecessaria||0)*1000),
     Parte:r.multiDay?`${r.partIdx}/${r.total}`:'',Estado:o.estado,'Inicio':min2hm(r.startMin%1440),'Fim':min2hm(r.endMin%1440),'Dur (h)':+((r.endMin-r.startMin)/60).toFixed(2),
     'Atraso':o.tempoAtraso||'','Inicio real':isLast?(o.hInicioR||''):'','Fim real':isLast?(o.hFimR||''):'',Desdobra:o.desdobrar?'Sim':'',Analisado:o.analisado?'Sim':'',

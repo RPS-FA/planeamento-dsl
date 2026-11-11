@@ -77,10 +77,10 @@ const DEFAULT_SETTINGS = {
   turnos: {
     1: { ini: '08:00', fim: '17:00', almocoIni: '12:00', almocoFim: '13:00' },
     2: { ini: '17:00', fim: '01:00', jantarIni: '20:30', jantarFim: '21:30' }, // só jantar
-    dif: { ini: '08:00', fim: '17:00', almocoIni: '12:00', almocoFim: '13:00', jantarIni: '', jantarFim: '' }, // turno diferenciado
+    custom: { ini: '07:00', fim: '19:00', almocoIni: '12:00', almocoFim: '13:00', jantarIni: '', jantarFim: '' }, // turno personalizado (paragens)
   },
-  // dias/linhas com turno diferenciado: { "YYYY-MM-DD": { "1":true, ... } }
-  difDia: {},
+  // janela personalizada por dia/linha: { "YYYY-MM-DD": { "1": {ini:'07:00',fim:'19:00'}, ... } }
+  turnoCustom: {},
   // override de turno/fecho por dia "YYYY-MM-DD"
   turnosPorDia: {},
   // nº de turnos (1/2) por dia e linha: { "YYYY-MM-DD": { "1":2, "6":1, ... } }

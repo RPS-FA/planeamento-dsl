@@ -143,7 +143,7 @@ app.get('/api/settings', async (req, res) => {
 });
 
 // Produção pode editar turnosPorDia (fechar/alterar dias); planeador tudo.
-const PRODUCAO_SETTING_KEYS = ['turnosPorDia', 'turnosDia', 'difDia'];
+const PRODUCAO_SETTING_KEYS = ['turnosPorDia', 'turnosDia', 'turnoCustom'];
 app.put('/api/settings', async (req, res) => {
   if (!requireDb(res)) return;
   try {
