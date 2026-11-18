@@ -869,7 +869,6 @@ function ocardHTML(l,r,searching){
     if(_rts>_pi.endTs)_realLate=true;
   }
   return `<div class="ocard${lateCls}${hit}${o.urgente?' oc-urgent':''}" draggable="true" data-id="${o.id}" data-est="${o.estado}">
-    ${needsLimpeza(o)?`<div class="oc-clean" title="Mudança de NAT para lavada — limpeza do master ajustador e transportadores, 30 min (não desconta no planeamento)">🧹 Limpeza master ajustador + transportadores · 30 min</div>`:''}
     <div class="oc-top"><b>${o.dsl||o.lote||'—'}</b><span class="oc-q">${Math.round((+r.qtdSeg||0)*1000)} un</span></div>
     ${o.po?`<div class="oc-po">PO ${o.po}</div>`:''}
     <div class="oc-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div>
