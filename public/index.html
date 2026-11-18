@@ -287,10 +287,42 @@ table.plan td.dnew{font-weight:700;color:var(--c-primary-dark)}
 .toast.err{background:var(--c-warn)} .toast.ok{background:var(--c-ok)}
 body.producao .planner-only{display:none!important}
 body.prof-prod .day-close{display:none!important}
+/* ---------------- Modo TV (ecrã de chão de fábrica) ---------------- */
+body.tvmode>*:not(#tvroot){display:none!important}
+body.tvmode{overflow:hidden;background:#0f1a14}
+#tvroot{display:none}
+body.tvmode #tvroot{display:flex;flex-direction:column;position:fixed;inset:0;background:#0f1a14;color:#eef3ea;font-family:inherit;z-index:200}
+#tvroot .tv-head{display:flex;align-items:center;gap:18px;padding:14px 26px;background:linear-gradient(90deg,#17432a,#0f2a1b);border-bottom:3px solid #2e7d4f}
+#tvroot .tv-head .tv-logo{height:42px}
+#tvroot .tv-title{font-size:30px;font-weight:800;letter-spacing:.5px}
+#tvroot .tv-date{font-size:22px;font-weight:600;color:#bfe3cc;text-transform:capitalize}
+#tvroot .tv-clock{margin-left:auto;font-size:40px;font-weight:800;font-variant-numeric:tabular-nums;color:#fff}
+#tvroot .tv-upd{font-size:13px;color:#8fb8a0;margin-left:14px}
+#tvroot .tv-body{flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:14px;overflow:hidden}
+#tvroot .tv-col{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden}
+#tvroot .tv-dept{font-size:22px;font-weight:800;color:#fff;padding:8px 14px;border-radius:8px;display:flex;justify-content:space-between;align-items:center}
+#tvroot .tv-dept small{font-size:15px;font-weight:600;opacity:.9}
+#tvroot .tv-mcs{display:flex;flex-direction:column;gap:9px;overflow:auto;min-height:0;padding-right:2px}
+#tvroot .tv-mc{background:#15241b;border:1px solid #27412f;border-radius:9px;overflow:hidden}
+#tvroot .tv-mc-h{display:flex;justify-content:space-between;align-items:baseline;padding:6px 12px;background:#1c3225;font-size:17px;font-weight:800;color:#dff1e6}
+#tvroot .tv-mc-h .tv-mc-sum{font-size:13px;font-weight:600;color:#8fb8a0}
+#tvroot .tv-mc-h.empty{color:#6b8a76;font-weight:600}
+#tvroot .tv-ord{display:grid;grid-template-columns:14px 1fr auto;gap:9px;align-items:center;padding:7px 12px;border-top:1px solid #21372a}
+#tvroot .tv-dot{width:14px;height:14px;border-radius:4px;border:1px solid rgba(255,255,255,.35)}
+#tvroot .tv-ord .tv-dsl{font-size:17px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#tvroot .tv-ord .tv-sub{font-size:12.5px;color:#9cc0ab}
+#tvroot .tv-ord .tv-right{text-align:right;white-space:nowrap}
+#tvroot .tv-ord .tv-qt{font-size:17px;font-weight:800;color:#ffd27a;font-variant-numeric:tabular-nums}
+#tvroot .tv-ord .tv-hr{font-size:13.5px;color:#bfe3cc;font-variant-numeric:tabular-nums}
+#tvroot .tv-ord.proc{background:rgba(255,165,0,.12)}
+#tvroot .tv-carry{font-size:11px;color:#88b59a}
+#tvroot .tv-empty{padding:9px 12px;font-size:14px;color:#6b8a76}
+#tvroot .tv-none{padding:30px;text-align:center;font-size:22px;color:#6b8a76}
 </style>
 </head>
 <body>
 <div id="bg-watermark"></div>
+<div id="tvroot"></div>
 <header>
   <div class="brand">DSL Planeamento <small>Cork Supply · Harv 81 Group</small></div>
   <div class="spacer"></div>
@@ -1492,6 +1524,49 @@ function pickProdDate(){
   PROD_DATE=d;ANCHOR=new Date(d.getFullYear(),d.getMonth(),1);
   applyProfile();render();
 }
+/* ---------------- Modo TV ---------------- */
+const TV=new URLSearchParams(location.search).has('tv');
+function tvTodayKey(){const d=new Date();d.setHours(0,0,0,0);return dateKey(d);}
+function renderTV(){
+  const root=document.getElementById('tvroot');if(!root)return;
+  clearSchedCache();
+  const now=new Date();const tk=tvTodayKey();
+  const diaTxt=`${['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'][diaIdxOf(now)]}, ${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()}`;
+  // escalonar todas as linhas e recolher os segmentos de hoje
+  const colsHtml=Object.keys(BOARDS).map(bk=>{
+    const board=BOARDS[bk];const col=UNIT_COLORS[bk]||'#2e7d4f';
+    let deptUn=0;
+    const mcsHtml=board.lines.map(l=>{
+      let segs=[];try{segs=(scheduleLine(l,'eff')[tk]||[]).slice().sort((a,b)=>a.startMin-b.startMin);}catch(e){segs=[];}
+      // agrupar por ordem (um cartão por ordem no dia)
+      const byOp=new Map();
+      segs.forEach(s=>{const k=s.op.id;if(!byOp.has(k))byOp.set(k,{op:s.op,start:s.startMin,end:s.endMin,qt:0,partMin:s.partIdx,partMax:s.partIdx,total:s.total});
+        const g=byOp.get(k);g.start=Math.min(g.start,s.startMin);g.end=Math.max(g.end,s.endMin);g.qt+=(+s.qtdSeg||0);g.partMin=Math.min(g.partMin,s.partIdx);g.partMax=Math.max(g.partMax,s.partIdx);});
+      const ords=[...byOp.values()].sort((a,b)=>a.start-b.start);
+      const mcUn=ords.reduce((a,o)=>a+o.qt,0);deptUn+=mcUn;
+      if(!ords.length)return `<div class="tv-mc"><div class="tv-mc-h empty"><span>${lineLabel(l)}</span><span class="tv-mc-sum">sem produção hoje</span></div></div>`;
+      const rows=ords.map(o=>{
+        const est=o.op.estado||'Aberto';const proc=(est==='Em Processo')?' proc':'';
+        const fromPrev=o.partMin>1, toNext=o.partMax<o.total;
+        const carry=(fromPrev||toNext)?`<span class="tv-carry">${fromPrev?'↳ vem de ontem ':''}${toNext?'continua amanhã →':''}</span>`:'';
+        const dsl=(o.op.dsl||o.op.lote||'—');
+        const sub=[o.op.cliente,o.op.po?('PO '+o.op.po):''].filter(Boolean).join(' · ');
+        return `<div class="tv-ord${proc}"><span class="tv-dot" style="background:${estColor(est)}"></span>`+
+          `<span><span class="tv-dsl">${dsl}</span>${sub?`<div class="tv-sub">${sub}</div>`:''}${carry}</span>`+
+          `<span class="tv-right"><div class="tv-qt">${Math.round(o.qt*1000).toLocaleString('pt-PT')} un</div><div class="tv-hr">${min2hm(o.start%1440)} → ${min2hm(o.end%1440)}</div></span></div>`;
+      }).join('');
+      return `<div class="tv-mc"><div class="tv-mc-h"><span>${lineLabel(l)}</span><span class="tv-mc-sum">${ords.length} ordem(ns) · ${Math.round(mcUn*1000).toLocaleString('pt-PT')} un</span></div>${rows}</div>`;
+    }).join('');
+    return `<div class="tv-col"><div class="tv-dept" style="background:${col}"><span>${board.label}</span><small>${Math.round(deptUn*1000).toLocaleString('pt-PT')} un</small></div><div class="tv-mcs">${mcsHtml}</div></div>`;
+  }).join('');
+  const total=DATA.length;
+  root.innerHTML=`<div class="tv-head"><img class="tv-logo" src="cork-logo.png" onerror="this.style.display='none'">`+
+    `<div><div class="tv-title">PLANEAMENTO DE PRODUÇÃO</div><div class="tv-date">${diaTxt}</div></div>`+
+    `<div class="tv-clock" id="tvClock">${pad(now.getHours())}:${pad(now.getMinutes())}</div>`+
+    `<div class="tv-upd">atualizado ${pad(now.getHours())}:${pad(now.getMinutes())}</div></div>`+
+    (total?`<div class="tv-body">${colsHtml}</div>`:`<div class="tv-none">Sem ligação aos dados…</div>`);
+}
+function tvClockTick(){const c=document.getElementById('tvClock');if(c){const n=new Date();c.textContent=pad(n.getHours())+':'+pad(n.getMinutes());}}
 async function loadState(){
   try{setConn('loading','a carregar…');const st=await Api.getState();DATA=st.ops||[];SETTINGS=st.settings||{};
     if(!ANCHOR){const today=new Date();ANCHOR=new Date(today.getFullYear(),today.getMonth(),1);
@@ -1502,8 +1577,8 @@ async function loadState(){
         if(best)ANCHOR=best.d;
       }}
     if(PROFILE==='producao'&&!PROD_DATE){PROD_DATE=new Date();ANCHOR=new Date(PROD_DATE.getFullYear(),PROD_DATE.getMonth(),1);}
-    setConn('ok','ligado');render();
-  }catch(e){setConn('error','sem ligação');toast('Falha ao carregar: '+e.message,'err');DATA=[];SETTINGS={};if(!ANCHOR){const t=new Date();ANCHOR=new Date(t.getFullYear(),t.getMonth(),1);}render();}
+    setConn('ok','ligado');if(TV)renderTV();else render();
+  }catch(e){setConn('error','sem ligação');toast('Falha ao carregar: '+e.message,'err');DATA=[];SETTINGS={};if(!ANCHOR){const t=new Date();ANCHOR=new Date(t.getFullYear(),t.getMonth(),1);}if(TV)renderTV();else render();}
 }
 
 document.getElementById('profileSel').addEventListener('change',e=>changeProfile(e.target.value));
@@ -1528,8 +1603,15 @@ document.getElementById('wkNext').addEventListener('click',()=>shiftView(1));
 document.getElementById('search').addEventListener('input',e=>{SEARCH.v=e.target.value;render();});
 
 applyProfile();
+if(TV)document.body.classList.add('tvmode');
 loadState();
-setInterval(()=>{if(document.getElementById('modalBg').classList.contains('show'))return;if(ACTIVE_TAB==='cfg'||ACTIVE_TAB==='buffer')return;Api.getState().then(st=>{DATA=st.ops||[];SETTINGS=st.settings||{};UNDO_STACK.length=0;updateUndoBtn();setConn('ok','ligado');render();}).catch(()=>setConn('error','sem ligação'));},30000);
+if(TV){
+  // Modo TV: relógio ao segundo + recarregar dados a cada 60s (muda de dia sozinho à meia-noite)
+  setInterval(tvClockTick,1000);
+  setInterval(()=>{Api.getState().then(st=>{DATA=st.ops||[];SETTINGS=st.settings||{};renderTV();}).catch(()=>{});},60000);
+}else{
+  setInterval(()=>{if(document.getElementById('modalBg').classList.contains('show'))return;if(ACTIVE_TAB==='cfg'||ACTIVE_TAB==='buffer')return;Api.getState().then(st=>{DATA=st.ops||[];SETTINGS=st.settings||{};UNDO_STACK.length=0;updateUndoBtn();setConn('ok','ligado');render();}).catch(()=>setConn('error','sem ligação'));},30000);
+}
 </script>
 </body>
 </html>
