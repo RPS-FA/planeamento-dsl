@@ -287,13 +287,49 @@ table.plan td.dnew{font-weight:700;color:var(--c-primary-dark)}
 .toast.err{background:var(--c-warn)} .toast.ok{background:var(--c-ok)}
 body.producao .planner-only{display:none!important}
 body.prof-prod .day-close{display:none!important}
-/* ---------------- Perfil TV (todas as máquinas lado a lado) ---------------- */
-body.tv .planner-only,body.tv #pool,body.tv #tabs,body.tv #searchInfo{display:none!important}
-body.tv .mg-cellhead,body.tv .day-close,body.tv .mg-plan{display:none!important}
-body.tv #wrap{padding:0}
-body.tv .mgrid{font-size:12px}
-body.tv .ocard{pointer-events:none;cursor:default}
-body.tv .mg-cell{min-height:0}
+/* ---------------- Perfil TV — Gantt de seguimento (monitor de atrasos) ---------------- */
+body.tv .planner-only,body.tv #pool,body.tv #tabs,body.tv #searchInfo,body.tv #legend,body.tv #weekbar{display:none!important}
+body.tv{background:#0f1a14}
+body.tv #wrap{padding:0;overflow:hidden}
+#tvg{display:flex;flex-direction:column;height:100%;color:#eef3ea}
+#tvg .tg-head{display:flex;align-items:center;gap:20px;padding:12px 24px;background:linear-gradient(90deg,#17432a,#0f2a1b);border-bottom:3px solid #2e7d4f}
+#tvg .tg-title{font-size:23px;font-weight:800}
+#tvg .tg-date{font-size:17px;color:#bfe3cc;text-transform:capitalize}
+#tvg .tg-pill{font-size:19px;font-weight:800;padding:5px 15px;border-radius:999px}
+#tvg .tg-pill.red{background:#c42b21;color:#fff}
+#tvg .tg-pill.amber{background:#b26a00;color:#fff}
+#tvg .tg-pill.ok{background:#1f6b3a;color:#fff}
+#tvg .tg-clock{margin-left:auto;font-size:30px;font-weight:800;font-variant-numeric:tabular-nums}
+#tvg .tg-pastdue{display:flex;flex-wrap:wrap;gap:8px;padding:8px 24px;background:#2a1414;border-bottom:1px solid #4a1f1f}
+#tvg .tg-pastdue b{align-self:center;font-size:13px;color:#ff9a9a;margin-right:4px}
+#tvg .tg-chip{font-size:14px;font-weight:700;color:#fff;padding:4px 10px;border-radius:6px}
+#tvg .tg-chip.red{background:#8f2420}#tvg .tg-chip.amber{background:#7a5200}
+#tvg .tg-body{flex:1;overflow:auto;padding:4px 16px 16px}
+#tvg .tg-axis{position:relative;height:18px;margin-left:156px;border-bottom:1px solid #2e4a38;margin-bottom:2px}
+#tvg .tg-tick{position:absolute;top:2px;font-size:11px;color:#7fa98e;transform:translateX(-50%)}
+#tvg .tg-tick i{position:absolute;top:16px;left:50%;width:1px;height:6px;background:#2e4a38}
+#tvg .tg-row{display:flex;align-items:stretch;border-bottom:1px solid #1a2a20}
+#tvg .tg-mc{width:150px;flex:none;display:flex;align-items:center;font-size:15px;font-weight:800;color:#dff1e6;padding:8px 6px 8px 0}
+#tvg .tg-track{position:relative;flex:1;margin:8px 0}
+#tvg .tg-now{position:absolute;top:-4px;bottom:-4px;width:2px;background:#ff5252;z-index:6}
+#tvg .tg-now::after{content:'agora';position:absolute;top:-13px;left:3px;font-size:10px;font-weight:700;color:#ff8a8a}
+#tvg .tg-bar{position:absolute;top:0;bottom:0;border-radius:4px;box-sizing:border-box}
+#tvg .tg-plan{background:#243a2e;border:1px solid #3c5547;z-index:1}
+#tvg .tg-real{background:#2f9e54;z-index:2}
+#tvg .tg-late{background:#e5392f;z-index:3}
+#tvg .tg-notstart{background:repeating-linear-gradient(45deg,#8f2420,#8f2420 7px,#641713 7px,#641713 14px);border:1px solid #e5392f;z-index:2;animation:tgpulse 1.3s infinite}
+@keyframes tgpulse{50%{opacity:.45}}
+#tvg .tg-lbl{position:absolute;top:50%;transform:translateY(-50%);left:7px;font-size:12px;font-weight:700;color:#fff;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.7);pointer-events:none;z-index:4}
+#tvg .tg-flag{position:absolute;top:-3px;bottom:-3px;left:-3px;width:5px;border-radius:3px;z-index:5}
+#tvg .tg-flag.red{background:#ff4338}#tvg .tg-flag.amber{background:#ffb300}
+#tvg .tg-bar.red{border:2px solid #ff4338;box-shadow:0 0 10px rgba(255,67,56,.75)}
+#tvg .tg-bar.amber{border:2px solid #ffb300;box-shadow:0 0 8px rgba(255,179,0,.6)}
+body.tv{display:flex;flex-direction:column}
+body.tv #wrap{flex:1;min-height:0}
+body.tv #board{height:100%}
+#tvg .tg-empty{padding:40px;text-align:center;color:#6b8a76;font-size:22px}
+#tvg .tg-legend{display:flex;gap:16px;padding:8px 24px;font-size:12px;color:#9cc0ab;border-top:1px solid #1c2e23}
+#tvg .tg-legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:4px}
 </style>
 </head>
 <body>
@@ -791,7 +827,7 @@ function render(){
   renderTabs();renderLegend();
   const wrap=document.getElementById('wrap');
   const wb=document.getElementById('weekbar');
-  if(PROFILE==='tv'){wrap.classList.add('full');document.getElementById('pool').style.display='none';wb.style.display='flex';const wkl=document.getElementById('wkLabel');const _t=new Date();wkl.textContent=`📅 ${DIAS_PT[diaIdxOf(_t)]} ${pad(_t.getDate())}/${pad(_t.getMonth()+1)}`;wkl.style.cursor='';wkl.onclick=null;renderBoard();fitWrap();return;}
+  if(PROFILE==='tv'){wrap.classList.add('full');document.getElementById('pool').style.display='none';wb.style.display='none';renderTVGantt();fitWrap();return;}
   if(ACTIVE_TAB==='cfg'){wrap.classList.add('full');document.getElementById('pool').style.display='none';wb.style.display='none';renderCfg();document.body.classList.toggle('producao',isProd());fitWrap();return;}
   if(ACTIVE_TAB==='buffer'){wrap.classList.remove('full');const hk=(PROFILE==='producao');document.getElementById('pool').style.display=hk?'none':'block';wb.style.display='none';if(!hk)renderPool();renderBuffer();document.body.classList.toggle('producao',isProd());fitWrap();return;}
   wb.style.display='flex';const hideKanban=(PROFILE==='producao');wrap.classList.toggle('full',hideKanban);document.getElementById('pool').style.display=hideKanban?'none':'block';
@@ -1504,6 +1540,84 @@ function pickProdDate(){
   if(!d||isNaN(d))d=PROD_DATE||new Date();
   PROD_DATE=d;ANCHOR=new Date(d.getFullYear(),d.getMonth(),1);
   applyProfile();render();
+}
+/* ---------------- Perfil TV — Gantt de seguimento ---------------- */
+function planSpan(o){if(!o||!o.linha)return null;let segs={};try{segs=scheduleLine(o.linha,'plan');}catch(e){return null;}const list=[];Object.keys(segs).forEach(dk=>segs[dk].forEach(s=>{if(s.op.id===o.id)list.push(s);}));if(!list.length)return null;list.sort((a,b)=>a.date-b.date||a.startMin-b.startMin);const f=list[0],L=list[list.length-1];return {startTs:f.date.getTime()+f.startMin*60000,endTs:L.date.getTime()+L.endMin*60000};}
+function fmtDur(mins){mins=Math.round(Math.abs(mins));const h=Math.floor(mins/60),m=mins%60;return h>0?`${h}h${m>0?(m<10?'0'+m:m):''}`:`${m}min`;}
+function renderTVGantt(){
+  const el=document.getElementById('board');if(!el)return;
+  const now=new Date();const nowTs=now.getTime();
+  const t0=new Date();t0.setHours(0,0,0,0);const tk=dateKey(t0);const dayStart=t0.getTime();
+  const minOf=ts=>(ts-dayStart)/60000;
+  const estOf=o=>o.estado||'Aberto';
+  const realTs=(d,h)=>(/^\d{4}-\d{2}-\d{2}/.test(d||'')&&/^\d{1,2}:\d{2}/.test(h||''))?new Date(d+'T00:00:00').getTime()+hm2min(h)*60000:null;
+  let nRed=0,nAmber=0;const rows=[];const seen=new Set();const chips=[];
+  // Ordens com segmento planeado hoje, por máquina
+  ALL_LINES.forEach(l=>{
+    let plan={};try{plan=scheduleLine(l,'plan');}catch(e){}
+    const today=plan[tk]||[];const byOp=new Map();
+    today.forEach(s=>{const k=s.op.id;if(!byOp.has(k))byOp.set(k,{op:s.op,ps:s.startMin,pe:s.endMin});const g=byOp.get(k);g.ps=Math.min(g.ps,s.startMin);g.pe=Math.max(g.pe,s.endMin);});
+    const ords=[];
+    byOp.forEach(g=>{const o=g.op;seen.add(o.id);
+      const span=planSpan(o);const planStartTs=span?span.startTs:dayStart+g.ps*60000;const planEndTs=span?span.endTs:dayStart+g.pe*60000;
+      const rsTs=realTs(o.dataInicioR,o.hInicioR),rfTs=realTs(o.dataFimR,o.hFimR);const est=estOf(o);const inProc=est==='Em Processo';
+      const crit1=inProc&&rsTs&&!rfTs&&nowTs>planEndTs;
+      const crit2=!!(rfTs&&rfTs>planEndTs);
+      const crit3=(est==='Aberto'||est==='Liberada')&&!rsTs&&planStartTs<nowTs;
+      const crit4=(hm2min(o.tempoAtraso)>0)||(est==='Espera JOB');
+      const red=!!(crit1||crit2||crit3),amber=!red&&!!crit4;
+      if(red)nRed++;else if(amber)nAmber++;
+      let note='';
+      if(crit1)note='+'+fmtDur((nowTs-planEndTs)/60000)+' além';
+      else if(crit2)note='fim +'+fmtDur((rfTs-planEndTs)/60000);
+      else if(crit3)note='não iniciada';
+      else if(est==='Espera JOB')note='Espera JOB';
+      else if(hm2min(o.tempoAtraso)>0)note='parou '+o.tempoAtraso;
+      const rs=rsTs!=null?Math.max(minOf(rsTs),0):null;
+      const re=rfTs!=null?minOf(rfTs):(inProc&&rsTs?minOf(nowTs):null);
+      ords.push({o,ps:g.ps,pe:g.pe,rs,re,red,amber,note});
+    });
+    if(ords.length){ords.sort((a,b)=>a.ps-b.ps);rows.push({l,ords});}
+  });
+  // Exceções fora do plano de hoje (bloqueios/atrasos recentes — últimos 7 dias; ignora histórico antigo)
+  const weekAgo=dayStart-7*86400000;
+  DATA.forEach(o=>{if(!o.linha||!ALL_LINES.includes(o.linha)||seen.has(o.id))return;
+    const est=estOf(o);const rsTs=realTs(o.dataInicioR,o.hInicioR),rfTs=realTs(o.dataFimR,o.hFimR);const span=planSpan(o);if(!span)return;
+    let txt=null,red=false;
+    if(est==='Em Processo'&&rsTs&&!rfTs){txt='a decorrer';red=true;}
+    else if(est==='Espera JOB'&&span.endTs>=weekAgo&&span.endTs<=nowTs){txt='Espera JOB';red=false;}
+    else if((est==='Aberto'||est==='Liberada')&&!rsTs&&span.endTs<dayStart&&span.endTs>=weekAgo){txt='devia ter começado';red=true;}
+    if(!txt)return;if(red)nRed++;else nAmber++;chips.push({l:o.linha,o,red,txt});
+  });
+  chips.sort((a,b)=>(b.red?1:0)-(a.red?1:0));
+  // Eixo temporal (minutos desde a meia-noite de hoje)
+  let aMin=Infinity,aMax=-Infinity;
+  rows.forEach(r=>r.ords.forEach(d=>{aMin=Math.min(aMin,d.ps,d.rs!=null?d.rs:d.ps);aMax=Math.max(aMax,d.pe,d.re!=null?d.re:d.pe);}));
+  const nowMin=minOf(nowTs);
+  if(isFinite(aMin)){aMin=Math.min(aMin,nowMin);aMax=Math.max(aMax,nowMin);}else{aMin=7*60;aMax=17*60;}
+  aMin=Math.floor(aMin/60)*60;aMax=Math.ceil(aMax/60)*60;if(aMax-aMin<120)aMax=aMin+120;
+  const range=aMax-aMin||1;const P=m=>Math.max(0,Math.min(100,((m-aMin)/range)*100));
+  let ticks='';for(let m=aMin;m<=aMax;m+=60){ticks+=`<div class="tg-tick" style="left:${P(m)}%">${min2hm(m%1440)}<i></i></div>`;}
+  const rowsHtml=rows.map(r=>{
+    const bars=r.ords.map(d=>{const o=d.o;const dsl=o.dsl||o.lote||'—';const pL=P(d.ps),pW=Math.max(0.6,P(d.pe)-P(d.ps));
+      const flagCls=d.red?' red':(d.amber?' amber':'');let h='';
+      if(d.note==='não iniciada'){h+=`<div class="tg-bar tg-notstart${flagCls}" style="left:${pL}%;width:${pW}%"></div>`;}
+      else{h+=`<div class="tg-bar tg-plan${flagCls}" style="left:${pL}%;width:${pW}%"></div>`;
+        if(d.rs!=null&&d.re!=null&&d.re>d.rs){const onEnd=Math.min(d.re,d.pe);const gW=P(onEnd)-P(d.rs);if(gW>0)h+=`<div class="tg-bar tg-real" style="left:${P(d.rs)}%;width:${gW}%"></div>`;
+          if(d.re>d.pe)h+=`<div class="tg-bar tg-late" style="left:${P(d.pe)}%;width:${P(d.re)-P(d.pe)}%"></div>`;}}
+      if(d.red||d.amber)h+=`<span class="tg-lbl" style="left:${pL}%">${dsl}${d.note?` · ${d.note}`:''}</span>`;
+      return h;}).join('');
+    return `<div class="tg-row"><div class="tg-mc">${lineLabel(r.l)}</div><div class="tg-track">${bars}<div class="tg-now" style="left:${P(nowMin)}%"></div></div></div>`;
+  }).join('');
+  const dias=['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
+  const diaTxt=`${dias[diaIdxOf(now)]}, ${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()}`;
+  const pills=(nRed||nAmber)?`<span class="tg-pill red">🔴 ${nRed} atrasadas</span><span class="tg-pill amber">🟠 ${nAmber} em risco</span>`:`<span class="tg-pill ok">✓ tudo a horas</span>`;
+  const head=`<div class="tg-head"><div><div class="tg-title">SEGUIMENTO DE PRODUÇÃO</div><div class="tg-date">${diaTxt}</div></div>${pills}<span class="tg-clock">${pad(now.getHours())}:${pad(now.getMinutes())}</span></div>`;
+  const maxChips=14,extra=chips.length-maxChips;
+  const chipsHtml=chips.length?`<div class="tg-pastdue"><b>FORA DO PLANO DE HOJE:</b>${chips.slice(0,maxChips).map(c=>`<span class="tg-chip ${c.red?'red':'amber'}">${lineLabel(c.l)} · ${c.o.dsl||c.o.lote||'—'} · ${c.txt}</span>`).join('')}${extra>0?`<span class="tg-chip" style="background:#3a4a40">+${extra} mais</span>`:''}</div>`:'';
+  const legend=`<div class="tg-legend"><span><i style="background:#243a2e;border:1px solid #3c5547"></i>Planeado</span><span><i style="background:#2f9e54"></i>Real a horas</span><span><i style="background:#e5392f"></i>Atraso</span><span><i style="background:repeating-linear-gradient(45deg,#8f2420,#8f2420 5px,#641713 5px,#641713 10px)"></i>Não iniciada</span><span>🔴 atrasada · 🟠 em risco</span></div>`;
+  const body=rows.length?`<div class="tg-axis">${ticks}</div>${rowsHtml}`:`<div class="tg-empty">Sem produção planeada para hoje.</div>`;
+  el.innerHTML=`<div id="tvg">${head}${chipsHtml}<div class="tg-body">${body}</div>${legend}</div>`;
 }
 async function loadState(){
   try{setConn('loading','a carregar…');const st=await Api.getState();DATA=st.ops||[];SETTINGS=st.settings||{};
