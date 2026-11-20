@@ -319,9 +319,11 @@ body.tv #board{height:100%}
 #tvm .tm-prog b{color:#fff}
 #tvm .tm-late{color:#ff8a82;font-weight:700}
 #tvm .tm-sec{font-size:10.5px;font-weight:800;letter-spacing:.5px;color:#6b8a76;margin-top:4px}
-#tvm .tm-adj{font-size:12px;color:#aecabb}
-#tvm .tm-adj .n{font-weight:700;color:#dff1e6}
-#tvm .tm-adj .warn{color:#ff8a82;font-weight:700}
+#tvm .tm-sub{background:#0f1c16;border:1px solid #223527;border-radius:7px;padding:5px 8px;margin-top:4px}
+#tvm .tm-sub.warn{border-color:#7a3b1f;background:#1c130f}
+#tvm .tm-sub .n{font-size:13px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#tvm .tm-sub .t{font-size:11px;color:#9cc0ab;font-variant-numeric:tabular-nums}
+#tvm .tm-sub .warn{color:#ff8a82;font-weight:700}
 #tvm .tm-empty{grid-column:1/-1;padding:40px;text-align:center;color:#6b8a76;font-size:22px}
 </style>
 </head>
@@ -1535,7 +1537,9 @@ function pickProdDate(){
   applyProfile();render();
 }
 /* ---------------- Perfil TV — Gantt de seguimento ---------------- */
-function planSpan(o){if(!o||!o.linha)return null;let segs={};try{segs=scheduleLine(o.linha,'plan');}catch(e){return null;}const list=[];Object.keys(segs).forEach(dk=>segs[dk].forEach(s=>{if(s.op.id===o.id)list.push(s);}));if(!list.length)return null;list.sort((a,b)=>a.date-b.date||a.startMin-b.startMin);const f=list[0],L=list[list.length-1];return {startTs:f.date.getTime()+f.startMin*60000,endTs:L.date.getTime()+L.endMin*60000};}
+function spanOf(o,mode){if(!o||!o.linha)return null;let segs={};try{segs=scheduleLine(o.linha,mode||'plan');}catch(e){return null;}const list=[];Object.keys(segs).forEach(dk=>segs[dk].forEach(s=>{if(s.op.id===o.id)list.push(s);}));if(!list.length)return null;list.sort((a,b)=>a.date-b.date||a.startMin-b.startMin);const f=list[0],L=list[list.length-1];return {startTs:f.date.getTime()+f.startMin*60000,endTs:L.date.getTime()+L.endMin*60000};}
+function planSpan(o){return spanOf(o,'plan');}
+function effSpan(o){return spanOf(o,'efet')||spanOf(o,'plan');}
 function fmtDur(mins){mins=Math.round(Math.abs(mins));const h=Math.floor(mins/60),m=mins%60;return h>0?`${h}h${m>0?(m<10?'0'+m:m):''}`:`${m}min`;}
 function renderTVGantt(){
   const el=document.getElementById('board');if(!el)return;
@@ -1633,7 +1637,7 @@ function renderTVMonitor(){
     let previous=null;for(let i=idx-1;i>=0;i--){if(finished(seq[i])){previous=seq[i];break;}}
     const nexts=seq.slice(idx+1).filter(o=>!finished(o)).slice(0,2);
     const plannedEndTs=(planInfo(current,'plan')||{}).endTs;const projEndTs=(planInfo(current,'eff')||{}).endTs||plannedEndTs;
-    const sp=planSpan(current);const plannedStartTs=sp?sp.startTs:null;
+    const sp=effSpan(current);const plannedStartTs=sp?sp.startTs:null;
     const rs=rStart(current);const running=!!(rs&&!rEnd(current));
     let status,stLabel,prog;
     if(running){
@@ -1657,9 +1661,9 @@ function renderTVMonitor(){
     if(p.notStarted){progHtml=`<div class="tm-prog"><span>Início previsto <b>${p.plannedStartTs?fmtDT(p.plannedStartTs):'—'}</b></span>${c.status==='red'?'<span class="tm-late">devia ter começado</span>':''}</div>`;}
     else{const lateTxt=(p.plannedEndTs&&p.projEndTs>p.plannedEndTs)?`<span class="tm-late"> (plano ${fmtDT(p.plannedEndTs)})</span>`:'';
       progHtml=`<div class="tm-bar"><i class="${c.status}" style="width:${p.pct}%"></i></div><div class="tm-prog"><span>Início ${fmtDT(p.startTs)}</span><span><b>${p.pct}%</b> · ${fmtDur(p.restMin)} rest.</span><span>Fim prev. <b>${fmtDT(p.projEndTs)}</b>${lateTxt}</span></div>`;}
-    let prevHtml='';if(c.previous){const o2=c.previous;const re=rEnd(o2),pe=(planInfo(o2,'plan')||{}).endTs;const warn=(re&&pe&&re>pe)?`<span class="warn">⚠ +${fmtDur((re-pe)/60000)}</span>`:(hm2min(o2.tempoAtraso)>0?`<span class="warn">⚠ parou ${o2.tempoAtraso}</span>`:'');
-      prevHtml=`<div class="tm-sec">OP ANTERIOR</div><div class="tm-adj">← <span class="n">${o2.dsl||o2.lote||'—'}</span> · ${unf(o2.qtd)} un ${warn} · fim ${re?fmtDT(re):'—'}</div>`;}
-    const nextHtml=c.nexts.length?`<div class="tm-sec">PRÓXIMAS OPS</div>`+c.nexts.map(o2=>{const s2=planSpan(o2);return `<div class="tm-adj">→ <span class="n">${o2.dsl||o2.lote||'—'}</span> · ${unf(o2.qtd)} un · início ${s2?fmtDT(s2.startTs):'—'}</div>`;}).join(''):'';
+    let prevHtml='';if(c.previous){const o2=c.previous;const rs2=rStart(o2),re=rEnd(o2),pe=(planInfo(o2,'plan')||{}).endTs;const warn=(re&&pe&&re>pe)?`<span class="warn">⚠ +${fmtDur((re-pe)/60000)}</span>`:(hm2min(o2.tempoAtraso)>0?`<span class="warn">⚠ parou ${o2.tempoAtraso}</span>`:'');
+      prevHtml=`<div class="tm-sec">OP ANTERIOR</div><div class="tm-sub${warn?' warn':''}"><div class="n">← ${o2.dsl||o2.lote||'—'} ${warn}</div><div class="t">${unf(o2.qtd)} un · ${rs2?fmtDT(rs2):'—'} → ${re?fmtDT(re):'—'}</div></div>`;}
+    const nextHtml=c.nexts.length?`<div class="tm-sec">PRÓXIMAS OPS</div>`+c.nexts.map(o2=>{const e2=effSpan(o2);return `<div class="tm-sub"><div class="n">→ ${o2.dsl||o2.lote||'—'}</div><div class="t">${unf(o2.qtd)} un · ${e2?fmtDT(e2.startTs):'—'} → ${e2?fmtDT(e2.endTs):'—'}</div></div>`;}).join(''):'';
     return `<div class="tm-card ${c.status}"><div class="tm-crow"><span class="tm-mc">${lineLabel(c.l)}</span><span class="tm-st ${c.status}">${c.stLabel}</span></div><div class="tm-op">${dsl}</div><div class="tm-prod" title="${prod.replace(/"/g,'')}">${prod}</div><div class="tm-meta">${meta}</div>${progHtml}${prevHtml}${nextHtml}</div>`;};
   const dias=['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];const diaTxt=`${dias[diaIdxOf(now)]}, ${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()}`;
   const pills=`<span class="tm-pill red">🔴 ${nRed} atrasadas</span><span class="tm-pill amber">🟠 ${nAmber} em risco</span><span class="tm-pill green">🟢 ${nGreen} on time</span>`;
