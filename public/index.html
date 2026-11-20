@@ -319,10 +319,10 @@ body.tv #board{height:100%}
 #tvm .tm-prog b{color:#fff}
 #tvm .tm-late{color:#ff8a82;font-weight:700}
 #tvm .tm-sec{font-size:10.5px;font-weight:800;letter-spacing:.5px;color:#6b8a76;margin-top:4px}
-#tvm .tm-sub{background:#0f1c16;border:1px solid #223527;border-radius:7px;padding:5px 8px;margin-top:4px}
-#tvm .tm-sub.warn{border-color:#7a3b1f;background:#1c130f}
-#tvm .tm-sub .n{font-size:13px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#tvm .tm-sub .t{font-size:11px;color:#9cc0ab;font-variant-numeric:tabular-nums}
+#tvm .tm-sub{background:#182a20;border:1px solid #2f4a39;border-radius:8px;padding:7px 9px;margin-top:6px;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+#tvm .tm-sub.warn{border-color:#9a4a26;background:#241611}
+#tvm .tm-sub .n{font-size:13.5px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#tvm .tm-sub .t{font-size:11px;color:#9cc0ab;font-variant-numeric:tabular-nums;margin-top:1px}
 #tvm .tm-sub .warn{color:#ff8a82;font-weight:700}
 #tvm .tm-empty{grid-column:1/-1;padding:40px;text-align:center;color:#6b8a76;font-size:22px}
 </style>
@@ -1628,7 +1628,7 @@ function renderTVMonitor(){
   const unf=n=>Math.round((+n||0)*1000).toLocaleString('pt-PT');
   let nRed=0,nAmber=0,nGreen=0;const cards=[];
   ALL_LINES.forEach(l=>{
-    const seq=DATA.filter(o=>o.linha===l&&o.weekKey&&dDate(o)&&isRealOrder(o)).sort((a,b)=>cmpDay(dDate(a),dDate(b))||((+a.sortIdx||0)-(+b.sortIdx||0)));
+    const seq=DATA.filter(o=>o.linha===l&&o.weekKey&&dDate(o)&&isRealOrder(o)&&((+o.qtd>0)||rStart(o))).sort((a,b)=>cmpDay(dDate(a),dDate(b))||((+a.sortIdx||0)-(+b.sortIdx||0)));
     if(!seq.length)return;
     let current=seq.find(o=>estOf(o)==='Em Processo'&&rStart(o)&&!rEnd(o));
     if(!current)current=seq.find(o=>!finished(o)&&dDate(o).getTime()<=dayStart);
@@ -1655,7 +1655,7 @@ function renderTVMonitor(){
     if(status==='red')nRed++;else if(status==='amber')nAmber++;else nGreen++;
     cards.push({l,current,previous,nexts,status,stLabel,prog});
   });
-  const ord={red:0,amber:1,green:2};cards.sort((a,b)=>ord[a.status]-ord[b.status]||ALL_LINES.indexOf(a.l)-ALL_LINES.indexOf(b.l));
+  cards.sort((a,b)=>ALL_LINES.indexOf(a.l)-ALL_LINES.indexOf(b.l));   // colunas por ordem das máquinas
   const cardHtml=c=>{const o=c.current;const dsl=o.dsl||o.lote||'—';const prod=o.produtoEntrada||'';
     const meta=[o.cliente,o.po?('PO '+o.po):'',`Qt ${unf(o.qtd)} un`].filter(Boolean).join(' · ');const p=c.prog;let progHtml='';
     if(p.notStarted){progHtml=`<div class="tm-prog"><span>Início previsto <b>${p.plannedStartTs?fmtDT(p.plannedStartTs):'—'}</b></span>${c.status==='red'?'<span class="tm-late">devia ter começado</span>':''}</div>`;}
