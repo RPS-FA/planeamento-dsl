@@ -1648,9 +1648,14 @@ function renderTVMonitor(){
     if(running){
       const span=projEndTs-rs;const pct=span>0?Math.max(0,Math.min(100,Math.round((nowTs-rs)/span*100))):0;
       prog={pct,restMin:Math.max(0,(projEndTs-nowTs)/60000),startTs:rs,projEndTs,plannedEndTs};
-      if(plannedEndTs&&nowTs>plannedEndTs){status='red';stLabel='ATRASADA';}
-      else if((plannedEndTs&&projEndTs>plannedEndTs+15*60000)||hm2min(current.tempoAtraso)>0){status='amber';stLabel='EM RISCO';}
-      else{status='green';stLabel='ON TIME';}
+      let dH=0;try{dH=durHoras(current);}catch(e){}
+      const large=dH>=8;const grace=15*60000;   // ordem grande = duração >= 8h
+      if(projEndTs&&nowTs>projEndTs+grace){status='red';stLabel='ATRASADA';}   // passou do fim efetivo
+      else if(large){ // grande: aviso só 1h antes do fim efetivo
+        if(projEndTs&&nowTs>=projEndTs-3600000){status='amber';stLabel='EM RISCO';}else{status='green';stLabel='ON TIME';}
+      }else{ // pequena: critério atual (vai terminar depois do plano, ou com paragem)
+        if((plannedEndTs&&projEndTs>plannedEndTs+grace)||hm2min(current.tempoAtraso)>0){status='amber';stLabel='EM RISCO';}else{status='green';stLabel='ON TIME';}
+      }
     }else{
       prog={notStarted:true,plannedStartTs,projEndTs,plannedEndTs};
       if(plannedStartTs&&nowTs>plannedStartTs+15*60000){status='red';stLabel='ATRASADA';}
