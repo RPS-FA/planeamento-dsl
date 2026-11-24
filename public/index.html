@@ -320,7 +320,13 @@ body.tv #board{height:100%}
 #tvm .tm-late{color:#ff8a82;font-weight:700}
 #tvm .tm-sec{font-size:10.5px;font-weight:800;letter-spacing:.5px;color:#6b8a76;margin-top:4px}
 #tvm .tm-op-card{flex:1;min-width:0;background:#132019;border:1px solid #2a4231;border-radius:9px;padding:8px 10px;display:flex;flex-direction:column;gap:3px;box-shadow:0 1px 3px rgba(0,0,0,.3)}
-#tvm .tm-op-card.past{opacity:.82}
+#tvm .tm-op-card.past{background:#1b231f;border-color:#343f38}
+#tvm .tm-op-card.past .tm-role{color:#6b7a70}
+#tvm .tm-op-card.past .tm-op2{color:#aab8ae}
+#tvm .tm-op-card.past .tm-prod,#tvm .tm-op-card.past .tm-meta,#tvm .tm-op-card.past .tm-prog{color:#8a988f}
+#tvm .tm-note{font-size:11.5px;font-weight:800;margin-top:2px}
+#tvm .tm-note.red{color:#ff6b61}
+#tvm .tm-note.green{color:#53c47e}
 #tvm .tm-op-card.cur{background:#17271d;border-width:2px}
 #tvm .tm-op-card.cur.red{border-color:#e5392f;box-shadow:0 0 0 1px rgba(229,57,47,.4),0 0 12px rgba(229,57,47,.2)}
 #tvm .tm-op-card.cur.amber{border-color:#ffb300}
@@ -1676,8 +1682,11 @@ function renderTVMonitor(){
   const mkOp=(o,role,body,extra)=>`<div class="tm-op-card ${extra||''}"><div class="tm-role">${role}</div><div class="tm-op2">${o.dsl||o.lote||'—'}</div><div class="tm-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div><div class="tm-meta">Qt ${unf(o.qtd)} un${o.cliente?' · '+o.cliente:''}</div>${body}</div>`;
   const cardHtml=c=>{
     // OP ANTERIOR
-    let prevCard='';if(c.previous){const o2=c.previous;const rs2=rStart(o2),re=rEnd(o2),pe=(planInfo(o2,'plan')||{}).endTs;const warn=(re&&pe&&re>pe)?`<span class="tm-late">⚠ +${fmtDur((re-pe)/60000)}</span>`:(hm2min(o2.tempoAtraso)>0?`<span class="tm-late">⚠ parou ${o2.tempoAtraso}</span>`:'');
-      prevCard=mkOp(o2,'OP ANTERIOR',`<div class="tm-prog"><span>${rs2?fmtDT(rs2):'—'} → ${re?fmtDT(re):'—'} ${warn}</span></div>`,'past'+(warn?' warn':''));}
+    let prevCard='';if(c.previous){const o2=c.previous;const rs2=rStart(o2),re=rEnd(o2),pe=(planInfo(o2,'plan')||{}).endTs;
+      const late=(re&&pe&&re>pe)||hm2min(o2.tempoAtraso)>0;
+      const extra=(re&&pe&&re>pe)?' +'+fmtDur((re-pe)/60000):(hm2min(o2.tempoAtraso)>0?' · parou '+o2.tempoAtraso:'');
+      const note=late?`<div class="tm-note red">⚠ Atraso${extra}</div>`:`<div class="tm-note green">✓ A horas</div>`;
+      prevCard=mkOp(o2,'OP ANTERIOR',`<div class="tm-prog"><span>${rs2?fmtDT(rs2):'—'} → ${re?fmtDT(re):'—'}</span></div>${note}`,'past');}
     // OP ATUAL
     const p=c.prog;let curBody='';
     if(p.notStarted){curBody=`<div class="tm-prog"><span>Início previsto <b>${p.plannedStartTs?fmtDT(p.plannedStartTs):'—'}</b></span>${c.status==='red'?'<span class="tm-late">devia ter começado</span>':''}</div>`;}
