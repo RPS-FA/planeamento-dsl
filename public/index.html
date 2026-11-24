@@ -299,15 +299,15 @@ body.tv #board{height:100%}
 #tvm .tm-pill{font-size:19px;font-weight:800;padding:5px 15px;border-radius:999px}
 #tvm .tm-pill.red{background:#c42b21}#tvm .tm-pill.amber{background:#b26a00}#tvm .tm-pill.green{background:#1f8a4c}
 #tvm .tm-clock{margin-left:auto;font-size:30px;font-weight:800;font-variant-numeric:tabular-nums}
-#tvm .tm-body{flex:1;min-height:0;padding:14px;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(180px,1fr);gap:12px;overflow-x:auto;overflow-y:hidden}
-#tvm .tm-card{background:#13211a;border:1px solid #27412f;border-radius:10px;border-top:5px solid #3c5547;padding:12px 14px;display:flex;flex-direction:column;gap:6px;overflow:auto}
-#tvm .tm-card.red{border-top-color:#e5392f;box-shadow:0 0 0 1px rgba(229,57,47,.5),0 0 16px rgba(229,57,47,.25)}
-#tvm .tm-card.amber{border-top-color:#ffb300;box-shadow:0 0 0 1px rgba(255,179,0,.4)}
-#tvm .tm-card.green{border-top-color:#2f9e54}
-#tvm .tm-card.idle{border-top-color:#2a3b31;opacity:.7}
-#tvm .tm-crow{display:flex;justify-content:space-between;align-items:center}
-#tvm .tm-mc{font-size:17px;font-weight:800;color:#dff1e6}
-#tvm .tm-st{font-size:13px;font-weight:800;padding:3px 10px;border-radius:999px}
+#tvm .tm-body{flex:1;min-height:0;padding:12px 14px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;overflow-x:hidden}
+#tvm .tm-card{background:#13211a;border:1px solid #27412f;border-radius:10px;border-left:6px solid #3c5547;padding:10px 12px;display:flex;flex-direction:row;align-items:stretch;gap:12px}
+#tvm .tm-card.red{border-left-color:#e5392f;box-shadow:0 0 0 1px rgba(229,57,47,.45),0 0 14px rgba(229,57,47,.2)}
+#tvm .tm-card.amber{border-left-color:#ffb300;box-shadow:0 0 0 1px rgba(255,179,0,.35)}
+#tvm .tm-card.green{border-left-color:#2f9e54}
+#tvm .tm-headcol{width:150px;flex:none;display:flex;flex-direction:column;gap:6px;justify-content:center}
+#tvm .tm-ops{flex:1;display:flex;flex-direction:row;gap:10px;min-width:0}
+#tvm .tm-mc{font-size:18px;font-weight:800;color:#dff1e6}
+#tvm .tm-st{font-size:13px;font-weight:800;padding:3px 10px;border-radius:999px;align-self:flex-start}
 #tvm .tm-st.red{background:#e5392f;color:#fff}#tvm .tm-st.amber{background:#ffb300;color:#241a00}#tvm .tm-st.green{background:#2f9e54;color:#fff}#tvm .tm-st.idle{background:#2a3b31;color:#9cc0ab}
 #tvm .tm-op{font-size:23px;font-weight:800;color:#fff;line-height:1.05;word-break:break-word}
 #tvm .tm-prod{font-size:13px;color:#bcd8c6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -319,7 +319,7 @@ body.tv #board{height:100%}
 #tvm .tm-prog b{color:#fff}
 #tvm .tm-late{color:#ff8a82;font-weight:700}
 #tvm .tm-sec{font-size:10.5px;font-weight:800;letter-spacing:.5px;color:#6b8a76;margin-top:4px}
-#tvm .tm-op-card{background:#132019;border:1px solid #2a4231;border-radius:9px;padding:8px 10px;margin-top:8px;display:flex;flex-direction:column;gap:3px;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+#tvm .tm-op-card{flex:1;min-width:0;background:#132019;border:1px solid #2a4231;border-radius:9px;padding:8px 10px;display:flex;flex-direction:column;gap:3px;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 #tvm .tm-op-card.past{opacity:.82}
 #tvm .tm-op-card.cur{background:#17271d;border-width:2px}
 #tvm .tm-op-card.cur.red{border-color:#e5392f;box-shadow:0 0 0 1px rgba(229,57,47,.4),0 0 12px rgba(229,57,47,.2)}
@@ -1687,7 +1687,7 @@ function renderTVMonitor(){
     const curCard=mkOp(c.current,'OP ATUAL',noteHtml+curBody,'cur '+c.status);
     // OP SEGUINTE
     let nextCard='';if(c.nexts.length){const o2=c.nexts[0];const e2=effSpan(o2);nextCard=mkOp(o2,'OP SEGUINTE',`<div class="tm-prog"><span>${e2?fmtDT(e2.startTs):'—'} → ${e2?fmtDT(e2.endTs):'—'}</span></div>`,'next');}
-    return `<div class="tm-card ${c.status}"><div class="tm-crow"><span class="tm-mc">${lineLabel(c.l)}</span><span class="tm-st ${c.status}">${c.stLabel}</span></div>${prevCard}${curCard}${nextCard}</div>`;};
+    return `<div class="tm-card ${c.status}"><div class="tm-headcol"><span class="tm-mc">${lineLabel(c.l)}</span><span class="tm-st ${c.status}">${c.stLabel}</span></div><div class="tm-ops">${prevCard}${curCard}${nextCard}</div></div>`;};
   const dias=['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];const diaTxt=`${dias[diaIdxOf(now)]}, ${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()}`;
   const pills=`<span class="tm-pill red">🔴 ${nRed} atrasadas</span><span class="tm-pill amber">🟠 ${nAmber} em risco</span><span class="tm-pill green">🟢 ${nGreen} on time</span>`;
   const head=`<div class="tm-head"><div><div class="tm-title">MONITOR DE PRODUÇÃO</div><div class="tm-date">${diaTxt}</div></div>${pills}<span class="tm-clock">${pad(now.getHours())}:${pad(now.getMinutes())}</span></div>`;
