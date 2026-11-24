@@ -1682,9 +1682,10 @@ function renderTVMonitor(){
   const mkOp=(o,role,body,extra)=>`<div class="tm-op-card ${extra||''}"><div class="tm-role">${role}</div><div class="tm-op2">${o.dsl||o.lote||'—'}</div><div class="tm-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div><div class="tm-meta">Qt ${unf(o.qtd)} un${o.cliente?' · '+o.cliente:''}</div>${body}</div>`;
   const cardHtml=c=>{
     // OP ANTERIOR
-    let prevCard='';if(c.previous){const o2=c.previous;const rs2=rStart(o2),re=rEnd(o2),pe=(planInfo(o2,'plan')||{}).endTs;
-      const late=(re&&pe&&re>pe)||hm2min(o2.tempoAtraso)>0;
-      const extra=(re&&pe&&re>pe)?' +'+fmtDur((re-pe)/60000):(hm2min(o2.tempoAtraso)>0?' · parou '+o2.tempoAtraso:'');
+    let prevCard='';if(c.previous){const o2=c.previous;const rs2=rStart(o2),re=rEnd(o2);const effEnd=(planInfo(o2,'efet')||{}).endTs;
+      const overMin=(re&&effEnd)?(re-effEnd)/60000:0;const over=overMin>15;const parou=hm2min(o2.tempoAtraso)>0;   // atraso = fim real vs fim efetivo (quando devia ter acabado dado o arranque)
+      const late=over||parou;
+      const extra=over?' +'+fmtDur(overMin):(parou?' · parou '+o2.tempoAtraso:'');
       const note=late?`<div class="tm-note red">⚠ Atraso${extra}</div>`:`<div class="tm-note green">✓ A horas</div>`;
       prevCard=mkOp(o2,'OP ANTERIOR',`<div class="tm-prog"><span>${rs2?fmtDT(rs2):'—'} → ${re?fmtDT(re):'—'}</span></div>${note}`,'past');}
     // OP ATUAL
