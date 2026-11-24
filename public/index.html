@@ -1662,8 +1662,15 @@ function renderTVMonitor(){
       else if(previous&&((planInfo(previous,'eff')||{}).endTs||0)>(plannedStartTs||0)){status='amber';stLabel='EM RISCO';}
       else{status='green';stLabel='A INICIAR';}
     }
+    // Desdobramento / tempo de atraso = desvio deliberado que estende a duração -> mantém ATRASADA com motivo
+    const hasDesd=!!(current.desdobrar||(+current.qtdDesdobramento>0)||(+current.qtdPrevistaDesd>0));
+    const hasAtraso=hm2min(current.tempoAtraso)>0;
+    let delayNote='';
+    if(hasDesd)delayNote='Desdobrou';
+    if(hasAtraso)delayNote=(delayNote?delayNote+' · ':'')+'Paragem '+current.tempoAtraso;
+    if(hasDesd||hasAtraso){status='red';stLabel='ATRASADA';}
     if(status==='red')nRed++;else if(status==='amber')nAmber++;else nGreen++;
-    cards.push({l,current,previous,nexts,status,stLabel,prog});
+    cards.push({l,current,previous,nexts,status,stLabel,prog,delayNote});
   });
   cards.sort((a,b)=>ALL_LINES.indexOf(a.l)-ALL_LINES.indexOf(b.l));   // colunas por ordem das máquinas
   const mkOp=(o,role,body,extra)=>`<div class="tm-op-card ${extra||''}"><div class="tm-role">${role}</div><div class="tm-op2">${o.dsl||o.lote||'—'}</div><div class="tm-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div><div class="tm-meta">Qt ${unf(o.qtd)} un${o.cliente?' · '+o.cliente:''}</div>${body}</div>`;
@@ -1676,7 +1683,8 @@ function renderTVMonitor(){
     if(p.notStarted){curBody=`<div class="tm-prog"><span>Início previsto <b>${p.plannedStartTs?fmtDT(p.plannedStartTs):'—'}</b></span>${c.status==='red'?'<span class="tm-late">devia ter começado</span>':''}</div>`;}
     else{const lateTxt=(p.plannedEndTs&&p.projEndTs>p.plannedEndTs)?`<span class="tm-late"> (plano ${fmtDT(p.plannedEndTs)})</span>`:'';
       curBody=`<div class="tm-bar"><i class="${c.status}" style="width:${p.pct}%"></i></div><div class="tm-prog"><span>Início ${fmtDT(p.startTs)}</span><span><b>${p.pct}%</b> · ${fmtDur(p.restMin)} rest.</span><span>Fim prev. <b>${fmtDT(p.projEndTs)}</b>${lateTxt}</span></div>`;}
-    const curCard=mkOp(c.current,'OP ATUAL',curBody,'cur '+c.status);
+    const noteHtml=c.delayNote?`<div class="tm-late">⚠ ${c.delayNote}</div>`:'';
+    const curCard=mkOp(c.current,'OP ATUAL',noteHtml+curBody,'cur '+c.status);
     // OP SEGUINTE
     let nextCard='';if(c.nexts.length){const o2=c.nexts[0];const e2=effSpan(o2);nextCard=mkOp(o2,'OP SEGUINTE',`<div class="tm-prog"><span>${e2?fmtDT(e2.startTs):'—'} → ${e2?fmtDT(e2.endTs):'—'}</span></div>`,'next');}
     return `<div class="tm-card ${c.status}"><div class="tm-crow"><span class="tm-mc">${lineLabel(c.l)}</span><span class="tm-st ${c.status}">${c.stLabel}</span></div>${prevCard}${curCard}${nextCard}</div>`;};
