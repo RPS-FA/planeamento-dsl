@@ -320,12 +320,12 @@ body.tv #board{height:100%}
 #tvm .tm-late{color:#ff8a82;font-weight:700}
 #tvm .tm-sec{font-size:10.5px;font-weight:800;letter-spacing:.5px;color:#6b8a76;margin-top:4px}
 #tvm .tm-op-card{flex:1;min-width:0;background:#132019;border:1px solid #2a4231;border-radius:9px;padding:8px 10px;display:flex;flex-direction:column;gap:3px;box-shadow:0 1px 3px rgba(0,0,0,.3)}
-#tvm .tm-op-card.past{flex:.58;background:#1b231f;border-color:#343f38}
-#tvm .tm-op-card.past .tm-role{color:#6b7a70}
-#tvm .tm-op-card.past .tm-op2{font-size:15px;color:#aab8ae}
+#tvm .tm-op-card.past{flex:.58;border-color:#3b463f}
+#tvm .tm-op-card.past .tm-role{color:#9fb0a4}
+#tvm .tm-op-card.past .tm-op2{font-size:15px;color:#eaf1ec}
 #tvm .tm-op-card.past .tm-prod{display:none}
-#tvm .tm-op-card.past .tm-meta{font-size:11px;color:#8a988f}
-#tvm .tm-op-card.past .tm-prog{font-size:11px;color:#8a988f}
+#tvm .tm-op-card.past .tm-meta{font-size:11px;color:#c3cec7}
+#tvm .tm-op-card.past .tm-prog{font-size:11px;color:#c3cec7}
 #tvm .tm-op-card.next{flex:.85}
 #tvm .tm-note{font-size:11.5px;font-weight:800;margin-top:2px}
 #tvm .tm-note.red{color:#ff6b61}
@@ -1687,7 +1687,9 @@ function renderTVMonitor(){
     cards.push({l,current,previous,nexts,status,stLabel,prog,delayNote});
   });
   cards.sort((a,b)=>ALL_LINES.indexOf(a.l)-ALL_LINES.indexOf(b.l));   // colunas por ordem das máquinas
-  const mkOp=(o,role,body,extra)=>`<div class="tm-op-card ${extra||''}"><div class="tm-role">${role}</div><div class="tm-op2">${o.dsl||o.lote||'—'}</div><div class="tm-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div><div class="tm-meta">Qt ${unf(o.qtd)} un${o.cliente?' · '+o.cliente:''}</div>${body}</div>`;
+  // fundo por dia da ordem (hoje, +1, +2…, passado)
+  const dayBg=ts=>{if(!ts)return '';const t=new Date();t.setHours(0,0,0,0);const x=new Date(ts);x.setHours(0,0,0,0);const diff=Math.round((x-t)/86400000);if(diff<0)return '#2a2d28';const pal=['#1b3a28','#17314c','#2d1f4a','#10403c','#3a3212','#3a1a33','#153f33'];return pal[diff]||'#1c1d30';};
+  const mkOp=(o,role,body,extra,bg)=>`<div class="tm-op-card ${extra||''}"${bg?` style="background:${bg}"`:''}><div class="tm-role">${role}</div><div class="tm-op2">${o.dsl||o.lote||'—'}</div><div class="tm-prod" title="${(o.produtoEntrada||'').replace(/"/g,'')}">${o.produtoEntrada||''}</div><div class="tm-meta">Qt ${unf(o.qtd)} un${o.cliente?' · '+o.cliente:''}</div>${body}</div>`;
   const cardHtml=c=>{
     // OP ANTERIOR
     let prevCard='';if(c.previous){const o2=c.previous;const rs2=rStart(o2),re=rEnd(o2);const effEnd=(planInfo(o2,'efet')||{}).endTs;
@@ -1695,16 +1697,16 @@ function renderTVMonitor(){
       const late=over||parou;
       const extra=over?' +'+fmtDur(overMin):(parou?' · parou '+o2.tempoAtraso:'');
       const note=late?`<div class="tm-note red">⚠ Atraso${extra}</div>`:`<div class="tm-note green">✓ A horas</div>`;
-      prevCard=mkOp(o2,'OP ANTERIOR',`<div class="tm-prog"><span>${rs2?fmtDT(rs2):'—'} → ${re?fmtDT(re):'—'}</span></div>${note}`,'past');}
+      prevCard=mkOp(o2,'OP ANTERIOR',`<div class="tm-prog"><span>${rs2?fmtDT(rs2):'—'} → ${re?fmtDT(re):'—'}</span></div>${note}`,'past',dayBg(rs2||re));}
     // OP ATUAL
     const p=c.prog;let curBody='';
     if(p.notStarted){curBody=`<div class="tm-prog"><span>Início previsto <b>${p.plannedStartTs?fmtDT(p.plannedStartTs):'—'}</b></span>${c.status==='red'?'<span class="tm-late">devia ter começado</span>':''}</div>`;}
     else{const lateTxt=(p.plannedEndTs&&p.projEndTs>p.plannedEndTs)?`<span class="tm-late"> (plano ${fmtDT(p.plannedEndTs)})</span>`:'';
       curBody=`<div class="tm-bar"><i class="${c.status}" style="width:${p.pct}%"></i></div><div class="tm-prog"><span>Início ${fmtDT(p.startTs)}</span><span><b>${p.pct}%</b> · ${fmtDur(p.restMin)} rest.</span><span>Fim prev. <b>${fmtDT(p.projEndTs)}</b>${lateTxt}</span></div>`;}
     const noteHtml=c.delayNote?`<div class="tm-late">⚠ ${c.delayNote}</div>`:'';
-    const curCard=mkOp(c.current,'OP ATUAL',noteHtml+curBody,'cur '+c.status);
+    const curCard=mkOp(c.current,'OP ATUAL',noteHtml+curBody,'cur '+c.status,dayBg(p.notStarted?p.plannedStartTs:p.startTs));
     // OP SEGUINTE
-    let nextCard='';if(c.nexts.length){const o2=c.nexts[0];const e2=effSpan(o2);nextCard=mkOp(o2,'OP SEGUINTE',`<div class="tm-prog"><span>${e2?fmtDT(e2.startTs):'—'} → ${e2?fmtDT(e2.endTs):'—'}</span></div>`,'next');}
+    let nextCard='';if(c.nexts.length){const o2=c.nexts[0];const e2=effSpan(o2);nextCard=mkOp(o2,'OP SEGUINTE',`<div class="tm-prog"><span>${e2?fmtDT(e2.startTs):'—'} → ${e2?fmtDT(e2.endTs):'—'}</span></div>`,'next',dayBg(e2?e2.startTs:null));}
     return `<div class="tm-card ${c.status}"><div class="tm-headcol"><span class="tm-mc">${lineLabel(c.l)}</span><span class="tm-st ${c.status}">${c.stLabel}</span></div><div class="tm-ops">${prevCard}${curCard}${nextCard}</div></div>`;};
   const dias=['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];const diaTxt=`${dias[diaIdxOf(now)]}, ${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()}`;
   const pills=`<span class="tm-pill red">🔴 ${nRed} atrasadas</span><span class="tm-pill amber">🟠 ${nAmber} em risco</span><span class="tm-pill green">🟢 ${nGreen} on time</span>`;
